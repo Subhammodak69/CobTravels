@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { COLORS } from '../theme/theme';
 
@@ -46,7 +46,11 @@ export const Header: React.FC<HeaderProps> = ({
 
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
-          <Ionicons name="ribbon" size={16} color={COLORS.gold} />
+          <Image
+            source={require('../assets/logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.brandText} numberOfLines={1}>
             {title}
           </Text>
@@ -113,7 +117,13 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
+  },
+  headerLogo: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
   },
   brandText: {
     color: '#FFFFFF',

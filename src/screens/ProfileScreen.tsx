@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  Image,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { EnquiryData, TourPackageSummary, NavScreen } from '../types';
@@ -224,7 +225,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* About Coochbehar Travel */}
       <View style={styles.aboutCard}>
         <View style={styles.aboutHeader}>
-          <Text style={styles.crown}>👑</Text>
+          <Image
+            source={require('../assets/logo.png')}
+            style={styles.aboutLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.aboutTitle}>COOCHBEHAR TRAVELS</Text>
         </View>
         <Text style={styles.aboutTagline}>EXPLORE THE WORLD WITH US</Text>
@@ -484,11 +489,14 @@ const styles = StyleSheet.create({
   aboutHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 2,
   },
-  crown: {
-    fontSize: 16,
+  aboutLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
   },
   aboutTitle: {
     color: '#FFFFFF',

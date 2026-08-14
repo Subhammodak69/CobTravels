@@ -6,6 +6,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Image,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { NavScreen } from '../types';
@@ -57,7 +58,11 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           {/* Header */}
           <View style={styles.drawerHeader}>
             <View style={styles.logoRow}>
-              <Text style={styles.crown}>👑</Text>
+              <Image
+                source={require('../assets/logo.png')}
+                style={styles.drawerLogo}
+                resizeMode="contain"
+              />
               <Text style={styles.drawerTitle}>COOCHBEHAR TRAVEL</Text>
             </View>
             <Text style={styles.drawerSubtitle}>ESTD. 1994 · TRUSTED TRAVEL PARTNER</Text>
@@ -238,8 +243,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  crown: {
-    fontSize: 20,
+  drawerLogo: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
   },
   drawerTitle: {
     color: '#FFFFFF',

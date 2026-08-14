@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
+  Image,
   Pressable,
   StatusBar,
 } from 'react-native';
@@ -29,10 +30,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       <View style={styles.overlay} />
 
       <View style={styles.content}>
-        {/* Logo Badge */}
+        {/* Official Logo Badge */}
         <View style={styles.logoContainer}>
-          <View style={styles.crownCircle}>
-            <Text style={styles.crownIcon}>👑</Text>
+          <View style={styles.logoCircle}>
+            <Image
+              source={require('../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.brandTitle}>COOCHBEHAR</Text>
           <Text style={styles.brandSubtitle}>TRAVELS</Text>
@@ -103,21 +108,28 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
-  crownCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(217, 119, 6, 0.18)',
-    borderWidth: 2,
-    borderColor: COLORS.gold,
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFFFFF',
+    padding: 6,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    borderWidth: 2,
+    borderColor: COLORS.gold,
   },
-  crownIcon: {
-    fontSize: 32,
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 45,
   },
   brandTitle: {
     fontSize: 32,
