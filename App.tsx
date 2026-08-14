@@ -1,128 +1,330 @@
-import React, {useState} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+
+import { COLORS } from './src/theme/theme';
 import {
-  FlatList,
-  Image,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
+  TourPackageSummary,
+  EnquiryData,
+  NotificationItem,
+  NavScreen,
+} from './src/types';
+import { fetchTourPackages } from './src/api/tourApi';
+import { MOCK_NOTIFICATIONS } from './src/data/mockTours';
 
-type TravelPackage = {
-  id: string; code: string; title: string; duration: string; price: number;
-  image: string; route: string[]; highlights: string[]; season: string;
-  dates: string[]; itinerary: string[][]; category?: 'Domestic' | 'International';
-};
+// Components
+import { Header } from './src/components/Header';
+import { BottomNav } from './src/components/BottomNav';
+import { DrawerMenu } from './src/components/DrawerMenu';
+import { CustomTourModal } from './src/components/CustomTourModal';
 
-const photo = (id: string, width = 1200) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=85`;
-
-const domesticPlans: TravelPackage[] = [
-  {id: 'kashmir', code: 'DOM | TOUR 1', title: 'Kashmir', duration: '13N | 14D', price: 26000, image: photo('photo-1500534623283-312aade485b7'), route: ['Katra (2N)', 'Pahalgam (2N)', 'Srinagar (5N)', 'Gulmarg', 'Sonmarg'], highlights: ['Tulip garden in full bloom', 'Gondola ride over Gulmarg', 'Shikara ride on Dal Lake', 'Betaab & Aru Valley'], season: 'Tulip Season', dates: ['23 Mar 2026', '02 Apr 2026', '16 Apr 2026'], itinerary: [['Arrival at Katra', 'Arrive, settle in and prepare for a serene evening in the foothills.'], ['Pahalgam valley', 'Travel through spectacular mountain roads to the Lidder river.'], ['Srinagar & Dal Lake', 'Check in and glide through the lake on a traditional Shikara.'], ['Gulmarg escape', 'A day of meadow views and the iconic Gondola ride.']]},
-  {id: 'himachal', code: 'DOM | TOUR 2', title: 'Himachal', duration: '12N | 13D', price: 26000, image: photo('photo-1470240731273-7821a6eeb6bd'), route: ['Chandigarh (1N)', 'Shimla (2N)', 'Manali (3N)', 'Dharamsala (2N)', 'Amritsar'], highlights: ['Mall Road & Ridge, Shimla', 'Solang Valley adventures', 'Manikaran hot springs', 'Golden Temple, Amritsar'], season: 'Summer Vacation', dates: ['21 Mar 2026', '01 Apr 2026', '10 Apr 2026'], itinerary: [['Arrival in Chandigarh', 'Garden city welcome and an easy first evening.'], ['Shimla stories', 'Discover the Ridge, Mall Road and scenic Kufri.'], ['Manali magic', 'Wind through Kullu valley into Himalayan comfort.'], ['Dharamsala to Amritsar', 'Monasteries, heritage and a moving Wagah evening.']]},
-  {id: 'rajasthan', code: 'DOM | TOUR 3', title: 'Rajasthan', duration: '13N | 14D', price: 27000, image: photo('photo-1477587458883-47145ed94245'), route: ['Jaipur (2N)', 'Pushkar (1N)', 'Udaipur (2N)', 'Mount Abu (2N)', 'Jaisalmer'], highlights: ['Amber Fort & City Palace', 'Lake Pichola, Udaipur', 'Sunset at Mount Abu', 'Camel safari in Sam'], season: 'Winter Season', dates: ['22 Nov 2026', '20 Dec 2026', '26 Dec 2026'], itinerary: [['Royal Jaipur', 'Palaces, courtyards and Jaipur’s rose-pink old city.'], ['Pushkar & Ajmer', 'Sacred lakes and a soulful desert afternoon.'], ['Udaipur lakes', 'A romantic sweep through the city of lakes.'], ['Desert farewell', 'Dunes, stars and stories in Sam.']]},
-  {id: 'kerala', code: 'DOM | TOUR 4', title: 'Kerala', duration: '13N | 14D', price: 28000, image: photo('photo-1507525428034-b723cf961d3e'), route: ['Kochi (2N)', 'Munnar (2N)', 'Thekkady (1N)', 'Alleppey (1N)', 'Kanyakumari'], highlights: ['Tea gardens of Munnar', 'Periyar wildlife sanctuary', 'Alleppey houseboat cruise', 'Sunrise at Kanyakumari'], season: 'Puja Festival', dates: ['16 Oct 2026', '22 Oct 2026', '27 Oct 2026'], itinerary: [['Kochi welcome', 'Harbour views and Kerala’s rich cultural evening.'], ['Munnar in bloom', 'Tea-covered hills, waterfalls and mountain air.'], ['Thekkady & Alleppey', 'Wildlife mornings, then sleep upon the backwaters.'], ['Southern coast', 'Varkala, Kovalam and a Kanyakumari sunrise.']]},
-  {id: 'mumbai-goa', code: 'DOM | TOUR 5', title: 'Mumbai Goa', duration: '13N | 14D', price: 27000, image: photo('photo-1512343879784-a960bf40e7f2'), route: ['Mumbai (2N)', 'Goa (3N)', 'Shirdi', 'Aurangabad (2N)', 'Bhusawal'], highlights: ['Gateway of India & Marine Drive', 'Konkan train ride to Goa', 'Baga & Calangute beaches', 'Ajanta-Ellora caves'], season: 'Winter Season', dates: ['03 Nov 2026', '24 Nov 2026', '22 Dec 2026'], itinerary: [['Mumbai arrives', 'Marine Drive sunsets and iconic city landmarks.'], ['Goa on rails', 'A beautiful Konkan train journey down to the coast.'], ['Goa unhurried', 'Beach days, colourful lanes and heritage churches.'], ['Sacred & ancient', 'Shirdi devotion followed by Ajanta-Ellora wonder.']]},
-].map(item => ({...item, category: 'Domestic' as const}));
-
-const internationalPlans: TravelPackage[] = [
-  {id: 'thailand', code: 'INT | TOUR 1', title: 'Thailand', duration: '6N | 7D', price: 49500, image: photo('photo-1504214208698-ea1916a2195a'), route: ['Bangkok (3N)', 'Pattaya (3N)'], highlights: ['Grand Palace visit', 'Coral Island cruise', 'Floating market', 'Thai cultural show'], season: 'October to March', dates: ['12 Nov 2026', '09 Dec 2026', '15 Jan 2027'], itinerary: [['Bangkok welcome', 'Arrive in the vibrant Thai capital and settle in.'], ['City highlights', 'Discover temples, markets and the Grand Palace.'], ['Pattaya coast', 'Travel to the coast for island and beach time.'], ['Leisure & departure', 'A relaxed final day before your return flight.']]},
-  {id: 'dubai', code: 'INT | TOUR 2', title: 'Dubai', duration: '5N | 6D', price: 62000, image: photo('photo-1512453979798-5ea266f8880c'), route: ['Dubai (4N)', 'Abu Dhabi (1N)'], highlights: ['Burj Khalifa views', 'Desert safari', 'Dhow cruise dinner', 'Abu Dhabi city tour'], season: 'November to February', dates: ['18 Nov 2026', '23 Dec 2026', '20 Jan 2027'], itinerary: [['Dubai arrival', 'An evening introduction to the city of gold.'], ['Modern Dubai', 'Skyline, souks and Burj Khalifa experiences.'], ['Desert adventure', 'Dunes, dinner and entertainment under the stars.'], ['Abu Dhabi', 'See the grand mosque before departure.']]},
-  {id: 'bali', code: 'INT | TOUR 3', title: 'Bali', duration: '7N | 8D', price: 74000, image: photo('photo-1537996194471-e657df975ab4'), route: ['Kuta (3N)', 'Ubud (3N)', 'Nusa Dua (1N)'], highlights: ['Ubud rice terraces', 'Temple trail', 'Beach club day', 'Balinese spa'], season: 'April to October', dates: ['08 Apr 2027', '12 May 2027', '16 Jun 2027'], itinerary: [['Island welcome', 'Land in Bali and unwind by the beach.'], ['Temple trail', 'Visit sacred temples and dramatic coastline.'], ['Ubud escape', 'Rice terraces, craft villages and lush scenery.'], ['Farewell Bali', 'One final relaxed morning before your flight.']]},
-].map(item => ({...item, category: 'International' as const}));
-
-const plans = [...domesticPlans, ...internationalPlans];
-
-const reviews = [
-  ['Ananya Sharma', 'Everything was planned so smoothly — hotels, transfers and sightseeing were all right on time.'],
-  ['Rohit Debnath', 'Great value for a deluxe package. A memorable family trip with a genuinely thoughtful team.'],
-  ['Priya Bose', 'The staff stayed exceptionally responsive throughout our trip. Would absolutely book again.'],
-];
-
-function SectionTitle({eyebrow, title, italic}: {eyebrow: string; title: string; italic?: string}) {
-  return <View style={styles.sectionTitle}><Text style={styles.eyebrow}>{eyebrow}</Text><Text style={styles.h2}>{title}{italic ? <Text style={styles.italic}> {italic}</Text> : null}</Text></View>;
-}
-
-type Screen = 'home' | 'details' | 'hotel' | 'vehicle' | 'login' | 'signup';
-
-function TopBar({navigate, loggedIn}: {navigate: (screen: Screen) => void; loggedIn: boolean}) {
-  return <View style={styles.topBar}><Pressable onPress={() => navigate('home')}><Text style={styles.topBrand}>COB TRAVELS</Text></Pressable><View style={styles.topLinks}><Pressable onPress={() => navigate('hotel')}><Text style={styles.topLink}>Hotels</Text></Pressable><Pressable onPress={() => navigate('vehicle')}><Text style={styles.topLink}>Cars</Text></Pressable><Pressable onPress={() => navigate(loggedIn ? 'home' : 'login')}><Text style={styles.loginLink}>{loggedIn ? 'Account' : 'Log in'}</Text></Pressable></View></View>;
-}
-
-function Home({openPackage, navigate, loggedIn}: {openPackage: (item: TravelPackage) => void; navigate: (screen: Screen) => void; loggedIn: boolean}) {
-  const [category, setCategory] = useState<'Domestic' | 'International'>('Domestic');
-  const visiblePlans = plans.filter(item => item.category === category);
-  return <ScrollView style={styles.screen} showsVerticalScrollIndicator={false}>
-    <View style={styles.hero}><Image source={{uri: photo('photo-1464822759023-fed622ff2c3b')}} style={styles.heroImage}/><View style={styles.heroShade}/><View style={styles.homeNav}><TopBar navigate={navigate} loggedIn={loggedIn}/></View><View style={styles.heroContent}><Text style={styles.heroEyebrow}>SINCE 1994 · GUIDED GROUP JOURNEYS</Text><Text style={styles.h1}>Everywhere feels{`\n`}<Text style={styles.heroItalic}>closer</Text> with us.</Text><Text style={styles.intro}>Beautifully paced Indian journeys, brought to life by people who know every curve, colour and quiet corner.</Text><Pressable onPress={() => setCategory('Domestic')} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Explore journeys  ↓</Text></Pressable></View></View>
-    <View style={styles.trust}><Text>Handpicked stays</Text><Text>✦</Text><Text>Always-on support</Text><Text>✦</Text><Text>Small group feeling</Text></View>
-    <View style={styles.content}><SectionTitle eyebrow="FIND YOUR NEXT STORY" title="Journeys that stay" italic="with you."/><Text style={styles.lead}>Choose a place. We’ll take care of the rest.</Text><View style={styles.tabs}>{(['Domestic', 'International'] as const).map(tab => <Pressable key={tab} onPress={() => setCategory(tab)} style={[styles.tab, category === tab && styles.tabActive]}><Text style={[styles.tabText, category === tab && styles.tabTextActive]}>{tab} plans</Text></Pressable>)}</View>
-      {visiblePlans.map(item => <Pressable key={item.id} onPress={() => openPackage(item)} style={styles.card}><Image source={{uri: item.image}} style={styles.cardImage}/><View style={styles.cardBody}><View style={styles.cardTop}><Text style={styles.cardCode}>{item.code} · {item.duration}</Text><Text style={styles.price}>₹{item.price.toLocaleString('en-IN')}</Text></View><Text style={styles.cardTitle}>{item.title}</Text><Text style={styles.cardRoute} numberOfLines={1}>{item.route.join(' · ')}</Text><Text style={styles.cardLink}>View journey  →</Text></View></Pressable>)}
-      <View style={styles.story}><SectionTitle eyebrow="A LITTLE BIT ABOUT US" title="Travel should change the way you" italic="feel."/><Text style={styles.storyCopy}>For over three decades, we’ve made travel personal. Our team starts with a good route, then leaves room for the unplanned moments that make a trip yours.</Text></View>
-    </View>
-  </ScrollView>;
-}
-
-function Details({pack, goBack, navigate}: {pack: TravelPackage; goBack: () => void; navigate: (screen: Screen) => void}) {
-  const [selectedDate, setSelectedDate] = useState(pack.dates[0]);
-  return <ScrollView style={styles.screen} showsVerticalScrollIndicator={false}>
-    <View style={styles.detailHero}><Image source={{uri: pack.image}} style={styles.heroImage}/><View style={styles.heroShade}/><Pressable onPress={goBack} style={styles.back}><Text style={styles.backText}>←  All journeys</Text></Pressable><View style={styles.detailTitle}><Text style={styles.heroEyebrow}>{pack.code} · {pack.duration}</Text><Text style={styles.detailName}>{pack.title}</Text><Text style={styles.rating}>★ 4.8 <Text style={styles.ratingMuted}>(128 traveller reviews)</Text></Text><Text style={styles.detailPrice}>From ₹{pack.price.toLocaleString('en-IN')} / person</Text></View></View>
-    <View style={styles.detailContent}><View style={styles.facts}><View><Text style={styles.factLabel}>JOURNEY ROUTE</Text><Text style={styles.factText}>{pack.route.join(' · ')}</Text></View><View style={styles.factRow}><View><Text style={styles.factLabel}>STYLE</Text><Text style={styles.factText}>3 Star Deluxe</Text></View><View><Text style={styles.factLabel}>BEST FOR</Text><Text style={styles.factText}>Couples · Families · Friends</Text></View></View></View>
-      <Pressable onPress={() => navigate('login')} style={styles.reserve}><Text style={styles.reserveText}>Plan this journey  →</Text></Pressable>
-      <SectionTitle eyebrow="THE EXPERIENCE" title="Follow the feeling," italic="not the crowd."/><Text style={styles.lead}>Every day on this itinerary balances iconic moments with time to breathe. This is travel with the details taken care of.</Text>
-      <View style={styles.highlights}>{pack.highlights.map(highlight => <Text key={highlight} style={styles.highlight}>✦  {highlight}</Text>)}</View>
-      <Text style={styles.subheading}>A glimpse of the journey</Text><FlatList horizontal data={[pack.image, photo('photo-1530789253388-582c481c54b0'), photo('photo-1464278533981-50106e6176b1')]} keyExtractor={item => item} showsHorizontalScrollIndicator={false} renderItem={({item}) => <Image source={{uri: item}} style={styles.galleryImage}/>}/>
-      <SectionTitle eyebrow="A DAY-BY-DAY RHYTHM" title="The route unfolds" italic="beautifully."/>
-      {pack.itinerary.map(([title, desc], index) => <View key={title} style={styles.day}><Text style={styles.dayNum}>DAY {String(index + 1).padStart(2, '0')}</Text><View style={styles.dayCopy}><Text style={styles.dayTitle}>{title}</Text><Text style={styles.dayDescription}>{desc}</Text></View></View>)}
-      <View style={styles.departures}><SectionTitle eyebrow="UPCOMING DEPARTURES" title="Pick your perfect" italic="moment."/><Text style={styles.lead}><Text style={styles.season}>{pack.season}{`\n`}</Text>Select a preferred departure date and our team will confirm availability within one working day.</Text><View style={styles.dates}>{pack.dates.map(date => <Pressable key={date} onPress={() => setSelectedDate(date)} style={[styles.date, selectedDate === date && styles.dateSelected]}><Text style={[styles.dateText, selectedDate === date && styles.dateTextSelected]}>{date}</Text></Pressable>)}</View><Pressable onPress={() => navigate('login')} style={styles.reserve}><Text style={styles.reserveText}>Check availability  →</Text></Pressable></View>
-      <SectionTitle eyebrow="TRAVELLER STORIES" title="Loved by people who" italic="go places."/>
-      {reviews.map(([name, copy]) => <View key={name} style={styles.review}><Text style={styles.reviewStars}>★★★★★</Text><Text style={styles.reviewCopy}>“{copy}”</Text><Text style={styles.reviewName}>{name}</Text></View>)}
-    </View>
-  </ScrollView>;
-}
-
-const hotelOptions = [
-  {name: 'The Lalit Grand Palace', place: 'Srinagar, Kashmir', price: 'From ₹8,900 / night', image: photo('photo-1566073771259-6a8506099945'), tag: 'Lake view · Breakfast included'},
-  {name: 'Taj Lake Palace', place: 'Udaipur, Rajasthan', price: 'From ₹14,500 / night', image: photo('photo-1548013146-72479768bada'), tag: 'Heritage stay · Spa'},
-  {name: 'The Leela Kovalam', place: 'Kovalam, Kerala', price: 'From ₹10,200 / night', image: photo('photo-1582719478250-c89cae4dc85b'), tag: 'Beachfront · Pool'},
-];
-const vehicleOptions = [
-  {name: 'Comfort Sedan', place: 'Up to 4 guests · 2 bags', price: 'From ₹14 / km', image: photo('photo-1549317661-bd32c8ce0db2'), tag: 'Swift Dzire or similar'},
-  {name: 'Premium SUV', place: 'Up to 6 guests · 4 bags', price: 'From ₹19 / km', image: photo('photo-1533473359331-0135ef1b58bf'), tag: 'Innova Crysta or similar'},
-  {name: 'Tempo Traveller', place: 'Up to 12 guests · luggage space', price: 'From ₹28 / km', image: photo('photo-1544620347-c4fd4a3d5957'), tag: 'Ideal for families & groups'},
-];
-
-function BookingPage({kind, navigate, loggedIn}: {kind: 'Hotel' | 'Vehicle'; navigate: (screen: Screen) => void; loggedIn: boolean}) {
-  const vehicle = kind === 'Vehicle'; const options = vehicle ? vehicleOptions : hotelOptions;
-  const [query, setQuery] = useState(''); const [selected, setSelected] = useState(''); const [sent, setSent] = useState(false);
-  const filtered = options.filter(item => `${item.name} ${item.place} ${item.tag}`.toLowerCase().includes(query.toLowerCase()));
-  return <ScrollView style={styles.screen} showsVerticalScrollIndicator={false}><View style={styles.bookingHero}><Image source={{uri: vehicle ? photo('photo-1511919884226-fd3cad34687c') : photo('photo-1564501049412-61c2a3083791')}} style={styles.heroImage}/><View style={styles.heroShade}/><View style={styles.homeNav}><TopBar navigate={navigate} loggedIn={loggedIn}/></View><View style={styles.bookingHeroCopy}><Text style={styles.heroEyebrow}>{vehicle ? 'PRIVATE TRANSFERS & RENTALS' : 'HANDPICKED STAYS'}</Text><Text style={styles.bookingHeroTitle}>{vehicle ? 'Go wherever the' : 'A stay that feels'}{`\n`}<Text style={styles.heroItalic}>{vehicle ? 'road takes you.' : 'just right.'}</Text></Text></View></View><View style={styles.content}><Text style={styles.lead}>{vehicle ? 'Reliable rides for airport transfers, sightseeing and group travel.' : 'Discover delightful stays picked for comfort, location and character.'}</Text><View style={styles.searchBox}><TextInput value={query} onChangeText={setQuery} style={styles.searchInput} placeholder={vehicle ? 'Search vehicle type or capacity' : 'Search city or hotel'} placeholderTextColor="#718079"/><Text style={styles.searchIcon}>⌕</Text></View><SectionTitle eyebrow={vehicle ? 'CHOOSE YOUR RIDE' : 'FEATURED STAYS'} title={vehicle ? 'Travel in comfort.' : 'Stay somewhere special.'}/>{filtered.length ? filtered.map(item => <Pressable key={item.name} onPress={() => {setSelected(item.name); setSent(false);}} style={[styles.bookingCard, selected === item.name && styles.bookingCardSelected]}><Image source={{uri: item.image}} style={styles.cardImage}/><View style={styles.cardBody}><Text style={styles.cardCode}>{item.tag}</Text><Text style={styles.cardTitle}>{item.name}</Text><Text style={styles.cardRoute}>{item.place}</Text><View style={styles.cardTop}><Text style={styles.price}>{item.price}</Text><Text style={styles.cardLink}>{selected === item.name ? 'Selected ✓' : 'Select  →'}</Text></View></View></Pressable>) : <Text style={styles.emptyText}>No matching options. Try another search.</Text>}<View style={styles.checkSection}><SectionTitle eyebrow="CHECK AVAILABILITY" title={selected ? selected : vehicle ? 'Choose a ride first.' : 'Choose a stay first.'}/><Text style={styles.lead}>Enter your details and our team will confirm the best available option.</Text><Text style={styles.fieldLabel}>{vehicle ? 'PICK-UP LOCATION' : 'CHECK-IN DATE'}</Text><TextInput style={styles.input} placeholder={vehicle ? 'City, airport or hotel' : 'DD / MM / YYYY'} placeholderTextColor="#87948b"/><Text style={styles.fieldLabel}>{vehicle ? 'PICK-UP DATE' : 'GUESTS & ROOMS'}</Text><TextInput style={styles.input} placeholder={vehicle ? 'DD / MM / YYYY' : '2 guests · 1 room'} placeholderTextColor="#87948b"/><Pressable disabled={!selected} onPress={() => setSent(true)} style={[styles.reserve, !selected && styles.reserveDisabled]}><Text style={styles.reserveText}>{sent ? 'Availability request sent ✓' : 'Check availability  →'}</Text></Pressable>{sent && <Text style={styles.success}>Request received. We will contact you within one working day.</Text>}</View></View></ScrollView>;
-}
-
-function AuthPage({signup, navigate, onDone}: {signup: boolean; navigate: (screen: Screen) => void; onDone: () => void}) {
-  return <ScrollView style={styles.screen} contentContainerStyle={styles.pageContent}><Pressable onPress={() => navigate('home')} style={styles.authBrand}><Text style={styles.topBrand}>COB TRAVELS</Text><Text style={styles.backHome}>← Back to journeys</Text></Pressable><View style={styles.authIntro}><Text style={styles.eyebrow}>{signup ? 'START YOUR JOURNEY' : 'WELCOME BACK'}</Text><Text style={styles.h2}>{signup ? 'Create your account' : 'Log in to your account'}</Text><Text style={styles.lead}>{signup ? 'Save plans, manage booking requests and keep your travel ideas in one place.' : 'Access your saved journeys and booking requests.'}</Text></View><View style={styles.formCard}>{signup && <><Text style={styles.fieldLabel}>FULL NAME</Text><TextInput style={styles.input} placeholder="Your name" placeholderTextColor="#87948b"/></>}<Text style={styles.fieldLabel}>EMAIL ADDRESS</Text><TextInput style={styles.input} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#87948b"/><Text style={styles.fieldLabel}>PASSWORD</Text><TextInput style={styles.input} placeholder="Enter your password" secureTextEntry placeholderTextColor="#87948b"/><Pressable onPress={onDone} style={styles.reserve}><Text style={styles.reserveText}>{signup ? 'Create account  →' : 'Log in  →'}</Text></Pressable><Pressable onPress={() => navigate(signup ? 'login' : 'signup')}><Text style={styles.switchAuth}>{signup ? 'Already have an account? Log in' : 'New to Cob Travels? Create an account'}</Text></Pressable></View></ScrollView>;
-}
+// Screens
+import { SplashScreen } from './src/screens/SplashScreen';
+import { HomeScreen } from './src/screens/HomeScreen';
+import { TourListScreen } from './src/screens/TourListScreen';
+import { TourDetailScreen } from './src/screens/TourDetailScreen';
+import { EnquiryScreen } from './src/screens/EnquiryScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
 
 export default function App() {
-  const [selectedPackage, setSelectedPackage] = useState<TravelPackage | null>(null);
-  const [screen, setScreen] = useState<Screen>('home');
-  const [loggedIn, setLoggedIn] = useState(false);
-  const navigate = (next: Screen) => { setSelectedPackage(null); setScreen(next); };
-  const openPackage = (item: TravelPackage) => { setSelectedPackage(item); setScreen('details'); };
-  const completeAuth = () => { setLoggedIn(true); setScreen('home'); };
-  let content = <Home openPackage={openPackage} navigate={navigate} loggedIn={loggedIn}/>;
-  if (screen === 'details' && selectedPackage) content = <Details pack={selectedPackage} goBack={() => navigate('home')} navigate={navigate}/>;
-  if (screen === 'hotel') content = <BookingPage kind="Hotel" navigate={navigate} loggedIn={loggedIn}/>;
-  if (screen === 'vehicle') content = <BookingPage kind="Vehicle" navigate={navigate} loggedIn={loggedIn}/>;
-  if (screen === 'login') content = <AuthPage signup={false} navigate={navigate} onDone={completeAuth}/>;
-  if (screen === 'signup') content = <AuthPage signup navigate={navigate} onDone={completeAuth}/>;
-  return <SafeAreaProvider><SafeAreaView style={styles.safe}><StatusBar barStyle="dark-content"/>{content}</SafeAreaView></SafeAreaProvider>;
+  const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
+  const [tours, setTours] = useState<TourPackageSummary[]>([]);
+  const [loadingTours, setLoadingTours] = useState(true);
+
+  const [selectedTourSlug, setSelectedTourSlug] = useState<string>('kashmir-paradise-tour');
+  const [initialTourFilter, setInitialTourFilter] = useState<
+    'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
+  >('ALL');
+
+  const [prefilledEnquiry, setPrefilledEnquiry] = useState<{
+    tourSlug?: string;
+    tourTitle?: string;
+    variantName?: string;
+    travelDate?: string;
+  } | null>(null);
+
+  // User state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userPhone, setUserPhone] = useState('');
+  const [savedTours, setSavedTours] = useState<string[]>([
+    'kashmir-paradise-tour',
+  ]);
+  const [enquiries, setEnquiries] = useState<EnquiryData[]>([
+    {
+      id: 'COB-ENQ-819204',
+      tourTitle: 'Kashmir Paradise Tour',
+      destination: 'Kashmir',
+      travelDate: '23 Mar 2026',
+      adults: 2,
+      children: 1,
+      fullName: 'Guest Traveller',
+      mobile: '9832000000',
+      message: 'Interested in Tulip season standard package',
+      status: 'CONFIRMED',
+      createdAt: '2026-08-14T10:00:00Z',
+    },
+  ]);
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+
+  // Modals & Drawers
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [customTourModalVisible, setCustomTourModalVisible] = useState(false);
+
+  // Load tour packages from API
+  const loadTours = useCallback(async () => {
+    setLoadingTours(true);
+    const data = await fetchTourPackages();
+    setTours(data);
+    setLoadingTours(false);
+  }, []);
+
+  useEffect(() => {
+    loadTours();
+  }, [loadTours]);
+
+  // Wishlist toggle
+  const toggleSaveTour = (slug: string) => {
+    setSavedTours(prev =>
+      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
+    );
+  };
+
+  // Notification actions
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const markAllNotificationsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleSelectNotification = (item: NotificationItem) => {
+    setNotifications(prev =>
+      prev.map(n => (n.id === item.id ? { ...n, read: true } : n))
+    );
+    if (item.actionSlug) {
+      setSelectedTourSlug(item.actionSlug);
+      setCurrentScreen('tour_detail');
+    }
+  };
+
+  const handleSelectTour = (tour: TourPackageSummary) => {
+    setSelectedTourSlug(tour.slug);
+    setCurrentScreen('tour_detail');
+  };
+
+  const handleFilterTours = (
+    type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
+  ) => {
+    setInitialTourFilter(type);
+    setCurrentScreen('tours');
+  };
+
+  const handleStartEnquiry = (details: {
+    tourSlug: string;
+    tourTitle: string;
+    variantName: string;
+    travelDate: string;
+  }) => {
+    setPrefilledEnquiry(details);
+    setCurrentScreen('enquiry');
+  };
+
+  const handleEnquirySubmitted = (enq: EnquiryData) => {
+    setEnquiries(prev => [enq, ...prev]);
+  };
+
+  const handleLoginSuccess = (phone: string) => {
+    setIsLoggedIn(true);
+    setUserPhone(phone);
+    setCurrentScreen('home');
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserPhone('');
+  };
+
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'splash':
+        return (
+          <SplashScreen
+            onGetStarted={() => setCurrentScreen('home')}
+            onLogin={() => setCurrentScreen('auth')}
+          />
+        );
+
+      case 'home':
+        return (
+          <HomeScreen
+            tours={tours}
+            loading={loadingTours}
+            onRefresh={loadTours}
+            onSelectTour={handleSelectTour}
+            onNavigate={setCurrentScreen}
+            onFilterType={handleFilterTours}
+            onOpenCustomTour={() => setCustomTourModalVisible(true)}
+            savedTours={savedTours}
+            onToggleSave={toggleSaveTour}
+          />
+        );
+
+      case 'tours':
+        return (
+          <TourListScreen
+            tours={tours}
+            loading={loadingTours}
+            onRefresh={loadTours}
+            onSelectTour={handleSelectTour}
+            onNavigate={setCurrentScreen}
+            initialFilter={initialTourFilter}
+            savedTours={savedTours}
+            onToggleSave={toggleSaveTour}
+          />
+        );
+
+      case 'tour_detail':
+        return (
+          <TourDetailScreen
+            slug={selectedTourSlug}
+            onBack={() => setCurrentScreen('tours')}
+            onNavigate={setCurrentScreen}
+            onStartEnquiry={handleStartEnquiry}
+            isSaved={savedTours.includes(selectedTourSlug)}
+            onToggleSave={() => toggleSaveTour(selectedTourSlug)}
+          />
+        );
+
+      case 'enquiry':
+        return (
+          <EnquiryScreen
+            tours={tours}
+            prefilledTour={prefilledEnquiry}
+            onNavigate={setCurrentScreen}
+            onEnquirySubmitted={handleEnquirySubmitted}
+          />
+        );
+
+      case 'auth':
+        return (
+          <AuthScreen
+            onLoginSuccess={handleLoginSuccess}
+            onSkip={() => setCurrentScreen('home')}
+            onNavigate={setCurrentScreen}
+          />
+        );
+
+      case 'notifications':
+        return (
+          <NotificationsScreen
+            notifications={notifications}
+            onMarkAllRead={markAllNotificationsRead}
+            onSelectNotification={handleSelectNotification}
+            onNavigate={setCurrentScreen}
+          />
+        );
+
+      case 'profile':
+        return (
+          <ProfileScreen
+            isLoggedIn={isLoggedIn}
+            userPhone={userPhone}
+            enquiries={enquiries}
+            savedTours={savedTours}
+            allTours={tours}
+            onNavigate={setCurrentScreen}
+            onSelectTour={handleSelectTour}
+            onLogout={handleLogout}
+            onOpenCustomTour={() => setCustomTourModalVisible(true)}
+          />
+        );
+
+      default:
+        return (
+          <HomeScreen
+            tours={tours}
+            loading={loadingTours}
+            onRefresh={loadTours}
+            onSelectTour={handleSelectTour}
+            onNavigate={setCurrentScreen}
+            onFilterType={handleFilterTours}
+            onOpenCustomTour={() => setCustomTourModalVisible(true)}
+            savedTours={savedTours}
+            onToggleSave={toggleSaveTour}
+          />
+        );
+    }
+  };
+
+  const showHeader =
+    currentScreen !== 'splash' &&
+    currentScreen !== 'auth' &&
+    currentScreen !== 'tour_detail';
+
+  const showBottomNav =
+    currentScreen !== 'splash' &&
+    currentScreen !== 'auth' &&
+    currentScreen !== 'tour_detail';
+
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="light-content" />
+
+        {showHeader && (
+          <Header
+            title="COOCHBEHAR TRAVEL"
+            showBack={currentScreen !== 'home'}
+            onBack={() => setCurrentScreen('home')}
+            onOpenMenu={() => setDrawerVisible(true)}
+            onOpenNotifications={() => setCurrentScreen('notifications')}
+            unreadCount={unreadCount}
+          />
+        )}
+
+        <View style={styles.content}>{renderScreen()}</View>
+
+        {showBottomNav && (
+          <BottomNav
+            currentScreen={currentScreen}
+            onNavigate={setCurrentScreen}
+            enquiryCount={enquiries.length}
+          />
+        )}
+
+        {/* Drawer Side Menu */}
+        <DrawerMenu
+          visible={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          onNavigate={setCurrentScreen}
+          onFilterTours={handleFilterTours}
+          onOpenCustomTour={() => {
+            setDrawerVisible(false);
+            setCustomTourModalVisible(true);
+          }}
+          isLoggedIn={isLoggedIn}
+          userPhone={userPhone}
+        />
+
+        {/* Custom Tour Planner Modal */}
+        <CustomTourModal
+          visible={customTourModalVisible}
+          onClose={() => setCustomTourModalVisible(false)}
+          onSubmitSuccess={handleEnquirySubmitted}
+        />
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
 }
 
 const styles = StyleSheet.create({
-  topBar: {backgroundColor: 'rgba(17,52,42,0.92)', paddingHorizontal: 18, paddingVertical: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}, topBrand: {color: '#fff', fontWeight: '800', fontSize: 12, letterSpacing: 1.5}, topLinks: {flexDirection: 'row', alignItems: 'center', gap: 13}, topLink: {color: '#dce7d4', fontSize: 12}, loginLink: {color: '#193c32', backgroundColor: '#e7efba', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 2, fontSize: 11, fontWeight: '700'}, tabs: {flexDirection: 'row', gap: 9, marginBottom: 20}, tab: {borderWidth: 1, borderColor: '#9faf83', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 2}, tabActive: {backgroundColor: '#1c4939', borderColor: '#1c4939'}, tabText: {color: '#345643', fontWeight: '700', fontSize: 13}, tabTextActive: {color: '#fff'}, pageContent: {padding: 22, flexGrow: 1}, formCard: {backgroundColor: '#fff', padding: 20, borderRadius: 4, shadowColor: '#153126', shadowOpacity: .08, shadowRadius: 10, elevation: 2, marginTop: 14}, formTitle: {fontSize: 21, color: '#173a2e', fontWeight: '700', marginBottom: 21}, fieldLabel: {fontSize: 10, letterSpacing: 1.2, color: '#607b6c', fontWeight: '700', marginBottom: 7, marginTop: 5}, input: {borderWidth: 1, borderColor: '#d1d9cf', borderRadius: 2, paddingHorizontal: 13, paddingVertical: 12, color: '#18392d', marginBottom: 16, fontSize: 15}, success: {color: '#2d6a4f', lineHeight: 20, textAlign: 'center', marginTop: -8, marginBottom: 8}, authBrand: {backgroundColor: '#173d32', marginHorizontal: -22, marginTop: -22, padding: 22, marginBottom: 25}, backHome: {color: '#dce7d4', marginTop: 9, fontSize: 13}, authIntro: {marginBottom: 6}, switchAuth: {color: '#1f5944', textAlign: 'center', fontWeight: '700', fontSize: 13, marginTop: 3, marginBottom: 8}, bookingHero: {height: 295, position: 'relative', backgroundColor: '#10281f'}, bookingHeroCopy: {position: 'absolute', left: 22, right: 22, bottom: 27}, bookingHeroTitle: {fontSize: 35, lineHeight: 40, color: '#fff', fontWeight: '700', marginTop: 10}, searchBox: {flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d9cf', paddingLeft: 13, marginBottom: 5}, searchInput: {flex: 1, color: '#18392d', paddingVertical: 13, fontSize: 15}, searchIcon: {fontSize: 25, color: '#315d4c', paddingHorizontal: 15}, bookingCard: {backgroundColor: '#fff', marginBottom: 18, borderRadius: 4, overflow: 'hidden', shadowColor: '#153126', shadowOpacity: .08, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: 'transparent'}, bookingCardSelected: {borderColor: '#668c65', borderWidth: 2}, checkSection: {backgroundColor: '#e8eeba', marginHorizontal: -22, marginTop: 15, padding: 22}, reserveDisabled: {backgroundColor: '#93a59a'}, emptyText: {color: '#64746a', paddingVertical: 24, textAlign: 'center'},
-  safe: {flex: 1, backgroundColor: '#f8f5ee'}, screen: {flex: 1, backgroundColor: '#f8f5ee'}, hero: {height: 470, position: 'relative', backgroundColor: '#10281f'}, heroImage: {width: '100%', height: '100%', position: 'absolute'}, heroShade: {position: 'absolute', inset: 0, backgroundColor: 'rgba(9,25,22,0.48)'}, homeNav: {position: 'absolute', top: 0, left: 0, right: 0}, heroContent: {flex: 1, padding: 25, paddingTop: 80, justifyContent: 'flex-end'}, logo: {position: 'absolute', top: 20, left: 25, color: '#fff', fontSize: 16, letterSpacing: 3, fontWeight: '700'}, heroEyebrow: {color: '#d5ebe0', fontSize: 11, letterSpacing: 1.4, fontWeight: '700'}, h1: {fontSize: 39, lineHeight: 44, color: '#fff', fontWeight: '700', marginTop: 12}, heroItalic: {fontFamily: 'serif', fontStyle: 'italic', fontWeight: '400'}, intro: {color: '#f1f5ee', fontSize: 15, lineHeight: 21, marginTop: 14, maxWidth: 330}, primaryButton: {backgroundColor: '#e7efba', alignSelf: 'flex-start', paddingVertical: 12, paddingHorizontal: 17, borderRadius: 2, marginTop: 18}, primaryButtonText: {color: '#17342b', fontWeight: '700'}, trust: {backgroundColor: '#e4ebbf', padding: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center'}, content: {padding: 22}, sectionTitle: {marginTop: 35, marginBottom: 10}, eyebrow: {fontSize: 10, letterSpacing: 1.6, color: '#6a806f', fontWeight: '700', marginBottom: 9}, h2: {fontSize: 30, lineHeight: 37, color: '#16342a', fontWeight: '700'}, italic: {fontFamily: 'serif', fontWeight: '400', fontStyle: 'italic'}, lead: {color: '#5e6b63', lineHeight: 22, marginBottom: 20, fontSize: 15}, card: {backgroundColor: '#fff', marginBottom: 18, borderRadius: 4, overflow: 'hidden', shadowColor: '#153126', shadowOpacity: .08, shadowRadius: 10, elevation: 2}, cardImage: {height: 190, width: '100%'}, cardBody: {padding: 16}, cardTop: {flexDirection: 'row', justifyContent: 'space-between'}, cardCode: {fontSize: 10, letterSpacing: .8, color: '#698074', fontWeight: '700'}, price: {fontSize: 14, color: '#173a2e', fontWeight: '700'}, cardTitle: {fontSize: 27, color: '#17342a', fontWeight: '700', marginTop: 9}, cardRoute: {color: '#68766e', marginTop: 6, fontSize: 13}, cardLink: {color: '#1d5641', marginTop: 16, fontWeight: '700'}, story: {backgroundColor: '#193c32', padding: 22, marginHorizontal: -22, marginTop: 15, marginBottom: 20}, storyCopy: {color: '#dce8db', lineHeight: 23, fontSize: 15}, detailHero: {height: 430, position: 'relative', backgroundColor: '#10281f'}, back: {position: 'absolute', top: 18, left: 20, padding: 9}, backText: {color: '#fff', fontSize: 15, fontWeight: '600'}, detailTitle: {position: 'absolute', left: 22, bottom: 28, right: 22}, detailName: {fontSize: 44, color: '#fff', fontWeight: '700', marginVertical: 9}, rating: {color: '#ffda76', fontWeight: '700'}, ratingMuted: {color: '#e5e8dd', fontWeight: '400'}, detailPrice: {color: '#fff', marginTop: 10, fontSize: 16, fontWeight: '600'}, detailContent: {padding: 22}, facts: {borderBottomWidth: 1, borderColor: '#d9ddd2', paddingBottom: 20}, factLabel: {fontSize: 10, letterSpacing: 1.2, color: '#6a806f', fontWeight: '700', marginBottom: 6}, factText: {color: '#273f35', fontSize: 14, lineHeight: 20}, factRow: {flexDirection: 'row', justifyContent: 'space-between', marginTop: 19}, reserve: {backgroundColor: '#1c4939', alignItems: 'center', padding: 16, marginVertical: 22, borderRadius: 3}, reserveText: {color: '#fff', fontWeight: '700', fontSize: 15}, highlights: {borderTopWidth: 1, borderColor: '#d9ddd2', paddingTop: 12}, highlight: {color: '#315d4c', lineHeight: 29, fontSize: 15}, subheading: {fontSize: 20, color: '#16342a', fontWeight: '700', marginTop: 28, marginBottom: 13}, galleryImage: {width: 250, height: 170, borderRadius: 4, marginRight: 12}, day: {borderTopWidth: 1, borderColor: '#d9ddd2', paddingVertical: 17, flexDirection: 'row'}, dayNum: {width: 66, fontSize: 10, color: '#698074', letterSpacing: .8, fontWeight: '700', paddingTop: 4}, dayCopy: {flex: 1}, dayTitle: {fontSize: 17, color: '#173a2e', fontWeight: '700', marginBottom: 5}, dayDescription: {color: '#66756c', lineHeight: 20, fontSize: 14}, departures: {backgroundColor: '#e8eeba', padding: 20, marginHorizontal: -22, marginTop: 18}, season: {fontWeight: '700', color: '#274d3d'}, dates: {flexDirection: 'row', flexWrap: 'wrap', gap: 8}, date: {borderWidth: 1, borderColor: '#9faf83', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 2}, dateSelected: {backgroundColor: '#1c4939', borderColor: '#1c4939'}, dateText: {color: '#345643', fontSize: 12}, dateTextSelected: {color: '#fff'}, review: {backgroundColor: '#fff', padding: 18, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#bccf90'}, reviewStars: {color: '#cd9731', letterSpacing: 2}, reviewCopy: {color: '#46584d', lineHeight: 21, marginTop: 9, fontSize: 14}, reviewName: {color: '#1e4939', fontWeight: '700', marginTop: 12, fontSize: 13},
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.primaryDark,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
 });

@@ -1,0 +1,142 @@
+export interface RouteStop {
+  id: string;
+  place: string;
+}
+
+export interface Highlight {
+  id: string;
+  text: string;
+}
+
+export interface DepartureDate {
+  id: string;
+  date: string;
+}
+
+export interface GalleryPhoto {
+  id: string;
+  photoId: string;
+  url?: string;
+}
+
+export interface ItineraryDay {
+  id: string;
+  day: string;
+  description: string;
+}
+
+export interface SeasonVariant {
+  id: string;
+  key: string;
+  display_order: number;
+  variant_code: string;
+  name: string;
+  badge?: string;
+  season_type: string;
+  season_name: string;
+  cover_image: string;
+  valid_from: string;
+  valid_to: string;
+  duration: string;
+  duration_days: number;
+  duration_nights: number;
+  price: number;
+  currency: string;
+  starting_price: number;
+  seats: number;
+  availability: 'AVAILABLE' | 'FEW_SEATS' | 'SOLD_OUT';
+  is_active: boolean;
+  is_default: boolean;
+  route: RouteStop[];
+  highlights: Highlight[];
+  dates: DepartureDate[];
+  gallery: GalleryPhoto[];
+  itinerary: ItineraryDay[];
+  inclusions: string[];
+  exclusions: string[];
+}
+
+export interface Review {
+  id: string;
+  review_code: string;
+  name: string;
+  rating: number;
+  review: string;
+  is_verified: boolean;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface TourPackageSummary {
+  id: string;
+  tour_code: string;
+  slug: string;
+  title: string;
+  destination: string;
+  type: 'DOMESTIC' | 'INTERNATIONAL';
+  description: string;
+  is_featured: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  starting_price: number;
+  duration_days: number;
+  duration_nights: number;
+  duration: string;
+  variant_count: number;
+  cover_image?: string;
+  badge?: string;
+}
+
+export interface TourPackageDetail {
+  id: string;
+  tour_code: string;
+  slug: string;
+  title: string;
+  destination: string;
+  type: 'DOMESTIC' | 'INTERNATIONAL';
+  description: string;
+  is_featured: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  reviews: Review[];
+  seasons: SeasonVariant[];
+}
+
+export interface EnquiryData {
+  id?: string;
+  tourSlug?: string;
+  tourTitle?: string;
+  destination?: string;
+  variantName?: string;
+  fullName: string;
+  mobile: string;
+  email?: string;
+  travelDate: string;
+  adults: number;
+  children: number;
+  message: string;
+  status?: 'PENDING' | 'CONTACTED' | 'CONFIRMED';
+  createdAt?: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: 'OFFER' | 'TOUR' | 'SYSTEM' | 'REMINDER';
+  timestamp: string;
+  read: boolean;
+  actionSlug?: string;
+}
+
+export type NavScreen = 
+  | 'splash'
+  | 'home'
+  | 'tours'
+  | 'tour_detail'
+  | 'enquiry'
+  | 'auth'
+  | 'notifications'
+  | 'profile';
