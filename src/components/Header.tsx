@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
           <Image
-            source={require('../assets/logo.png')}
+            source={require('../assets/logo.jpg')}
             style={styles.headerLogo}
             resizeMode="contain"
           />

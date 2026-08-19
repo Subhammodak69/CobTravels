@@ -34,7 +34,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/logo.png')}
+              source={require('../assets/logo.jpg')}
               style={styles.logoImage}
               resizeMode="contain"
             />

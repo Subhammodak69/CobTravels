@@ -59,7 +59,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
           <View style={styles.drawerHeader}>
             <View style={styles.logoRow}>
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../assets/logo.jpg')}
                 style={styles.drawerLogo}
                 resizeMode="contain"
               />

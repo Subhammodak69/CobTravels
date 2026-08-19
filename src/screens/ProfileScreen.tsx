@@ -226,7 +226,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       <View style={styles.aboutCard}>
         <View style={styles.aboutHeader}>
           <Image
-            source={require('../assets/logo.png')}
+            source={require('../assets/logo.jpg')}
             style={styles.aboutLogo}
             resizeMode="contain"
           />
