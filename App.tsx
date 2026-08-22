@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS } from './src/theme/theme';
@@ -9,8 +9,7 @@ import {
   NotificationItem,
   NavScreen,
 } from './src/types';
-import { fetchTourPackages } from './src/api/tourApi';
-import { MOCK_NOTIFICATIONS } from './src/data/mockTours';
+import { fetchTourPackages, fetchMe, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent } from './src/api/tourApi';
 
 // Components
 import { Header } from './src/components/Header';
@@ -30,6 +29,47 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
+  const screenHistory = React.useRef<NavScreen[]>(['splash']);
+  const currentScreenRef = React.useRef<NavScreen>('splash');
+  const visitorSessionRef = React.useRef<string | null>(null);
+  const visitorBootstrapRef = React.useRef(false);
+  const identifiedCustomerRef = React.useRef<string | null>(null);
+  const [visitorReady, setVisitorReady] = useState(false);
+
+  const navigateTo = React.useCallback((screen: NavScreen) => {
+    setCurrentScreen(previous => {
+      if (previous !== screen) {
+        screenHistory.current = [...screenHistory.current, screen];
+      }
+      return screen;
+    });
+  }, []);
+
+  const goBack = React.useCallback(() => {
+    if (screenHistory.current.length <= 1) return false;
+    screenHistory.current = screenHistory.current.slice(0, -1);
+    setCurrentScreen(screenHistory.current[screenHistory.current.length - 1]);
+    return true;
+  }, []);
+
+  React.useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', goBack);
+    return () => subscription.remove();
+  }, [goBack]);
+
+  React.useEffect(() => { currentScreenRef.current = currentScreen; if (visitorSessionRef.current) { heartbeatVisitorSession(currentScreen, 1); trackVisitorEvent('screen_view', currentScreen, { screen: currentScreen }); } }, [currentScreen]);
+  React.useEffect(() => {
+    let mounted = true;
+    const startTracking = async () => {
+      if (!visitorReady || visitorSessionRef.current) return;
+      const session = await startVisitorSession(currentScreenRef.current);
+      if (mounted && session) { visitorSessionRef.current = session; trackVisitorEvent('session_started', currentScreenRef.current); }
+    };
+    startTracking();
+    const interval = setInterval(() => { if (visitorSessionRef.current) heartbeatVisitorSession(currentScreenRef.current, 0); else startTracking(); }, 30000);
+    const subscription = AppState.addEventListener('change', nextState => { if (nextState === 'active') startTracking(); else if (visitorSessionRef.current) { endVisitorSession(currentScreenRef.current); visitorSessionRef.current = null; } });
+    return () => { mounted = false; clearInterval(interval); subscription.remove(); if (visitorSessionRef.current) { endVisitorSession(currentScreenRef.current); visitorSessionRef.current = null; } };
+  }, [visitorReady]);
   const [tours, setTours] = useState<TourPackageSummary[]>([]);
   const [loadingTours, setLoadingTours] = useState(true);
 
@@ -48,26 +88,10 @@ export default function App() {
   // User state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userPhone, setUserPhone] = useState('');
-  const [savedTours, setSavedTours] = useState<string[]>([
-    'kashmir-paradise-tour',
-  ]);
-  const [enquiries, setEnquiries] = useState<EnquiryData[]>([
-    {
-      id: 'COB-ENQ-819204',
-      tourTitle: 'Kashmir Paradise Tour',
-      destination: 'Kashmir',
-      travelDate: '23 Mar 2026',
-      adults: 2,
-      children: 1,
-      fullName: 'Guest Traveller',
-      mobile: '9832000000',
-      message: 'Interested in Tulip season standard package',
-      status: 'CONFIRMED',
-      createdAt: '2026-08-14T10:00:00Z',
-    },
-  ]);
+  const [savedTours, setSavedTours] = useState<string[]>([]);
+  const [enquiries, setEnquiries] = useState<EnquiryData[]>([]);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Modals & Drawers
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -76,13 +100,28 @@ export default function App() {
   // Load tour packages from API
   const loadTours = useCallback(async () => {
     setLoadingTours(true);
-    const data = await fetchTourPackages();
-    setTours(data);
+    try { setTours(await fetchTourPackages()); }
+    catch { setTours([]); }
     setLoadingTours(false);
   }, []);
 
   useEffect(() => {
+    if (visitorBootstrapRef.current) return;
+    visitorBootstrapRef.current = true;
+    let mounted = true;
     loadTours();
+    (async () => {
+      let customerId = '';
+      let token = await getAccessToken();
+      if (!token) token = (await refreshSession()) ? await getAccessToken() : null;
+      if (token) {
+        try { const result = await fetchMe(); customerId = result.data?.id || ''; setIsLoggedIn(true); setUserPhone(result.data?.mobile || ''); } catch {}
+      }
+      if (customerId) identifiedCustomerRef.current = customerId;
+      await identifyVisitor(customerId);
+      if (mounted) setVisitorReady(true);
+    })();
+    return () => { mounted = false; };
   }, [loadTours]);
 
   // Wishlist toggle
@@ -90,6 +129,7 @@ export default function App() {
     setSavedTours(prev =>
       prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
     );
+    trackVisitorEvent('wishlist_toggled', currentScreenRef.current, { tour_slug: slug });
   };
 
   // Notification actions
@@ -104,20 +144,21 @@ export default function App() {
     );
     if (item.actionSlug) {
       setSelectedTourSlug(item.actionSlug);
-      setCurrentScreen('tour_detail');
+      navigateTo('tour_detail');
     }
   };
 
   const handleSelectTour = (tour: TourPackageSummary) => {
     setSelectedTourSlug(tour.slug);
-    setCurrentScreen('tour_detail');
+    trackVisitorEvent('tour_selected', currentScreenRef.current, { tour_slug: tour.slug, tour_title: tour.title });
+    navigateTo('tour_detail');
   };
 
   const handleFilterTours = (
     type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
   ) => {
     setInitialTourFilter(type);
-    setCurrentScreen('tours');
+    navigateTo('tours');
   };
 
   const handleStartEnquiry = (details: {
@@ -127,20 +168,25 @@ export default function App() {
     travelDate: string;
   }) => {
     setPrefilledEnquiry(details);
-    setCurrentScreen('enquiry');
+    trackVisitorEvent('enquiry_started', currentScreenRef.current, details);
+    navigateTo('enquiry');
   };
 
   const handleEnquirySubmitted = (enq: EnquiryData) => {
     setEnquiries(prev => [enq, ...prev]);
+    trackVisitorEvent('enquiry_submitted', 'enquiry', { tour_slug: enq.tourSlug, travel_date: enq.travelDate });
   };
 
   const handleLoginSuccess = (phone: string) => {
     setIsLoggedIn(true);
     setUserPhone(phone);
-    setCurrentScreen('home');
+    trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
+    fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});
+    navigateTo('home');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await logoutApi(); } catch {}
     setIsLoggedIn(false);
     setUserPhone('');
   };
@@ -150,8 +196,8 @@ export default function App() {
       case 'splash':
         return (
           <SplashScreen
-            onGetStarted={() => setCurrentScreen('home')}
-            onLogin={() => setCurrentScreen('auth')}
+            onGetStarted={() => navigateTo('home')}
+            onLogin={() => navigateTo('auth')}
           />
         );
 
@@ -162,7 +208,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             onFilterType={handleFilterTours}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
             savedTours={savedTours}
@@ -177,7 +223,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             initialFilter={initialTourFilter}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
@@ -188,8 +234,8 @@ export default function App() {
         return (
           <TourDetailScreen
             slug={selectedTourSlug}
-            onBack={() => setCurrentScreen('tours')}
-            onNavigate={setCurrentScreen}
+            onBack={goBack}
+            onNavigate={navigateTo}
             onStartEnquiry={handleStartEnquiry}
             isSaved={savedTours.includes(selectedTourSlug)}
             onToggleSave={() => toggleSaveTour(selectedTourSlug)}
@@ -201,7 +247,7 @@ export default function App() {
           <EnquiryScreen
             tours={tours}
             prefilledTour={prefilledEnquiry}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             onEnquirySubmitted={handleEnquirySubmitted}
           />
         );
@@ -210,8 +256,8 @@ export default function App() {
         return (
           <AuthScreen
             onLoginSuccess={handleLoginSuccess}
-            onSkip={() => setCurrentScreen('home')}
-            onNavigate={setCurrentScreen}
+            onSkip={() => navigateTo('home')}
+            onNavigate={navigateTo}
           />
         );
 
@@ -221,7 +267,7 @@ export default function App() {
             notifications={notifications}
             onMarkAllRead={markAllNotificationsRead}
             onSelectNotification={handleSelectNotification}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
           />
         );
 
@@ -233,7 +279,7 @@ export default function App() {
             enquiries={enquiries}
             savedTours={savedTours}
             allTours={tours}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             onSelectTour={handleSelectTour}
             onLogout={handleLogout}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
@@ -247,7 +293,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             onFilterType={handleFilterTours}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
             savedTours={savedTours}
@@ -276,9 +322,9 @@ export default function App() {
           <Header
             title="COOCHBEHAR TRAVEL"
             showBack={currentScreen !== 'home'}
-            onBack={() => setCurrentScreen('home')}
+            onBack={goBack}
             onOpenMenu={() => setDrawerVisible(true)}
-            onOpenNotifications={() => setCurrentScreen('notifications')}
+            onOpenNotifications={() => navigateTo('notifications')}
             unreadCount={unreadCount}
           />
         )}
@@ -288,7 +334,7 @@ export default function App() {
         {showBottomNav && (
           <BottomNav
             currentScreen={currentScreen}
-            onNavigate={setCurrentScreen}
+            onNavigate={navigateTo}
             enquiryCount={enquiries.length}
           />
         )}
@@ -297,7 +343,7 @@ export default function App() {
         <DrawerMenu
           visible={drawerVisible}
           onClose={() => setDrawerVisible(false)}
-          onNavigate={setCurrentScreen}
+          onNavigate={navigateTo}
           onFilterTours={handleFilterTours}
           onOpenCustomTour={() => {
             setDrawerVisible(false);

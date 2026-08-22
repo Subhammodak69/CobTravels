@@ -1,15 +1,14 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
   Image,
   Pressable,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
-import { photoUrl } from '../data/mockTours';
 
 interface SplashScreenProps {
   onGetStarted: () => void;
@@ -20,16 +19,39 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onGetStarted,
   onLogin,
 }) => {
+  const entrance = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrance, {
+      toValue: 1,
+      duration: 900,
+      useNativeDriver: true,
+    }).start();
+  }, [entrance]);
+
   return (
-    <ImageBackground
-      source={{ uri: photoUrl('photo-1506744038136-46273834b3fb', 1600) }}
-      style={styles.background}
-      resizeMode="cover"
-    >
+    <View style={styles.background}>
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85' }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       <StatusBar barStyle="light-content" />
       <View style={styles.overlay} />
 
-      <View style={styles.content}>
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: entrance,
+            transform: [{
+              translateY: entrance.interpolate({
+                inputRange: [0, 1],
+                outputRange: [24, 0],
+              }),
+            }],
+          },
+        ]}
+      >
         {/* Official Logo Badge */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
@@ -84,14 +106,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             ✓ No login required to browse & view complete itineraries
           </Text>
         </View>
-      </View>
-    </ImageBackground>
+      </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },

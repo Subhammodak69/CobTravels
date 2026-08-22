@@ -38,7 +38,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   const [fullName, setFullName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [travelDate, setTravelDate] = useState(prefilledTour?.travelDate || '23 Mar 2026');
+  const [travelDate, setTravelDate] = useState(prefilledTour?.travelDate || '');
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [message, setMessage] = useState('');
@@ -91,10 +91,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    const res = await submitEnquiryApi(enquiryPayload);
-    setLoading(false);
-
-    if (res.success) {
+    try {
+      const res = await submitEnquiryApi(enquiryPayload);
       if (onEnquirySubmitted) {
         onEnquirySubmitted({ ...enquiryPayload, id: res.enquiryId });
       }
@@ -103,6 +101,10 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         enquiryId: res.enquiryId,
         message: res.message,
       });
+    } catch (error: any) {
+      Alert.alert('Online enquiry unavailable', error.message || 'Please contact us on WhatsApp.');
+    } finally {
+      setLoading(false);
     }
   };
 

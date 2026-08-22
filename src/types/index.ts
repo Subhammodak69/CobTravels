@@ -17,11 +17,15 @@ export interface GalleryPhoto {
   id: string;
   photoId: string;
   url?: string;
+  alt?: string;
+  type?: 'image' | 'video' | string;
+  display_order?: number;
 }
 
 export interface ItineraryDay {
   id: string;
   day: string;
+  title?: string;
   description: string;
 }
 
@@ -35,6 +39,7 @@ export interface SeasonVariant {
   season_type: string;
   season_name: string;
   cover_image: string;
+  banner_video?: string;
   valid_from: string;
   valid_to: string;
   duration: string;
@@ -64,6 +69,9 @@ export interface Review {
   review: string;
   is_verified: boolean;
   is_published: boolean;
+  reviewer_by?: string;
+  reviewer_pic?: string | null;
+  review_gallery?: GalleryPhoto[];
   created_at: string;
 }
 
@@ -83,6 +91,8 @@ export interface TourPackageSummary {
   duration_days: number;
   duration_nights: number;
   duration: string;
+  banner_video?: string;
+  season_name?: string;
   variant_count: number;
   cover_image?: string;
   badge?: string;

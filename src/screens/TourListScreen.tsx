@@ -11,6 +11,7 @@ import {
 import { COLORS } from '../theme/theme';
 import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
+import { TourListSkeleton } from '../components/Skeleton';
 
 interface TourListScreenProps {
   tours: TourPackageSummary[];
@@ -164,7 +165,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
 
       {/* Tour List Content */}
       <FlatList
-        data={filteredTours}
+        data={loading && tours.length === 0 ? [] : filteredTours}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -183,7 +184,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
             onToggleSave={() => onToggleSave(item.slug)}
           />
         )}
-        ListEmptyComponent={
+        ListEmptyComponent={loading ? <TourListSkeleton /> : (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>🔍</Text>
             <Text style={styles.emptyTitle}>No Matching Tours Found</Text>
@@ -201,7 +202,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
               <Text style={styles.resetBtnText}>Reset All Filters</Text>
             </Pressable>
           </View>
-        }
+        )}
       />
     </View>
   );

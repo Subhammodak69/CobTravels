@@ -7,11 +7,12 @@ import {
   Image,
   Pressable,
   Share,
-  ActivityIndicator,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { TourPackageDetail, SeasonVariant, NavScreen } from '../types';
-import { fetchTourDetail, openWhatsAppChat } from '../api/tourApi';
+import { fetchTourDetail, fetchTourVariant, openWhatsAppChat } from '../api/tourApi';
+import { TourDetailSkeleton } from '../components/Skeleton';
+import { MediaViewer, MediaSelection } from '../components/MediaViewer';
 
 interface TourDetailScreenProps {
   slug: string;
@@ -43,6 +44,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     '0': true,
     '1': true,
   });
+  const [selectedMedia, setSelectedMedia] = useState<MediaSelection | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -70,10 +72,18 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   const activeSeason: SeasonVariant | undefined =
     tour?.seasons?.[selectedSeasonIndex] || tour?.seasons?.[0];
 
-  const handleSeasonChange = (index: number) => {
+  const handleSeasonChange = async (index: number) => {
     setSelectedSeasonIndex(index);
-    if (tour?.seasons?.[index]?.dates?.length) {
-      setSelectedDate(tour.seasons[index].dates[0].date);
+    const selected = tour?.seasons?.[index];
+    if (!selected || !tour) return;
+    if (index > 0 && selected.key) {
+      try {
+        const result = await fetchTourVariant(tour.slug, selected.key);
+        setTour(current => current ? {...current, seasons: [current.seasons[0], result.variant, ...current.seasons.slice(2)]} : current);
+      } catch {}
+    }
+    if (selected.dates?.length) {
+      setSelectedDate(selected.dates[0].date);
     }
   };
 
@@ -100,7 +110,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
         title: tour.title,
         message: `Check out ${tour.title} with Coochbehar Travels starting from ₹${activeSeason?.price?.toLocaleString('en-IN') || tour.seasons[0]?.price}!\nDetails: https://coochbehar-travels.onrender.com/api/v1/tour-packages/${tour.slug}`,
       });
-    } catch (e) {
+    } catch {
       // share canceled
     }
   };
@@ -123,12 +133,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading tour details...</Text>
-      </View>
-    );
+    return <TourDetailSkeleton />;
   }
 
   if (!tour || !activeSeason) {
@@ -149,6 +154,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      <MediaViewer media={selectedMedia} onClose={() => setSelectedMedia(null)} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Top Hero Image & Actions */}
         <View style={styles.heroWrapper}>
@@ -285,7 +291,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
                     {index < activeSeason.route.length - 1 && <View style={styles.routeLine} />}
                   </View>
                   <View style={styles.routeStepRight}>
-                    <Text style={styles.routePlace}>{stop.place}</Text>
+                    <Text style={styles.routePlace}>{stop.place}{(stop as any).nights ? ' · ' + (stop as any).nights + 'N' : ''}</Text>
                   </View>
                 </View>
               ))}
@@ -305,6 +311,26 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
                 </View>
               ))}
             </View>
+          </View>
+        )}
+
+        {activeSeason.gallery && activeSeason.gallery.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Journey Gallery</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+              {activeSeason.gallery.map((media, index) => media.url ? (
+                media.type === 'video' ? (
+                  <Pressable key={media.id || index} style={styles.galleryVideo} onPress={() => setSelectedMedia({uri: media.url as string, type: 'video', title: media.alt || 'Tour video'})}>
+                    <Text style={styles.galleryVideoIcon}>▶</Text>
+                    <Text style={styles.galleryVideoText}>Watch video</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable key={media.id || index} onPress={() => setSelectedMedia({uri: media.url as string, type: 'image', title: media.alt || 'Tour gallery image'})}>
+                    <Image source={{uri: media.url}} style={styles.galleryImage} accessibilityLabel={media.alt || 'Tour gallery image'} />
+                  </Pressable>
+                )
+              ) : null)}
+            </ScrollView>
           </View>
         )}
 
@@ -361,7 +387,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
                       <Text style={styles.dayBadgeText}>DAY {idx + 1}</Text>
                     </View>
                     <Text style={styles.itineraryDayTitle} numberOfLines={1}>
-                      {dayItem.day}
+                      {dayItem.title || 'Day ' + dayItem.day}
                     </Text>
                     <Text style={styles.expandChevron}>{isExpanded ? '▲' : '▼'}</Text>
                   </Pressable>
@@ -410,10 +436,26 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           {tour.reviews?.map(rev => (
             <View key={rev.id} style={styles.reviewItem}>
               <View style={styles.reviewTopRow}>
-                <Text style={styles.reviewerName}>{rev.name}</Text>
+                <View style={styles.reviewerIdentity}>
+                  {rev.reviewer_pic ? <Image source={{uri: rev.reviewer_pic}} style={styles.reviewerPic} /> : null}
+                  <Text style={styles.reviewerName}>{rev.name || rev.reviewer_by}</Text>
+                </View>
                 <Text style={styles.reviewStars}>{'★'.repeat(rev.rating)}</Text>
               </View>
               <Text style={styles.reviewBody}>“{rev.review}”</Text>
+              {rev.review_gallery && rev.review_gallery.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewGalleryRow}>
+                  {rev.review_gallery.map((media, index) => media.url && media.type !== 'video' ? (
+                    <Pressable key={media.id || index} onPress={() => setSelectedMedia({uri: media.url as string, type: 'image', title: media.alt || 'Review photo'})}>
+                      <Image source={{uri: media.url}} style={styles.reviewGalleryImage} />
+                    </Pressable>
+                  ) : media.url ? (
+                    <Pressable key={media.id || index} onPress={() => setSelectedMedia({uri: media.url as string, type: 'video', title: media.alt || 'Review video'})} style={styles.reviewVideoLink}>
+                      <Text style={styles.reviewVideoText}>▶ Video</Text>
+                    </Pressable>
+                  ) : null)}
+                </ScrollView>
+              )}
               {rev.is_verified && (
                 <Text style={styles.verifiedPill}>✓ Verified Guest</Text>
               )}
@@ -769,6 +811,33 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  galleryRow: {
+    gap: 10,
+    paddingTop: 10,
+  },
+  galleryImage: {
+    width: 230,
+    height: 150,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
+  },
+  galleryVideo: {
+    width: 230,
+    height: 150,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  galleryVideoIcon: {
+    color: COLORS.gold,
+    fontSize: 28,
+  },
+  galleryVideoText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginTop: 6,
+  },
   dateChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -914,6 +983,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  reviewerIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewerPic: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
   reviewerName: {
     fontSize: 13,
     fontWeight: '700',
@@ -928,6 +1007,29 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontStyle: 'italic',
     lineHeight: 18,
+  },
+  reviewGalleryRow: {
+    gap: 8,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  reviewGalleryImage: {
+    width: 100,
+    height: 72,
+    borderRadius: 7,
+  },
+  reviewVideoLink: {
+    width: 100,
+    height: 72,
+    borderRadius: 7,
+    backgroundColor: COLORS.primarySubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewVideoText: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '800',
   },
   verifiedPill: {
     fontSize: 10,

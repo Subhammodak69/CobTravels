@@ -13,7 +13,7 @@ import { COLORS } from '../theme/theme';
 import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
 import { openWhatsAppChat } from '../api/tourApi';
-import { photoUrl } from '../data/mockTours';
+import { TourListSkeleton } from '../components/Skeleton';
 
 interface HomeScreenProps {
   tours: TourPackageSummary[];
@@ -58,7 +58,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Hero Banner with Search */}
       <View style={styles.heroSection}>
         <Image
-          source={{ uri: photoUrl('photo-1464822759023-fed622ff2c3b', 1200) }}
+          source={tours[0]?.cover_image ? { uri: tours[0].cover_image } : undefined}
           style={styles.heroImage}
         />
         <View style={styles.heroOverlay} />
@@ -185,7 +185,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Pressable>
         </View>
 
-        {featuredTours.slice(0, 3).map(tour => (
+        {loading && tours.length === 0 ? <TourListSkeleton /> : featuredTours.slice(0, 3).map(tour => (
           <TourCard
             key={tour.id}
             tour={tour}
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
   heroSection: {
-    height: 330,
+    height: 260,
     position: 'relative',
     justifyContent: 'flex-end',
     backgroundColor: COLORS.primaryDark,

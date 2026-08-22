@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import Video from 'react-native-video';
 import { COLORS } from '../theme/theme';
 import { TourPackageSummary } from '../types';
 
@@ -20,6 +21,7 @@ export const TourCard: React.FC<TourCardProps> = ({
   onToggleSave,
   layout = 'vertical',
 }) => {
+  const [previewing, setPreviewing] = useState(false);
   const isDomestic = tour.type === 'DOMESTIC';
   const priceFormatted = tour.starting_price
     ? `₹${Number(tour.starting_price).toLocaleString('en-IN')}`
@@ -89,6 +91,18 @@ export const TourCard: React.FC<TourCardProps> = ({
           style={styles.image}
           resizeMode="cover"
         />
+        {previewing && tour.banner_video && (
+          <Video
+            source={{ uri: tour.banner_video }}
+            style={styles.imageVideo}
+            resizeMode="cover"
+            repeat
+            muted
+            paused={false}
+            playInBackground={false}
+            playWhenInactive={false}
+          />
+        )}
         <View style={styles.imageGradient} />
 
         <View style={styles.topBadgeRow}>
@@ -128,6 +142,11 @@ export const TourCard: React.FC<TourCardProps> = ({
         <View style={styles.durationOverlay}>
           <Text style={styles.durationOverlayText}>⏱ {tour.duration}</Text>
         </View>
+        {tour.banner_video && (
+          <Pressable style={styles.previewBtn} onPress={() => setPreviewing(value => !value)}>
+            <Text style={styles.previewBtnText}>{previewing ? '■ Stop preview' : '▶ Preview'}</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.cardContent}>
@@ -203,6 +222,13 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  imageVideo: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   imageGradient: {
     position: 'absolute',
@@ -281,6 +307,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  previewBtn: {
+    position: 'absolute',
+    right: 12,
+    bottom: 10,
+    backgroundColor: COLORS.gold,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  previewBtnText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '800',
   },
   cardContent: {
     padding: 16,

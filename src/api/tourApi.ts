@@ -1,171 +1,46 @@
-import { TourPackageDetail, TourPackageSummary, EnquiryData } from '../types';
-import { MOCK_TOURS_LIST, MOCK_TOUR_DETAILS, photoUrl } from '../data/mockTours';
-import { Linking } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {Linking, Platform} from 'react-native';
+import {EnquiryData, SeasonVariant, TourPackageDetail, TourPackageSummary} from '../types';
 
 export const BASE_API = 'https://coochbehar-travels.onrender.com';
-export const OFFICIAL_WHATSAPP = '919832000000'; // Coochbehar Travels Official WhatsApp
+export const OFFICIAL_WHATSAPP = '919832000000';
+const ACCESS_TOKEN_KEY = '@cobtravels/access_token';
+const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
+const VISITOR_ID_KEY = '@cobtravels/visitor_id';
+export type ApiEnvelope<T> = {success?: boolean; message?: string; data?: T};
+export interface AuthUser {name:string; mobile:string; email:string; address:string; emergency_contact_name:string; emergency_contact_mobile:string; profile_pic:string; source:string; is_imported:boolean; id:string; customer_code:string; created_at:string; updated_at:string;}
+const headers = {'Accept':'application/json','Content-Type':'application/json'};
 
-/**
- * Fetch all tour packages with graceful fallback
- */
-export async function fetchTourPackages(): Promise<TourPackageSummary[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(`${BASE_API}/api/v1/tour-packages`, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`API returned status ${response.status}. Using fallback.`);
-      return MOCK_TOURS_LIST;
-    }
-
-    const json = await response.json();
-    const serverData: TourPackageSummary[] = json?.data || [];
-
-    if (!Array.isArray(serverData) || serverData.length === 0) {
-      return MOCK_TOURS_LIST;
-    }
-
-    // Merge or enrich with cover images if backend doesn't provide cover_image
-    const enriched = serverData.map(item => {
-      const fallback = MOCK_TOURS_LIST.find(m => m.slug === item.slug);
-      let img = item.cover_image || fallback?.cover_image;
-      if (!img) {
-        if (item.type === 'INTERNATIONAL') {
-          img = photoUrl('photo-1493976040374-85c8e12f0c0e');
-        } else {
-          img = photoUrl('photo-1500534623283-312aade485b7');
-        }
-      }
-      return {
-        ...item,
-        cover_image: img,
-        badge: item.is_featured ? 'Featured' : fallback?.badge,
-      };
-    });
-
-    // Also append additional fallback tours if server only returns 2 items so catalogue looks expansive
-    const existingSlugs = new Set(enriched.map(e => e.slug));
-    const extraMock = MOCK_TOURS_LIST.filter(m => !existingSlugs.has(m.slug));
-
-    return [...enriched, ...extraMock];
-  } catch (error) {
-    console.warn('Network request failed for tour packages:', error);
-    return MOCK_TOURS_LIST;
-  }
-}
-
-/**
- * Fetch specific tour package by slug
- */
-export async function fetchTourDetail(slug: string): Promise<TourPackageDetail> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(`${BASE_API}/api/v1/tour-packages/${slug}`, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Tour detail API ${slug} returned ${response.status}. Using mock.`);
-      if (MOCK_TOUR_DETAILS[slug]) {
-        return MOCK_TOUR_DETAILS[slug];
-      }
-      // fallback to first available
-      return Object.values(MOCK_TOUR_DETAILS)[0];
-    }
-
-    const data: TourPackageDetail = await response.json();
-
-    // Ensure reviews and seasons exist
-    if (!data.seasons || data.seasons.length === 0) {
-      if (MOCK_TOUR_DETAILS[slug]) {
-        return MOCK_TOUR_DETAILS[slug];
-      }
-    }
-
-    return data;
-  } catch (error) {
-    console.warn(`Error fetching tour detail ${slug}:`, error);
-    if (MOCK_TOUR_DETAILS[slug]) {
-      return MOCK_TOUR_DETAILS[slug];
-    }
-    return Object.values(MOCK_TOUR_DETAILS)[0];
-  }
-}
-
-/**
- * Submit Tour Enquiry to API or mock
- */
-export async function submitEnquiryApi(enquiry: EnquiryData): Promise<{ success: boolean; enquiryId: string; message: string }> {
-  const enquiryId = `COB-ENQ-${Math.floor(100000 + Math.random() * 900000)}`;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const response = await fetch(`${BASE_API}/api/v1/enquiries`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        ...enquiry,
-        enquiry_id: enquiryId,
-      }),
-    });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const res = await response.json();
-      return {
-        success: true,
-        enquiryId: res?.id || enquiryId,
-        message: 'Enquiry submitted successfully! Our representative will contact you shortly.',
-      };
-    }
-  } catch (e) {
-    // API endpoint might not be deployed yet, mock successful submission
-  }
-
-  // Graceful fallback for mock submission
-  return {
-    success: true,
-    enquiryId,
-    message: 'Your enquiry has been received by Coochbehar Travel team. We will call you within 2-4 hours!',
-  };
-}
-
-/**
- * Open WhatsApp with pre-formatted inquiry text
- */
-export function openWhatsAppChat(text: string, phone: string = OFFICIAL_WHATSAPP) {
-  const encoded = encodeURIComponent(text);
-  const url = `whatsapp://send?phone=${phone}&text=${encoded}`;
-  const webUrl = `https://wa.me/${phone}?text=${encoded}`;
-
-  Linking.canOpenURL(url)
-    .then(supported => {
-      if (supported) {
-        return Linking.openURL(url);
-      } else {
-        return Linking.openURL(webUrl);
-      }
-    })
-    .catch(() => {
-      Linking.openURL(webUrl);
-    });
-}
+export async function getVisitorId() { let id=await AsyncStorage.getItem(VISITOR_ID_KEY); if(!id){id=`${Date.now()}-${Math.random().toString(36).slice(2,12)}`; await AsyncStorage.setItem(VISITOR_ID_KEY,id);} return id; }
+export async function getAccessToken(){return AsyncStorage.getItem(ACCESS_TOKEN_KEY);}
+export async function saveTokens(access?:string, refresh?:string){if(access)await AsyncStorage.setItem(ACCESS_TOKEN_KEY,access);if(refresh)await AsyncStorage.setItem(REFRESH_TOKEN_KEY,refresh);}
+export async function clearTokens(){await Promise.all([AsyncStorage.removeItem(ACCESS_TOKEN_KEY),AsyncStorage.removeItem(REFRESH_TOKEN_KEY)]);}
+async function request<T>(path:string, init:RequestInit={}, auth=false):Promise<T>{const token=auth?await getAccessToken():null;const res=await fetch(`${BASE_API}${path}`,{...init,headers:{...headers,...(token?{Authorization:`Bearer ${token}`}:{}),...(init.headers||{})}});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body?.message||`Request failed (${res.status})`);return body as T;}
+function tokens(data:any){return {access:data?.access_token||data?.accessToken||data?.token||data?.data?.access_token,refresh:data?.refresh_token||data?.refreshToken||data?.data?.refresh_token};}
+export async function requestOtp(identifier:string,purpose='LOGIN'){return request<ApiEnvelope<unknown>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getVisitorId()})});}
+export async function verifyOtp(identifier:string,otp:string,name='',purpose='LOGIN'){const r=await request<any>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getVisitorId()})});const t=tokens(r);await saveTokens(t.access,t.refresh);return r;}
+export async function loginWithGoogle(idToken:string){const r=await request<any>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getVisitorId()})});const t=tokens(r);await saveTokens(t.access,t.refresh);return r;}
+export async function refreshSession(){const refresh=await AsyncStorage.getItem(REFRESH_TOKEN_KEY);if(!refresh)return false;try{const r=await request<any>('/api/v1/sessions/refresh',{method:'POST',body:JSON.stringify({refresh_token:refresh})});const t=tokens(r);await saveTokens(t.access,t.refresh);return Boolean(t.access);}catch{return false;}}
+export async function logout(all=false){try{await request(`/api/v1/sessions/${all?'logout-all':'logout'}`,{method:'POST'},true);}finally{await clearTokens();}}
+export async function fetchMe(){return request<ApiEnvelope<AuthUser>>('/api/v1/auth/me',{},true);}
+export async function updateMe(payload:Partial<AuthUser>){return request<ApiEnvelope<AuthUser>>('/api/v1/auth/me',{method:'PATCH',body:JSON.stringify(payload)},true);}
+export async function fetchSessions(){return request<ApiEnvelope<any[]>>('/api/v1/sessions/',{},true);}
+export async function deleteSession(id:string){return request(`/api/v1/sessions/${encodeURIComponent(id)}`,{method:'DELETE'},true);}
+const VISITOR_SERVER_ID_KEY='@cobtravels/visitor_server_id';
+const VISITOR_SESSION_ID_KEY='@cobtravels/visitor_session_id';
+const FINGERPRINT_KEY='@cobtravels/fingerprint';
+async function getFingerprint(){let value=await AsyncStorage.getItem(FINGERPRINT_KEY);if(!value){value=`mobile-${Date.now()}-${Math.random().toString(36).slice(2,14)}`;await AsyncStorage.setItem(FINGERPRINT_KEY,value);}return value;}
+async function getTrackedVisitorId(){return AsyncStorage.getItem(VISITOR_SERVER_ID_KEY);}
+export async function identifyVisitor(customerId=''){try{const payload:any={fingerprint:await getFingerprint(),ip_address:'',country:'',state:'',city:'',browser:'',os:Platform.OS,device:'mobile'};if(customerId)payload.customer_id=customerId;const r=await request<ApiEnvelope<any>>('/api/v1/visitors/identify',{method:'POST',body:JSON.stringify(payload)});const id=r.data?.visitor?.id;if(id)await AsyncStorage.setItem(VISITOR_SERVER_ID_KEY,id);return id||await getTrackedVisitorId();}catch{return getTrackedVisitorId();}}
+export async function startVisitorSession(landingPage='splash'){const visitor=await getTrackedVisitorId();if(!visitor)return null;try{const r=await request<ApiEnvelope<any>>('/api/v1/visitors/sessions/start',{method:'POST',body:JSON.stringify({visitor_id:visitor,landing_page:landingPage,referrer:'',utm_source:'',utm_medium:'',utm_campaign:'',utm_term:''})});const id=r.data?.id;if(id)await AsyncStorage.setItem(VISITOR_SESSION_ID_KEY,id);return id||null;}catch{return null;}}
+export async function heartbeatVisitorSession(currentPage='home',pageViewsDelta=0){const id=await AsyncStorage.getItem(VISITOR_SESSION_ID_KEY);if(!id)return null;try{const r=await request<ApiEnvelope<any>>(`/api/v1/visitors/sessions/${encodeURIComponent(id)}/heartbeat`,{method:'POST',body:JSON.stringify({current_page:currentPage,page_views_delta:pageViewsDelta})});return r.data||null;}catch{return null;}}
+export async function endVisitorSession(exitPage=''){const id=await AsyncStorage.getItem(VISITOR_SESSION_ID_KEY);if(!id)return null;await AsyncStorage.removeItem(VISITOR_SESSION_ID_KEY);try{const r=await request<ApiEnvelope<any>>(`/api/v1/visitors/sessions/${encodeURIComponent(id)}/end`,{method:'POST',body:JSON.stringify({exit_page:exitPage})});return r.data||null;}catch{return null;}}
+export async function trackVisitorEvent(eventName:string,page='home',eventMetadata:Record<string,any>={}){const visitor=await getTrackedVisitorId();const session=await AsyncStorage.getItem(VISITOR_SESSION_ID_KEY);if(!visitor||!session)return null;try{const r=await request<ApiEnvelope<any>>('/api/v1/visitors/events',{method:'POST',body:JSON.stringify({visitor_id:visitor,session_id:session,event_name:eventName,page,event_metadata:eventMetadata})});return r.data||null;}catch{return null;}}
+export async function trackVisitorEventsBatch(events:any[]){if(!events.length)return null;try{const r=await request<ApiEnvelope<any>>('/api/v1/visitors/events/batch',{method:'POST',body:JSON.stringify({events})});return r.data||null;}catch{return null;}}
+function variant(v:any,i=0):SeasonVariant{return {id:v.id||`variant-${i}`,key:v.slug||`variant-${i}`,display_order:i,variant_code:v.slug||'',name:v.name||'',badge:v.badge,season_type:'',season_name:v.season_name||'',cover_image:v.banner?.image||v.cover_image||'',banner_video:v.banner?.video||'',valid_from:v.valid_from||'',valid_to:v.valid_to||'',duration:`${v.duration_nights??0}N | ${v.duration_days??0}D`,duration_days:Number(v.duration_days||0),duration_nights:Number(v.duration_nights||0),price:Number(v.price||0),currency:'INR',starting_price:Number(v.price||0),seats:Number(v.seats||0),availability:v.availability||'SOLD_OUT',is_active:true,is_default:i===0,route:(v.route||[]).map((x:any)=>({id:String(x.id||''),place:x.city||x.place||'',nights:Number(x.nights||0)} as any)),highlights:v.highlights||[],dates:(v.departure_dates||v.dates||[]).map((x:any)=>({id:String(x.id||''),date:x.date||''})),gallery:(v.gallery||[]).map((x:any)=>({id:String(x.id||''),photoId:x.url||'',url:x.url,alt:x.alt,type:x.type,display_order:x.display_order})),itinerary:(v.itinerary||[]).map((x:any)=>({id:String(x.id||''),day:String(x.day||''),title:x.title,description:x.description||''})),inclusions:v.inclusions||[],exclusions:v.exclusions||[]};}
+function summary(x:any):TourPackageSummary{return {...x,starting_price:Number(x.starting_price??x.price??0),duration_days:Number(x.duration_days??0),duration_nights:Number(x.duration_nights??0),duration:x.duration||'',cover_image:x.cover_image||x.banner?.image||'',banner_video:x.banner?.video||'',season_name:x.season_name||'',is_featured:Boolean(x.is_featured||x.featured||x.badge),is_active:x.is_active!==false};}
+export async function fetchTourPackages(){const r=await request<ApiEnvelope<any[]>>('/api/v1/tour-packages');return (Array.isArray(r.data)?r.data:[]).map(summary);}
+export async function fetchTourDetail(slug:string):Promise<TourPackageDetail>{const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);if(!r.data)throw new Error('Tour package was not found');const d=r.data;return {...d,is_featured:Boolean(d.is_featured),is_active:d.is_active!==false,seasons:[d.default_variant,...(d.other_variants||[])].filter(Boolean).map(variant),reviews:(d.reviews||[]).map((review:any)=>({...review,is_verified:true,review_gallery:(review.review_gallery||[]).map((item:any)=>({id:item.id,url:item.url,alt:item.alt,type:item.type,photoId:item.url}))}))};}
+export async function fetchTourVariant(slug:string,variantSlug:string){const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`);if(!r.data?.variant)throw new Error('Tour variant was not found');return {variant:variant(r.data.variant),other_variants:r.data.other_variants||[]};}
+export async function submitEnquiryApi(_enquiry:EnquiryData):Promise<{success:boolean;enquiryId:string;message:string}>{throw new Error('The enquiry endpoint was not included in the supplied backend contract.');}
+export function openWhatsAppChat(text:string,phone=OFFICIAL_WHATSAPP){const encoded=encodeURIComponent(text);const app=`whatsapp://send?phone=${phone}&text=${encoded}`;Linking.canOpenURL(app).then(ok=>Linking.openURL(ok?app:`https://wa.me/${phone}?text=${encoded}`)).catch(()=>Linking.openURL(`https://wa.me/${phone}?text=${encoded}`));}
