@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Linking, Platform} from 'react-native';
 import {EnquiryData, SeasonVariant, TourPackageDetail, TourPackageSummary} from '../types';
+import {showApiRequest} from '../utils/toast';
 
 export const BASE_API = 'https://coochbehar-travels.onrender.com';
 export const OFFICIAL_WHATSAPP = '919832000000';
@@ -9,21 +10,24 @@ const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
 const VISITOR_ID_KEY = '@cobtravels/visitor_id';
 export type ApiEnvelope<T> = {success?: boolean; message?: string; data?: T};
 export interface AuthUser {name:string; mobile:string; email:string; address:string; emergency_contact_name:string; emergency_contact_mobile:string; profile_pic:string; source:string; is_imported:boolean; id:string; customer_code:string; created_at:string; updated_at:string;}
+export interface OtpRequestData {identifier:string; identifier_type:string; expires_in_sec:number;}
+export interface AuthTokenData {access_token:string; token_type:string; expires_in:number;}
 const headers = {'Accept':'application/json','Content-Type':'application/json'};
 
 export async function getVisitorId() { let id=await AsyncStorage.getItem(VISITOR_ID_KEY); if(!id){id=`${Date.now()}-${Math.random().toString(36).slice(2,12)}`; await AsyncStorage.setItem(VISITOR_ID_KEY,id);} return id; }
 export async function getAccessToken(){return AsyncStorage.getItem(ACCESS_TOKEN_KEY);}
 export async function saveTokens(access?:string, refresh?:string){if(access)await AsyncStorage.setItem(ACCESS_TOKEN_KEY,access);if(refresh)await AsyncStorage.setItem(REFRESH_TOKEN_KEY,refresh);}
 export async function clearTokens(){await Promise.all([AsyncStorage.removeItem(ACCESS_TOKEN_KEY),AsyncStorage.removeItem(REFRESH_TOKEN_KEY)]);}
-async function request<T>(path:string, init:RequestInit={}, auth=false):Promise<T>{const token=auth?await getAccessToken():null;const res=await fetch(`${BASE_API}${path}`,{...init,headers:{...headers,...(token?{Authorization:`Bearer ${token}`}:{}),...(init.headers||{})}});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body?.message||`Request failed (${res.status})`);return body as T;}
+async function request<T>(path:string, init:RequestInit={}, auth=false):Promise<T>{const token=auth?await getAccessToken():null;const url=`${BASE_API}${path}`;showApiRequest(init.method||"GET",url,init.body);const res=await fetch(url,{...init,headers:{...headers,...(token?{Authorization:`Bearer ${token}`}:{}),...(init.headers||{})}});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body?.message||`Request failed (${res.status})`);return body as T;}
 function tokens(data:any){return {access:data?.access_token||data?.accessToken||data?.token||data?.data?.access_token,refresh:data?.refresh_token||data?.refreshToken||data?.data?.refresh_token};}
 async function authenticated<T>(path:string, init:RequestInit={}):Promise<T>{
   try { return await request<T>(path,init,true); }
   catch (error) { if (await refreshSession()) return request<T>(path,init,true); throw error; }
 }
-export async function requestOtp(identifier:string,purpose='LOGIN'){return request<ApiEnvelope<unknown>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getVisitorId()})});}
-export async function verifyOtp(identifier:string,otp:string,name='',purpose='LOGIN'){const r=await request<any>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getVisitorId()})});const t=tokens(r);await saveTokens(t.access,t.refresh);return r;}
-export async function loginWithGoogle(idToken:string){const r=await request<any>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getVisitorId()})});const t=tokens(r);await saveTokens(t.access,t.refresh);return r;}
+async function getAuthVisitorId(){return (await getTrackedVisitorId()) || (await identifyVisitor()) || '';}
+export async function requestOtp(identifier:string,purpose:'LOGIN'|'SIGNUP'='LOGIN'){return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getAuthVisitorId()})});}
+export async function verifyOtp(identifier:string,otp:string,name='',purpose:'LOGIN'|'SIGNUP'='LOGIN'){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getAuthVisitorId()})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
+export async function loginWithGoogle(idToken:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getAuthVisitorId()})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
 export async function refreshSession(){const refresh=await AsyncStorage.getItem(REFRESH_TOKEN_KEY);if(!refresh)return false;try{const r=await request<any>('/api/v1/sessions/refresh',{method:'POST',body:JSON.stringify({refresh_token:refresh})});const t=tokens(r);await saveTokens(t.access,t.refresh);return Boolean(t.access);}catch{return false;}}
 export async function logout(all=false){try{await request(`/api/v1/sessions/${all?'logout-all':'logout'}`,{method:'POST'},true);}finally{await clearTokens();}}
 export async function fetchMe(){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me');}

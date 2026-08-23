@@ -15,8 +15,18 @@ const ErrorToast = ({text1, text2}: {text1?: string; text2?: string}) => (
   </View>
 );
 
+const ApiToast = ({text1, text2}: {text1?: string; text2?: string}) => (
+  <View style={styles.apiContainer}>
+    <View style={styles.apiCopy}>
+      <Text style={styles.apiTitle} numberOfLines={2}>{text1 || 'API request'}</Text>
+      <Text style={styles.apiMessage} numberOfLines={4}>{text2 || '{}'}</Text>
+    </View>
+  </View>
+);
+
 export const toastConfig: ToastConfig = {
   error: props => <ErrorToast text1={props.text1} text2={props.text2} />,
+  api: props => <ApiToast text1={props.text1} text2={props.text2} />,
 };
 
 const styles = StyleSheet.create({
@@ -40,4 +50,8 @@ const styles = StyleSheet.create({
   copy: {flex: 1, marginLeft: 10},
   title: {color: '#172033', fontSize: 14, fontWeight: '800'},
   message: {color: '#64748B', fontSize: 12, lineHeight: 17, marginTop: 2},
+  apiContainer: {width: '94%', minHeight: 64, padding: 12, borderRadius: 14, backgroundColor: '#0F172A', borderLeftWidth: 4, borderLeftColor: '#38BDF8', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: {width: 0, height: 6}, elevation: 6},
+  apiCopy: {flex: 1},
+  apiTitle: {color: '#BAE6FD', fontSize: 11, fontWeight: '800'},
+  apiMessage: {color: '#E2E8F0', fontSize: 10, lineHeight: 14, marginTop: 4},
 });
