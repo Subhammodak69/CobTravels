@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
   Modal,
   ActivityIndicator,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { COLORS } from '../theme/theme';
 import { TourPackageSummary, EnquiryData, NavScreen } from '../types';
 import { submitEnquiryApi, openWhatsAppChat } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
+import { useAppDialog } from '../components/AppDialog';
 
 interface EnquiryScreenProps {
   tours: TourPackageSummary[];
@@ -33,6 +33,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   onNavigate,
   onEnquirySubmitted,
 }) => {
+  const {showDialog} = useAppDialog();
   const [selectedSlug, setSelectedSlug] = useState<string>(
     prefilledTour?.tourSlug || (tours.length > 0 ? tours[0].slug : '')
   );
@@ -68,11 +69,11 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
 
   const handleSubmit = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Required', 'Please enter your Full Name.');
+      await showDialog({title: 'Required', message: 'Please enter your Full Name.', variant: 'warning'});
       return;
     }
     if (!mobile.trim() || mobile.trim().length < 10) {
-      Alert.alert('Required', 'Please enter a valid 10-digit mobile number.');
+      await showDialog({title: 'Required', message: 'Please enter a valid 10-digit mobile number.', variant: 'warning'});
       return;
     }
 

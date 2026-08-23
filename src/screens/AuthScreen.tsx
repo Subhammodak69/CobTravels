@@ -1,14 +1,16 @@
 import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {COLORS} from '../theme/theme';
 import {NavScreen} from '../types';
 import {OtpRequestData, requestOtp, verifyOtp} from '../api/tourApi';
 import {showApiError} from '../utils/toast';
+import {useAppDialog} from '../components/AppDialog';
 
 type AuthMode = 'LOGIN' | 'SIGNUP';
 interface Props {onLoginSuccess: (identifier: string) => void; onSkip: () => void; onNavigate: (screen: NavScreen) => void;}
 
 export const AuthScreen: React.FC<Props> = ({onLoginSuccess, onSkip}) => {
+  const {showDialog} = useAppDialog();
   const [mode, setMode] = useState<AuthMode>('LOGIN');
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
@@ -28,18 +30,18 @@ export const AuthScreen: React.FC<Props> = ({onLoginSuccess, onSkip}) => {
     const value = identifier.trim();
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     const looksLikeMobile = value.replace(/\D/g, '').length >= 10;
-    if (!looksLikeEmail && !looksLikeMobile) { Alert.alert('Invalid identifier', 'Enter a valid mobile number or email address.'); return; }
-    if (mode === 'SIGNUP' && name.trim().length < 2) { Alert.alert('Name required', 'Enter your full name.'); return; }
+    if (!looksLikeEmail && !looksLikeMobile) { await showDialog({title: 'Invalid identifier', message: 'Enter a valid mobile number or email address.', variant: 'warning'}); return; }
+    if (mode === 'SIGNUP' && name.trim().length < 2) { await showDialog({title: 'Name required', message: 'Enter your full name.', variant: 'warning'}); return; }
     setLoading(true);
     try {
       const response = await requestOtp(value, mode);
       const otpData = response.data as OtpRequestData | undefined;
       setOtpSent(true); setOtp(''); setExpiresIn(otpData?.expires_in_sec ?? 300);
-      Alert.alert('OTP sent', response.message || 'Check your phone or email for the verification code.');
+      await showDialog({title: 'OTP sent', message: response.message || 'Check your phone or email for the verification code.', variant: 'success'});
     } catch (error) { showApiError(error, 'We could not send the OTP.'); } finally { setLoading(false); }
   };
   const verify = async () => {
-    if (otp.trim().length < 4) { Alert.alert('Incomplete OTP', 'Enter the verification code you received.'); return; }
+    if (otp.trim().length < 4) { await showDialog({title: 'Incomplete OTP', message: 'Enter the verification code you received.', variant: 'warning'}); return; }
     setLoading(true);
     try { await verifyOtp(identifier.trim(), otp.trim(), mode === 'SIGNUP' ? name.trim() : '', mode); onLoginSuccess(identifier.trim()); }
     catch (error) { showApiError(error, 'The OTP could not be verified.'); } finally { setLoading(false); }

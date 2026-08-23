@@ -7,10 +7,10 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { openWhatsAppChat } from '../api/tourApi';
+import { useAppDialog } from './AppDialog';
 
 interface CustomTourModalProps {
   visible: boolean;
@@ -23,6 +23,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   onClose,
   onSubmitSuccess,
 }) => {
+  const {showDialog} = useAppDialog();
   const [destination, setDestination] = useState('');
   const [duration, setDuration] = useState('7 Days');
   const [travellers, setTravellers] = useState('2 Adults');
@@ -32,14 +33,14 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   const [specialNote, setSpecialNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim() || !phone.trim() || !destination.trim()) {
-      Alert.alert('Required Fields', 'Please enter your Name, Phone Number, and Destination.');
+      await showDialog({title: 'Required fields', message: 'Please enter your Name, Phone Number, and Destination.', variant: 'warning'});
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsSubmitting(false);
       const enq = {
         fullName: name,
@@ -52,22 +53,9 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
         createdAt: new Date().toISOString(),
       };
       if (onSubmitSuccess) onSubmitSuccess(enq);
-      Alert.alert(
-        'Custom Plan Requested! 🌟',
-        `Thank you ${name}! Our holiday specialist will design a personalized itinerary for ${destination} and call you on ${phone}.`,
-        [
-          {
-            text: 'Send on WhatsApp',
-            onPress: () => {
-              openWhatsAppChat(
-                `Hello Coochbehar Travel, I would like a Custom Tour Package!\n- Destination: ${destination}\n- Duration: ${duration}\n- Travellers: ${travellers}\n- Budget: ${budget}\n- Name: ${name} (${phone})\n- Notes: ${specialNote || 'None'}`
-              );
-              onClose();
-            },
-          },
-          { text: 'Done', onPress: onClose },
-        ]
-      );
+      const sendWhatsApp = await showDialog({title: 'Custom plan requested! 🌟', message: `Thank you ${name}! Our holiday specialist will design a personalized itinerary for ${destination} and call you on ${phone}.`, variant: 'success', confirmText: 'Send on WhatsApp', cancelText: 'Done'});
+      if (sendWhatsApp) openWhatsAppChat(`Hello Coochbehar Travel, I would like a Custom Tour Package!\n- Destination: ${destination}\n- Duration: ${duration}\n- Travellers: ${travellers}\n- Budget: ${budget}\n- Name: ${name} (${phone})\n- Notes: ${specialNote || 'None'}`);
+      onClose();
     }, 600);
   };
 

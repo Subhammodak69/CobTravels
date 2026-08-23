@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   Image,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { EnquiryData, TourPackageSummary, NavScreen } from '../types';
 import { openWhatsAppChat } from '../api/tourApi';
 import { AuthUser } from '../api/tourApi';
+import { useAppDialog } from '../components/AppDialog';
 
 interface ProfileScreenProps {
   isLoggedIn: boolean;
@@ -38,6 +38,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onOpenCustomTour,
 }) => {
+  const {showDialog} = useAppDialog();
   const wishlistedItems = allTours.filter(t => savedTours.includes(t.slug));
 
   return (
@@ -230,12 +231,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <Pressable
           style={styles.menuRow}
-          onPress={() =>
-            Alert.alert(
-              'Brochures',
-              'You can download individual day-by-day itineraries from each tour details page!'
-            )
-          }
+          onPress={() => showDialog({title: 'Brochures', message: 'You can download individual day-by-day itineraries from each tour details page!', variant: 'info'})}
         >
           <Text style={styles.menuIcon}>📄</Text>
           <View style={styles.flexFill}>

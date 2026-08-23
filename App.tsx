@@ -29,6 +29,7 @@ import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
+import { AppDialogProvider } from './src/components/AppDialog';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
@@ -119,7 +120,20 @@ export default function App() {
       let token = await getAccessToken();
       if (!token) token = (await refreshSession()) ? await getAccessToken() : null;
       if (token) {
-        try { const result = await fetchMe(); const profile = result.data || null; customerId = profile?.id || ''; setUser(profile); setIsLoggedIn(Boolean(profile)); setUserPhone(profile?.mobile || ''); } catch { setIsLoggedIn(false); setUser(null); }
+        try {
+          const result = await fetchMe();
+          const profile = result.data || null;
+          customerId = profile?.id || '';
+          setUser(profile);
+          setIsLoggedIn(Boolean(profile));
+          setUserPhone(profile?.mobile || '');
+          if (profile && mounted) {
+            // A returning member should never be stopped at the guest splash screen.
+            screenHistory.current = ['home'];
+            currentScreenRef.current = 'home';
+            setCurrentScreen('home');
+          }
+        } catch { setIsLoggedIn(false); setUser(null); }
       }
       if (customerId) identifiedCustomerRef.current = customerId;
       await identifyVisitor(customerId);
@@ -329,6 +343,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <AppDialogProvider>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="light-content" />
 
@@ -375,6 +390,7 @@ export default function App() {
         />
       </SafeAreaView>
       <Toast config={toastConfig} />
+      </AppDialogProvider>
     </SafeAreaProvider>
   );
 }
