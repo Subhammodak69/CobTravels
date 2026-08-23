@@ -13,6 +13,7 @@ import { TourPackageDetail, SeasonVariant, NavScreen } from '../types';
 import { fetchTourDetail, fetchTourVariant, openWhatsAppChat } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
 import { MediaViewer, MediaSelection } from '../components/MediaViewer';
+import { showApiError } from '../utils/toast';
 
 interface TourDetailScreenProps {
   slug: string;
@@ -62,6 +63,8 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
         }
         setLoading(false);
       }
+    }).catch(error => {
+      if (mounted) showApiError(error, 'Could not load tour details.');
     });
 
     return () => {
@@ -80,7 +83,9 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
       try {
         const result = await fetchTourVariant(tour.slug, selected.key);
         setTour(current => current ? {...current, seasons: [current.seasons[0], result.variant, ...current.seasons.slice(2)]} : current);
-      } catch {}
+      } catch (error) {
+        showApiError(error, 'Could not load this package option.');
+      }
     }
     if (selected.dates?.length) {
       setSelectedDate(selected.dates[0].date);
@@ -415,7 +420,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
             </View>
           ))}
 
-          <Text style={[styles.subSectionTitle, { marginTop: 16 }]}>❌ Exclusions</Text>
+          <Text style={[styles.subSectionTitle, styles.exclusionsTitle]}>❌ Exclusions</Text>
           {activeSeason.exclusions?.map((exc, i) => (
             <View key={i} style={styles.checkItem}>
               <Text style={styles.redCross}>✕</Text>
@@ -463,7 +468,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           ))}
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Floating Bottom Booking Bar matching design */}
@@ -488,6 +493,12 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  exclusionsTitle: {
+    marginTop: 16,
+  },
+  bottomSpacer: {
+    height: 100,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

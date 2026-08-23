@@ -75,7 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </Pressable>
         ) : (
-          <View style={{ width: 38 }} />
+          <View style={styles.headerSpacer} />
         )}
       </View>
     </View>
@@ -83,6 +83,9 @@ export const Header: React.FC<HeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  headerSpacer: {
+    width: 38,
+  },
   headerContainer: {
     backgroundColor: COLORS.primaryDark,
     paddingHorizontal: 16,

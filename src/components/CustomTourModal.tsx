@@ -168,7 +168,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
             <Pressable
               onPress={handleSubmit}
               disabled={isSubmitting}
-              style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+              style={[styles.submitBtn, isSubmitting && styles.disabled]}
             >
               <Text style={styles.submitBtnText}>
                 {isSubmitting ? 'Submitting...' : 'Request Custom Itinerary  →'}
@@ -182,6 +182,9 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  disabled: {
+    opacity: 0.7,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',

@@ -13,6 +13,7 @@ import {
 import { COLORS } from '../theme/theme';
 import { TourPackageSummary, EnquiryData, NavScreen } from '../types';
 import { submitEnquiryApi, openWhatsAppChat } from '../api/tourApi';
+import { showApiError } from '../utils/toast';
 
 interface EnquiryScreenProps {
   tours: TourPackageSummary[];
@@ -102,7 +103,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         message: res.message,
       });
     } catch (error: any) {
-      Alert.alert('Online enquiry unavailable', error.message || 'Please contact us on WhatsApp.');
+      showApiError(error, 'Please contact us on WhatsApp if the problem continues.');
     } finally {
       setLoading(false);
     }
@@ -282,7 +283,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
 
           {/* Submit CTA */}
           <Pressable
-            style={[styles.submitBtn, loading && { opacity: 0.7 }]}
+            style={[styles.submitBtn, loading && styles.disabled]}
             onPress={handleSubmit}
             disabled={loading}
           >
@@ -306,7 +307,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           </Pressable>
         </View>
 
-        <View style={{ height: 24 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Submission Success Modal */}
@@ -353,6 +354,12 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  disabled: {
+    opacity: 0.7,
+  },
+  bottomSpacer: {
+    height: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

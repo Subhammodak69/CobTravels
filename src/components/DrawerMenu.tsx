@@ -193,7 +193,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
               }}
             >
               <Text style={styles.menuIcon}>💬</Text>
-              <View style={{ flex: 1 }}>
+              <View style={styles.flexFill}>
                 <Text style={styles.whatsappLabel}>WhatsApp Helpline</Text>
                 <Text style={styles.whatsappSub}>Instant response 24x7</Text>
               </View>
@@ -217,6 +217,9 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
 };
 
 const styles = StyleSheet.create({
+  flexFill: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',

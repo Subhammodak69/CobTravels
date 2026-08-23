@@ -357,12 +357,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </ScrollView>
       </View>
 
-      <View style={{ height: 24 }} />
+      <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  bottomSpacer: {
+    height: 24,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, BackHandler, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 import { COLORS } from './src/theme/theme';
 import {
@@ -9,7 +10,7 @@ import {
   NotificationItem,
   NavScreen,
 } from './src/types';
-import { fetchTourPackages, fetchMe, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent } from './src/api/tourApi';
+import { fetchTourPackages, fetchMe, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser } from './src/api/tourApi';
 
 // Components
 import { Header } from './src/components/Header';
@@ -26,6 +27,8 @@ import { EnquiryScreen } from './src/screens/EnquiryScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { toastConfig } from './src/components/AppToast';
+import { showApiError } from './src/utils/toast';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
@@ -87,6 +90,7 @@ export default function App() {
 
   // User state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [userPhone, setUserPhone] = useState('');
   const [savedTours, setSavedTours] = useState<string[]>([]);
   const [enquiries, setEnquiries] = useState<EnquiryData[]>([]);
@@ -101,7 +105,7 @@ export default function App() {
   const loadTours = useCallback(async () => {
     setLoadingTours(true);
     try { setTours(await fetchTourPackages()); }
-    catch { setTours([]); }
+    catch (error) { setTours([]); showApiError(error, 'We could not load the tours.'); }
     setLoadingTours(false);
   }, []);
 
@@ -115,7 +119,7 @@ export default function App() {
       let token = await getAccessToken();
       if (!token) token = (await refreshSession()) ? await getAccessToken() : null;
       if (token) {
-        try { const result = await fetchMe(); customerId = result.data?.id || ''; setIsLoggedIn(true); setUserPhone(result.data?.mobile || ''); } catch {}
+        try { const result = await fetchMe(); const profile = result.data || null; customerId = profile?.id || ''; setUser(profile); setIsLoggedIn(Boolean(profile)); setUserPhone(profile?.mobile || ''); } catch { setIsLoggedIn(false); setUser(null); }
       }
       if (customerId) identifiedCustomerRef.current = customerId;
       await identifyVisitor(customerId);
@@ -177,9 +181,10 @@ export default function App() {
     trackVisitorEvent('enquiry_submitted', 'enquiry', { tour_slug: enq.tourSlug, travel_date: enq.travelDate });
   };
 
-  const handleLoginSuccess = (phone: string) => {
+  const handleLoginSuccess = async (phone: string) => {
     setIsLoggedIn(true);
     setUserPhone(phone);
+    try { const result = await fetchMe(); setUser(result.data || null); } catch { setUser(null); }
     trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
     fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});
     navigateTo('home');
@@ -189,6 +194,14 @@ export default function App() {
     try { await logoutApi(); } catch {}
     setIsLoggedIn(false);
     setUserPhone('');
+    setUser(null);
+    if (currentScreenRef.current === 'profile' || currentScreenRef.current === 'notifications') navigateTo('home');
+  };
+
+  const protectedScreens: NavScreen[] = ['profile', 'notifications'];
+  const navigateWithAuth = (screen: NavScreen) => {
+    if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
+    navigateTo(screen);
   };
 
   const renderScreen = () => {
@@ -208,7 +221,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
             savedTours={savedTours}
@@ -223,7 +236,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             initialFilter={initialTourFilter}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
@@ -235,7 +248,7 @@ export default function App() {
           <TourDetailScreen
             slug={selectedTourSlug}
             onBack={goBack}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             onStartEnquiry={handleStartEnquiry}
             isSaved={savedTours.includes(selectedTourSlug)}
             onToggleSave={() => toggleSaveTour(selectedTourSlug)}
@@ -275,11 +288,12 @@ export default function App() {
         return (
           <ProfileScreen
             isLoggedIn={isLoggedIn}
+            user={user}
             userPhone={userPhone}
             enquiries={enquiries}
             savedTours={savedTours}
             allTours={tours}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             onSelectTour={handleSelectTour}
             onLogout={handleLogout}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
@@ -293,7 +307,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
             savedTours={savedTours}
@@ -324,7 +338,7 @@ export default function App() {
             showBack={currentScreen !== 'home'}
             onBack={goBack}
             onOpenMenu={() => setDrawerVisible(true)}
-            onOpenNotifications={() => navigateTo('notifications')}
+            onOpenNotifications={() => navigateWithAuth('notifications')}
             unreadCount={unreadCount}
           />
         )}
@@ -334,7 +348,7 @@ export default function App() {
         {showBottomNav && (
           <BottomNav
             currentScreen={currentScreen}
-            onNavigate={navigateTo}
+            onNavigate={navigateWithAuth}
             enquiryCount={enquiries.length}
           />
         )}
@@ -343,7 +357,7 @@ export default function App() {
         <DrawerMenu
           visible={drawerVisible}
           onClose={() => setDrawerVisible(false)}
-          onNavigate={navigateTo}
+          onNavigate={navigateWithAuth}
           onFilterTours={handleFilterTours}
           onOpenCustomTour={() => {
             setDrawerVisible(false);
@@ -360,6 +374,7 @@ export default function App() {
           onSubmitSuccess={handleEnquirySubmitted}
         />
       </SafeAreaView>
+      <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 }

@@ -11,10 +11,12 @@ import {
 import { COLORS } from '../theme/theme';
 import { EnquiryData, TourPackageSummary, NavScreen } from '../types';
 import { openWhatsAppChat } from '../api/tourApi';
+import { AuthUser } from '../api/tourApi';
 
 interface ProfileScreenProps {
   isLoggedIn: boolean;
   userPhone: string;
+  user: AuthUser | null;
   enquiries: EnquiryData[];
   savedTours: string[];
   allTours: TourPackageSummary[];
@@ -27,6 +29,7 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   isLoggedIn,
   userPhone,
+  user,
   enquiries,
   savedTours,
   allTours,
@@ -47,10 +50,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <View style={styles.headerInfo}>
           <Text style={styles.userName}>
-            {isLoggedIn ? `+91 ${userPhone}` : 'Guest Traveler'}
+            {isLoggedIn ? (user?.name || `+91 ${userPhone}`) : 'Guest Traveler'}
           </Text>
           <Text style={styles.userRole}>
-            {isLoggedIn ? 'Registered Member' : 'Viewing without login'}
+            {isLoggedIn ? (user?.email || user?.mobile || 'Registered Member') : 'Viewing without login'}
           </Text>
         </View>
 
@@ -67,6 +70,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </Pressable>
         )}
       </View>
+
+      {isLoggedIn && user && (
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>My Profile Details</Text>
+          <View style={styles.profileDetails}>
+            {[
+              ['Customer code', user.customer_code],
+              ['Mobile', user.mobile],
+              ['Email', user.email],
+              ['Address', user.address],
+              ['Emergency contact', user.emergency_contact_name],
+              ['Emergency mobile', user.emergency_contact_mobile],
+            ].filter(([, value]) => Boolean(value)).map(([label, value]) => (
+              <View style={styles.detailRow} key={label}>
+                <Text style={styles.detailLabel}>{label}</Text>
+                <Text style={styles.detailValue}>{value}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Quick Stats Grid */}
       <View style={styles.statsRow}>
@@ -150,7 +174,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               style={styles.savedTourItem}
               onPress={() => onSelectTour(item)}
             >
-              <View style={{ flex: 1 }}>
+              <View style={styles.flexFill}>
                 <Text style={styles.savedTourTitle}>{item.title}</Text>
                 <Text style={styles.savedTourSub}>
                   {item.duration} · From ₹{Number(item.starting_price).toLocaleString('en-IN')}
@@ -181,7 +205,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           onPress={onOpenCustomTour}
         >
           <Text style={styles.menuIcon}>🎨</Text>
-          <View style={{ flex: 1 }}>
+          <View style={styles.flexFill}>
             <Text style={styles.menuText}>Request Custom Tour Itinerary</Text>
             <Text style={styles.menuSub}>Tailored for families & corporate groups</Text>
           </View>
@@ -197,7 +221,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           }
         >
           <Text style={styles.menuIcon}>💬</Text>
-          <View style={{ flex: 1 }}>
+          <View style={styles.flexFill}>
             <Text style={styles.menuText}>Official WhatsApp Helpline</Text>
             <Text style={styles.menuSub}>Connect with our travel team 24x7</Text>
           </View>
@@ -214,7 +238,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           }
         >
           <Text style={styles.menuIcon}>📄</Text>
-          <View style={{ flex: 1 }}>
+          <View style={styles.flexFill}>
             <Text style={styles.menuText}>Tour PDF Brochures</Text>
             <Text style={styles.menuSub}>Detailed route and inclusions</Text>
           </View>
@@ -243,12 +267,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <Text style={styles.versionText}>Version 2.4.0 (Build 2026)</Text>
       </View>
 
-      <View style={{ height: 30 }} />
+      <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  flexFill: {
+    flex: 1,
+  },
+  bottomSpacer: {
+    height: 30,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -355,6 +385,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.text,
   },
+  profileDetails: { marginTop: 10 },
+  detailRow: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  detailLabel: { fontSize: 10, color: COLORS.textMuted, textTransform: 'uppercase', fontWeight: '800' },
+  detailValue: { marginTop: 3, fontSize: 14, color: COLORS.text, fontWeight: '600' },
   sectionBadge: {
     backgroundColor: COLORS.surface,
     paddingHorizontal: 8,
