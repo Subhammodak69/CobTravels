@@ -149,4 +149,10 @@ export type NavScreen =
   | 'enquiry'
   | 'auth'
   | 'notifications'
-  | 'profile';
+  | 'profile'
+  | 'profile_details'
+  | 'edit_profile'
+  | 'sessions'
+  | 'my_trips'
+  | 'my_enquiries'
+  | 'bills_invoices';

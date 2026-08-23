@@ -1,0 +1,15 @@
+import React, {useState} from 'react';
+import {ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {AuthUser, updateMe} from '../api/tourApi';
+import {COLORS} from '../theme/theme';
+import {NavScreen} from '../types';
+import {showApiError} from '../utils/toast';
+import {useAppDialog} from '../components/AppDialog';
+
+export const EditProfileScreen: React.FC<{user:AuthUser|null;onSaved:(user:AuthUser)=>void;onNavigate:(screen:NavScreen)=>void}> = ({user,onSaved}) => {
+  const {showDialog}=useAppDialog(); const [name,setName]=useState(user?.name||''); const [email,setEmail]=useState(user?.email||''); const [address,setAddress]=useState(user?.address||''); const [emergencyName,setEmergencyName]=useState(user?.emergency_contact_name||''); const [emergencyMobile,setEmergencyMobile]=useState(user?.emergency_contact_mobile||''); const [loading,setLoading]=useState(false);
+  const save=async()=>{if(!name.trim()){await showDialog({title:'Name required',message:'Please enter your full name.',variant:'warning'});return;}setLoading(true);try{const response=await updateMe({name:name.trim(),email:email.trim(),address:address.trim(),emergency_contact_name:emergencyName.trim(),emergency_contact_mobile:emergencyMobile.trim()});if(response.data){onSaved(response.data);await showDialog({title:'Profile updated',message:'Your profile details have been saved.',variant:'success'});}}catch(error){showApiError(error,'We could not update your profile.');}finally{setLoading(false);}};
+  const field=(label:string,value:string,setValue:(value:string)=>void,keyboardType:any='default')=><View><Text style={styles.label}>{label}</Text><TextInput style={styles.input} value={value} onChangeText={setValue} keyboardType={keyboardType} editable={!loading}/></View>;
+  return <ScrollView style={styles.container} contentContainerStyle={styles.content}><View style={styles.card}><Text style={styles.title}>Edit profile</Text>{field('Full name',name,setName)}{field('Email',email,setEmail,'email-address')}{field('Address',address,setAddress)}{field('Emergency contact name',emergencyName,setEmergencyName)}{field('Emergency mobile',emergencyMobile,setEmergencyMobile,'phone-pad')}<Pressable style={styles.button} onPress={save} disabled={loading}>{loading?<ActivityIndicator color="#fff"/>:<Text style={styles.buttonText}>Save changes</Text>}</Pressable></View></ScrollView>;
+};
+const styles=StyleSheet.create({container:{flex:1,backgroundColor:COLORS.bg},content:{padding:16},card:{backgroundColor:'#fff',borderRadius:15,borderWidth:1,borderColor:COLORS.border,padding:18},title:{fontSize:21,fontWeight:'900',color:COLORS.text,marginBottom:10},label:{fontSize:10,fontWeight:'800',color:COLORS.textMuted,textTransform:'uppercase',marginTop:12,marginBottom:6},input:{height:48,borderWidth:1,borderColor:COLORS.border,borderRadius:10,paddingHorizontal:12,color:COLORS.text},button:{height:50,backgroundColor:COLORS.primary,borderRadius:10,alignItems:'center',justifyContent:'center',marginTop:22},buttonText:{color:'#fff',fontWeight:'900'}});

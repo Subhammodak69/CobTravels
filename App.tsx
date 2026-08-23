@@ -27,6 +27,10 @@ import { EnquiryScreen } from './src/screens/EnquiryScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProfileDetailsScreen } from './src/screens/ProfileDetailsScreen';
+import { EditProfileScreen } from './src/screens/EditProfileScreen';
+import { SessionsScreen } from './src/screens/SessionsScreen';
+import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/ProfilePages';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { AppDialogProvider } from './src/components/AppDialog';
@@ -47,6 +51,12 @@ export default function App() {
       }
       return screen;
     });
+  }, []);
+
+  const finishSplash = React.useCallback(() => {
+    screenHistory.current = ['home'];
+    currentScreenRef.current = 'home';
+    setCurrentScreen('home');
   }, []);
 
   const goBack = React.useCallback(() => {
@@ -204,15 +214,15 @@ export default function App() {
     navigateTo('home');
   };
 
-  const handleLogout = async () => {
-    try { await logoutApi(); } catch {}
+  const handleLogout = async (all = false) => {
+    try { await logoutApi(all); } catch {}
     setIsLoggedIn(false);
     setUserPhone('');
     setUser(null);
     if (currentScreenRef.current === 'profile' || currentScreenRef.current === 'notifications') navigateTo('home');
   };
 
-  const protectedScreens: NavScreen[] = ['profile', 'notifications'];
+  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'notifications'];
   const navigateWithAuth = (screen: NavScreen) => {
     if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
     navigateTo(screen);
@@ -223,8 +233,7 @@ export default function App() {
       case 'splash':
         return (
           <SplashScreen
-            onGetStarted={() => navigateTo('home')}
-            onLogin={() => navigateTo('auth')}
+            onFinished={finishSplash}
           />
         );
 
@@ -235,7 +244,7 @@ export default function App() {
             loading={loadingTours}
             onRefresh={loadTours}
             onSelectTour={handleSelectTour}
-            onNavigate={navigateWithAuth}
+            onNavigate={navigateTo}
             onFilterType={handleFilterTours}
             onOpenCustomTour={() => setCustomTourModalVisible(true)}
             savedTours={savedTours}
@@ -305,14 +314,28 @@ export default function App() {
             user={user}
             userPhone={userPhone}
             enquiries={enquiries}
-            savedTours={savedTours}
-            allTours={tours}
-            onNavigate={navigateWithAuth}
-            onSelectTour={handleSelectTour}
+            onNavigate={navigateTo}
             onLogout={handleLogout}
-            onOpenCustomTour={() => setCustomTourModalVisible(true)}
           />
         );
+
+      case 'profile_details':
+        return <ProfileDetailsScreen user={user} onNavigate={navigateWithAuth} />;
+
+      case 'edit_profile':
+        return <EditProfileScreen user={user} onSaved={profile => { setUser(profile); setUserPhone(profile.mobile || ''); navigateTo('profile'); }} onNavigate={navigateWithAuth} />;
+
+      case 'sessions':
+        return <SessionsScreen onLogout={handleLogout} onNavigate={navigateWithAuth} />;
+
+      case 'my_trips':
+        return <MyTripsScreen />;
+
+      case 'my_enquiries':
+        return <MyEnquiriesScreen enquiries={enquiries} />;
+
+      case 'bills_invoices':
+        return <BillsInvoicesScreen />;
 
       default:
         return (

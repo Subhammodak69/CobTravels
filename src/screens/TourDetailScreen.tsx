@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Image,
   Pressable,
   Share,
+  RefreshControl,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 import { TourPackageDetail, SeasonVariant, NavScreen } from '../types';
@@ -47,30 +48,22 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   });
   const [selectedMedia, setSelectedMedia] = useState<MediaSelection | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadDetail = useCallback(async () => {
     setLoading(true);
-    fetchTourDetail(slug).then(data => {
-      if (mounted) {
-        setTour(data);
-        if (data.seasons && data.seasons.length > 0) {
-          const defaultIdx = data.seasons.findIndex(s => s.is_default);
-          const activeIdx = defaultIdx >= 0 ? defaultIdx : 0;
-          setSelectedSeasonIndex(activeIdx);
-          if (data.seasons[activeIdx].dates?.length > 0) {
-            setSelectedDate(data.seasons[activeIdx].dates[0].date);
-          }
-        }
-        setLoading(false);
+    try {
+      const data = await fetchTourDetail(slug);
+      setTour(data);
+      if (data.seasons && data.seasons.length > 0) {
+        const defaultIdx = data.seasons.findIndex(s => s.is_default);
+        const activeIdx = defaultIdx >= 0 ? defaultIdx : 0;
+        setSelectedSeasonIndex(activeIdx);
+        if (data.seasons[activeIdx].dates?.length > 0) setSelectedDate(data.seasons[activeIdx].dates[0].date);
       }
-    }).catch(error => {
-      if (mounted) showApiError(error, 'Could not load tour details.');
-    });
-
-    return () => {
-      mounted = false;
-    };
+    } catch (error) { showApiError(error, 'Could not load tour details.'); }
+    finally { setLoading(false); }
   }, [slug]);
+
+  useEffect(() => { loadDetail(); }, [loadDetail]);
 
   const activeSeason: SeasonVariant | undefined =
     tour?.seasons?.[selectedSeasonIndex] || tour?.seasons?.[0];
@@ -160,7 +153,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   return (
     <View style={styles.container}>
       <MediaViewer media={selectedMedia} onClose={() => setSelectedMedia(null)} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} refreshControl={<RefreshControl refreshing={loading} onRefresh={loadDetail} colors={[COLORS.primary]} />}>
         {/* Top Hero Image & Actions */}
         <View style={styles.heroWrapper}>
           <Image

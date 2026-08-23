@@ -7,17 +7,16 @@ import {
   Pressable,
   StatusBar,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
 
 interface SplashScreenProps {
-  onGetStarted: () => void;
-  onLogin: () => void;
+  onFinished: () => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
-  onGetStarted,
-  onLogin,
+  onFinished,
 }) => {
   const entrance = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -26,7 +25,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       duration: 900,
       useNativeDriver: true,
     }).start();
-  }, [entrance]);
+    const timer = setTimeout(onFinished, 3500);
+    return () => clearTimeout(timer);
+  }, [entrance, onFinished]);
 
   return (
     <View style={styles.background}>
@@ -80,10 +81,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </View>
         </View>
 
-        {/* Action Buttons */}
+        <View style={styles.loadingArea}>
+          <ActivityIndicator size="small" color={COLORS.gold} />
+          <Text style={styles.loadingText}>Loading your journey…</Text>
+        </View>
+        {/* Action Buttons remain intentionally hidden on the automatic splash screen. */}
         <View style={styles.actions}>
           <Pressable
-            onPress={onGetStarted}
+            onPress={() => {}}
             style={({ pressed }) => [
               styles.primaryBtn,
               pressed && styles.btnPressed,
@@ -93,7 +98,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </Pressable>
 
           <Pressable
-            onPress={onLogin}
+            onPress={() => {}}
             style={({ pressed }) => [
               styles.secondaryBtn,
               pressed && styles.btnPressed,
@@ -206,6 +211,17 @@ const styles = StyleSheet.create({
   },
   actions: {
     width: '100%',
+    display: 'none',
+  },
+  loadingArea: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  loadingText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 10,
   },
   primaryBtn: {
     backgroundColor: COLORS.gold,

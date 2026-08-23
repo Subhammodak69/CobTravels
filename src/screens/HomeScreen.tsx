@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   Image,
   Pressable,
-  TextInput,
   RefreshControl,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
@@ -38,16 +37,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   savedTours,
   onToggleSave,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-
   const featuredTours = tours.filter(t => t.is_featured);
   const domesticTours = tours.filter(t => t.type === 'DOMESTIC');
   const internationalTours = tours.filter(t => t.type === 'INTERNATIONAL');
-
-  const handleSearchSubmit = () => {
-    onFilterType('ALL');
-    onNavigate('tours');
-  };
 
   return (
     <ScrollView
@@ -55,7 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}
     >
-      {/* Hero Banner with Search */}
+      {/* Hero Banner */}
       <View style={styles.heroSection}>
         <Image
           source={tours[0]?.cover_image ? { uri: tours[0].cover_image } : undefined}
@@ -77,27 +69,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             Curated group & private tours across India and the world, crafted with care.
           </Text>
 
-          {/* Quick Search Bar */}
-          <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search Kashmir, Japan, Thailand..."
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleSearchSubmit}
-            />
-            <Pressable
-              style={styles.searchBtn}
-              onPress={() => {
-                onFilterType('ALL');
-                onNavigate('tours');
-              }}
-            >
-              <Text style={styles.searchBtnText}>Search</Text>
-            </Pressable>
-          </View>
         </View>
       </View>
 
@@ -420,41 +391,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 16,
     lineHeight: 18,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingLeft: 12,
-    paddingRight: 6,
-    paddingVertical: 5,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  searchIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  searchInput: {
-    flex: 1,
-    height: 38,
-    color: COLORS.text,
-    fontSize: 13,
-    padding: 0,
-  },
-  searchBtn: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  searchBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   categoriesContainer: {
     paddingVertical: 18,
