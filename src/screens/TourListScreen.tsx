@@ -22,6 +22,7 @@ interface TourListScreenProps {
   initialFilter?: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED';
   savedTours: string[];
   onToggleSave: (slug: string) => void;
+  onEnquireTour?: (tour: TourPackageSummary) => void;
 }
 
 export const TourListScreen: React.FC<TourListScreenProps> = ({
@@ -33,6 +34,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
   initialFilter = 'ALL',
   savedTours,
   onToggleSave,
+  onEnquireTour,
 }) => {
   const [filterType, setFilterType] = useState<'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,10 +178,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
             tour={item}
             layout={layoutMode}
             onPress={() => onSelectTour(item)}
-            onEnquire={() => {
-              onSelectTour(item);
-              onNavigate('enquiry');
-            }}
+            onEnquire={onEnquireTour ? () => onEnquireTour(item) : () => { onSelectTour(item); onNavigate('enquiry'); }}
             isSaved={savedTours.includes(item.slug)}
             onToggleSave={() => onToggleSave(item.slug)}
           />

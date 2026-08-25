@@ -16,7 +16,7 @@ import { fetchTourPackages, fetchMe, getAccessToken, refreshSession, logout as l
 import { Header } from './src/components/Header';
 import { BottomNav } from './src/components/BottomNav';
 import { DrawerMenu } from './src/components/DrawerMenu';
-import { CustomTourModal } from './src/components/CustomTourModal';
+import { EnquiryModal } from './src/components/EnquiryModal';
 
 // Screens
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -110,7 +110,10 @@ export default function App() {
 
   // Modals & Drawers
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [customTourModalVisible, setCustomTourModalVisible] = useState(false);
+  const [enquiryModalVisible, setEnquiryModalVisible] = useState(false);
+  const [enquiryModalTour, setEnquiryModalTour] = useState<import('./src/types').TourPackageSummary | null>(null);
+  const [enquiryModalPackageId, setEnquiryModalPackageId] = useState('');
+  const [enquiryModalVariantId, setEnquiryModalVariantId] = useState('');
 
   // Load tour packages from API
   const loadTours = useCallback(async () => {
@@ -195,9 +198,21 @@ export default function App() {
     variantName: string;
     travelDate: string;
   }) => {
-    setPrefilledEnquiry(details);
+    // Find the tour summary to pass to the modal
+    const matchedTour = tours.find(t => t.slug === details.tourSlug) || null;
+    setEnquiryModalTour(matchedTour);
+    setEnquiryModalPackageId(details.tourSlug);
+    setEnquiryModalVariantId(details.variantName);
+    setEnquiryModalVisible(true);
     trackVisitorEvent('enquiry_started', currentScreenRef.current, details);
-    navigateTo('enquiry');
+  };
+
+  const handleOpenEnquiryForTour = (tour: import('./src/types').TourPackageSummary) => {
+    setEnquiryModalTour(tour);
+    setEnquiryModalPackageId(tour.id);
+    setEnquiryModalVariantId('');
+    setEnquiryModalVisible(true);
+    trackVisitorEvent('enquiry_started', currentScreenRef.current, { tour_slug: tour.slug, tour_title: tour.title });
   };
 
   const handleEnquirySubmitted = (enq: EnquiryData) => {
@@ -246,7 +261,8 @@ export default function App() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateTo}
             onFilterType={handleFilterTours}
-            onOpenCustomTour={() => setCustomTourModalVisible(true)}
+            onOpenCustomTour={() => navigateTo('enquiry')}
+            onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
           />
@@ -263,6 +279,7 @@ export default function App() {
             initialFilter={initialTourFilter}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
+            onEnquireTour={handleOpenEnquiryForTour}
           />
         );
 
@@ -281,8 +298,6 @@ export default function App() {
       case 'enquiry':
         return (
           <EnquiryScreen
-            tours={tours}
-            prefilledTour={prefilledEnquiry}
             onNavigate={navigateTo}
             onEnquirySubmitted={handleEnquirySubmitted}
           />
@@ -346,7 +361,8 @@ export default function App() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
-            onOpenCustomTour={() => setCustomTourModalVisible(true)}
+            onOpenCustomTour={() => navigateTo('enquiry')}
+            onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
           />
@@ -399,17 +415,19 @@ export default function App() {
           onFilterTours={handleFilterTours}
           onOpenCustomTour={() => {
             setDrawerVisible(false);
-            setCustomTourModalVisible(true);
+            navigateTo('enquiry');
           }}
           isLoggedIn={isLoggedIn}
           userPhone={userPhone}
         />
 
-        {/* Custom Tour Planner Modal */}
-        <CustomTourModal
-          visible={customTourModalVisible}
-          onClose={() => setCustomTourModalVisible(false)}
-          onSubmitSuccess={handleEnquirySubmitted}
+        {/* Fixed Tour Enquiry Modal */}
+        <EnquiryModal
+          visible={enquiryModalVisible}
+          onClose={() => { setEnquiryModalVisible(false); setEnquiryModalTour(null); }}
+          tour={enquiryModalTour}
+          packageId={enquiryModalPackageId}
+          variantId={enquiryModalVariantId}
         />
       </SafeAreaView>
       <Toast config={toastConfig} />

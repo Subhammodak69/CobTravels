@@ -8,12 +8,14 @@ interface BottomNavProps {
   currentScreen: NavScreen;
   onNavigate: (screen: NavScreen) => void;
   enquiryCount?: number;
+  onEnquiryTab?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentScreen,
   onNavigate,
   enquiryCount = 0,
+  onEnquiryTab,
 }) => {
   const tabs: {
     key: NavScreen;
@@ -60,7 +62,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         return (
           <Pressable
             key={tab.key}
-            onPress={() => onNavigate(tab.key)}
+            onPress={() => {
+              if (tab.key === 'enquiry' && onEnquiryTab) {
+                onEnquiryTab();
+              } else {
+                onNavigate(tab.key);
+              }
+            }}
             style={styles.tabItem}
           >
             <View style={[styles.iconWrapper, isActive && styles.activeIconWrapper]}>

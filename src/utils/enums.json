@@ -1,0 +1,68 @@
+{
+  "LeadStatus": {
+    "NEW": "NEW",
+    "CONTACTED": "CONTACTED",
+    "FOLLOW_UP": "FOLLOW_UP",
+    "QUALIFIED": "QUALIFIED",
+    "CONVERTED": "CONVERTED",
+    "LOST": "LOST"
+  },
+  "EnquiryType": {
+    "FIXED_TOUR": "FIXED_TOUR",
+    "CUSTOM_TOUR": "CUSTOM_TOUR",
+    "ROOM_REQUEST": "ROOM_REQUEST",
+    "VEHICLE_REQUEST": "VEHICLE_REQUEST"
+  },
+  "EnquiryChannel": {
+    "WEBSITE": "WEBSITE",
+    "WHATSAPP": "WHATSAPP",
+    "PHONE": "PHONE",
+    "EMAIL": "EMAIL",
+    "OFFLINE": "OFFLINE",
+    "ADMIN": "ADMIN"
+  },
+  "EnquiryStatus": {
+    "NEW": "NEW",
+    "IN_PROGRESS": "IN_PROGRESS",
+    "QUOTED": "QUOTED",
+    "CONVERTED": "CONVERTED",
+    "CANCELLED": "CANCELLED",
+    "CLOSED": "CLOSED"
+  },
+  "LeadSource": {
+    "WEBSITE": "WEBSITE",
+    "WHATSAPP": "WHATSAPP",
+    "PHONE": "PHONE",
+    "EMAIL": "EMAIL",
+    "OFFLINE": "OFFLINE",
+    "IMPORT": "IMPORT",
+    "REFERRAL": "REFERRAL",
+    "OTHER": "OTHER"
+  },
+  "ReviewStatus": {
+    "PENDING": "PENDING",
+    "APPROVED": "APPROVED",
+    "REJECTED": "REJECTED"
+  },
+  "TourType": {
+    "DOMESTIC": "DOMESTIC",
+    "INTERNATIONAL": "INTERNATIONAL"
+  },
+  "MealPlan": {
+    "NONE": "NONE",
+    "CP": "CP",
+    "MAP": "MAP",
+    "AP": "AP"
+  },
+  "VehicleType": {
+    "FOUR_SEATER": "4-seater",
+    "SIX_SEATER": "6-seater",
+    "TEMPO": "Tempo"
+  },
+  "CustomerTourStatus": {
+    "PLANNED": "PLANNED",
+    "CONFIRMED": "CONFIRMED",
+    "CANCELLED": "CANCELLED",
+    "COMPLETED": "COMPLETED"
+  }
+}

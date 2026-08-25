@@ -8,6 +8,14 @@ const ACCESS_TOKEN_KEY = '@cobtravels/access_token';
 const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
 const VISITOR_ID_KEY = '@cobtravels/visitor_id';
 export type ApiEnvelope<T> = {success?: boolean; message?: string; data?: T};
+export interface UploadedFileData {
+  url: string;
+  public_id: string;
+  folder: string;
+  resource_type: string;
+  format: string;
+  bytes: number;
+}
 export interface AuthUser {name:string; mobile:string; email:string; address:string; emergency_contact_name:string; emergency_contact_mobile:string; profile_pic:string; source:string; is_imported:boolean; id:string; customer_code:string; created_at:string; updated_at:string;}
 export interface OtpRequestData {identifier:string; identifier_type:string; expires_in_sec:number;}
 export interface AuthTokenData {access_token:string; token_type:string; expires_in:number;}
@@ -51,4 +59,56 @@ export async function fetchTourPackages(){const r=await request<ApiEnvelope<any[
 export async function fetchTourDetail(slug:string):Promise<TourPackageDetail>{const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);if(!r.data)throw new Error('Tour package was not found');const d=r.data;return {...d,is_featured:Boolean(d.is_featured),is_active:d.is_active!==false,seasons:[d.default_variant,...(d.other_variants||[])].filter(Boolean).map(variant),reviews:(d.reviews||[]).map((review:any)=>({...review,is_verified:true,review_gallery:(review.review_gallery||[]).map((item:any)=>({id:item.id,url:item.url,alt:item.alt,type:item.type,photoId:item.url}))}))};}
 export async function fetchTourVariant(slug:string,variantSlug:string){const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`);if(!r.data?.variant)throw new Error('Tour variant was not found');return {variant:variant(r.data.variant),other_variants:r.data.other_variants||[]};}
 export async function submitEnquiryApi(_enquiry:EnquiryData):Promise<{success:boolean;enquiryId:string;message:string}>{throw new Error('The enquiry endpoint was not included in the supplied backend contract.');}
+export async function uploadFileApi(
+  file: { uri: string; name?: string; type?: string } | FormData | any
+): Promise<ApiEnvelope<UploadedFileData>> {
+  const token = await getAccessToken();
+  let body: any;
+
+  if (file instanceof FormData) {
+    body = file;
+  } else if (file && typeof file === 'object' && file.uri) {
+    const formData = new FormData();
+    const uri = file.uri;
+    const filename = file.name || uri.split('/').pop() || 'upload_file';
+    let mimeType = file.type;
+    if (!mimeType) {
+      const ext = filename.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+      else if (ext === 'png') mimeType = 'image/png';
+      else if (ext === 'gif') mimeType = 'image/gif';
+      else if (ext === 'webp') mimeType = 'image/webp';
+      else if (ext === 'mp4') mimeType = 'video/mp4';
+      else if (ext === 'pdf') mimeType = 'application/pdf';
+      else if (ext === 'doc') mimeType = 'application/msword';
+      else if (ext === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else mimeType = 'application/octet-stream';
+    }
+    formData.append('file', {
+      uri,
+      name: filename,
+      type: mimeType,
+    } as any);
+    body = formData;
+  } else {
+    body = file;
+  }
+
+  const res = await fetch(`${BASE_API}/api/v1/public/files/upload`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body,
+  });
+
+  const resBody = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(resBody?.message || `File upload failed (${res.status})`);
+  }
+  return resBody as ApiEnvelope<UploadedFileData>;
+}
+
 export function openWhatsAppChat(text:string,phone=OFFICIAL_WHATSAPP){const encoded=encodeURIComponent(text);const app=`whatsapp://send?phone=${phone}&text=${encoded}`;Linking.canOpenURL(app).then(ok=>Linking.openURL(ok?app:`https://wa.me/${phone}?text=${encoded}`)).catch(()=>Linking.openURL(`https://wa.me/${phone}?text=${encoded}`));}
+

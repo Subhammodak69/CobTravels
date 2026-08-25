@@ -7,10 +7,14 @@ import {
   TextInput,
   Pressable,
   ScrollView,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { COLORS } from '../theme/theme';
-import { openWhatsAppChat } from '../api/tourApi';
 import { useAppDialog } from './AppDialog';
+import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
+import enums from '../utils/enums.json';
 
 interface CustomTourModalProps {
   visible: boolean;
@@ -18,64 +22,231 @@ interface CustomTourModalProps {
   onSubmitSuccess?: (enquiry: any) => void;
 }
 
+async function submitCustomEnquiry(payload: Record<string, any>): Promise<{ success: boolean; message: string }> {
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_API}/api/v1/enquiries/custom`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.message || `Request failed (${res.status})`);
+  return body;
+}
+
+// Helper to render horizontal chip selectors
+type ChipOption = { label: string; value: string };
+
+function ChipSelector({
+  options,
+  value,
+  onChange,
+}: {
+  options: ChipOption[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+      {options.map(opt => (
+        <Pressable
+          key={opt.value}
+          onPress={() => onChange(opt.value)}
+          style={[styles.chip, value === opt.value && styles.chipActive]}
+        >
+          <Text style={[styles.chipText, value === opt.value && styles.chipTextActive]}>
+            {opt.label}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
+// Build chip options from enums
+const vehicleOptions: ChipOption[] = Object.entries(enums.VehicleType).map(([, v]) => ({
+  label: v as string,
+  value: v as string,
+}));
+const mealOptions: ChipOption[] = Object.entries(enums.MealPlan).map(([, v]) => ({
+  label: v as string,
+  value: v as string,
+}));
+const enquiryTypeOptions: ChipOption[] = Object.entries(enums.EnquiryType)
+  .filter(([, v]) => {
+    const val = String(v).toUpperCase().replace(/[\s_-]+/g, '');
+    return val !== 'FIXEDTOUR';
+  })
+  .map(([, v]) => ({
+    label: (v as string).replace(/_/g, ' '),
+    value: v as string,
+  }));
+
 export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   visible,
   onClose,
   onSubmitSuccess,
 }) => {
-  const {showDialog} = useAppDialog();
-  const [destination, setDestination] = useState('');
-  const [duration, setDuration] = useState('7 Days');
-  const [travellers, setTravellers] = useState('2 Adults');
-  const [budget, setBudget] = useState('₹30,000 - ₹50,000 / person');
+  const { showDialog } = useAppDialog();
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [specialNote, setSpecialNote] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [destination, setDestination] = useState('');
+  const [travelDate, setTravelDate] = useState('');
+  const [travelDuration, setTravelDuration] = useState('');
+  const [paxNo, setPaxNo] = useState('2');
+  const [noRoom, setNoRoom] = useState('1');
+  const [vehicleType, setVehicleType] = useState('');
+  const [mealPlan, setMealPlan] = useState('');
+  const [specialRequirements, setSpecialRequirements] = useState('');
+  const [enquiryType, setEnquiryType] = useState('CUSTOM_TOUR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const resetForm = () => {
+    setName('');
+    setMobile('');
+    setDestination('');
+    setTravelDate('');
+    setTravelDuration('');
+    setPaxNo('2');
+    setNoRoom('1');
+    setVehicleType('');
+    setMealPlan('');
+    setSpecialRequirements('');
+    setEnquiryType('CUSTOM_TOUR');
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   const handleSubmit = async () => {
-    if (!name.trim() || !phone.trim() || !destination.trim()) {
-      await showDialog({title: 'Required fields', message: 'Please enter your Name, Phone Number, and Destination.', variant: 'warning'});
+    if (!name.trim() || !mobile.trim() || !destination.trim()) {
+      await showDialog({
+        title: 'Required Fields Missing',
+        message: 'Please fill in your Name, Mobile Number, and Destination.',
+        variant: 'warning',
+      });
+      return;
+    }
+    if (mobile.trim().length < 10) {
+      await showDialog({ title: 'Invalid Mobile', message: 'Enter a valid 10-digit mobile number.', variant: 'warning' });
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(async () => {
+    try {
+      const visitor_id = await getVisitorId();
+      const result = await submitCustomEnquiry({
+        name: name.trim(),
+        mobile: mobile.trim(),
+        destination: destination.trim(),
+        travel_date: travelDate.trim(),
+        travel_duration: travelDuration.trim(),
+        pax_no: Number(paxNo) || 2,
+        no_room: Number(noRoom) || 1,
+        vehicle_type: vehicleType || undefined,
+        meal_plan: mealPlan || undefined,
+        special_requirements: specialRequirements.trim() || undefined,
+        enquiry_type: enquiryType,
+        channel: 'WEBSITE',
+        visitor_id,
+      });
+      if (onSubmitSuccess) onSubmitSuccess(result);
+      await showDialog({
+        title: 'Custom Plan Requested! 🌟',
+        message: `Thank you ${name}! Our holiday specialist will design a personalized itinerary for ${destination} and call you on ${mobile} within 24 hours.`,
+        variant: 'success',
+        confirmText: 'Awesome!',
+      });
+      handleClose();
+    } catch (error: any) {
+      await showDialog({
+        title: 'Could not submit',
+        message: error?.message || 'Please try again.',
+        variant: 'error',
+      });
+    } finally {
       setIsSubmitting(false);
-      const enq = {
-        fullName: name,
-        mobile: phone,
-        destination,
-        duration,
-        travellers,
-        budget,
-        message: `Custom Tour Request for ${destination}. ${specialNote}`,
-        createdAt: new Date().toISOString(),
-      };
-      if (onSubmitSuccess) onSubmitSuccess(enq);
-      const sendWhatsApp = await showDialog({title: 'Custom plan requested! 🌟', message: `Thank you ${name}! Our holiday specialist will design a personalized itinerary for ${destination} and call you on ${phone}.`, variant: 'success', confirmText: 'Send on WhatsApp', cancelText: 'Done'});
-      if (sendWhatsApp) openWhatsAppChat(`Hello Coochbehar Travel, I would like a Custom Tour Package!\n- Destination: ${destination}\n- Duration: ${duration}\n- Travellers: ${travellers}\n- Budget: ${budget}\n- Name: ${name} (${phone})\n- Notes: ${specialNote || 'None'}`);
-      onClose();
-    }, 600);
+    }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.headerTitle}>Craft Your Custom Tour</Text>
-              <Text style={styles.headerSubtitle}>
-                Tell us your dream holiday, we handle the rest
-              </Text>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoid}
+      >
+        <Pressable style={styles.backdrop} onPress={handleClose} />
+        <View style={styles.sheet}>
+          {/* Handle */}
+          <View style={styles.handleBar} />
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerIcon}>
+                <Text style={styles.headerIconText}>🎨</Text>
+              </View>
+              <View>
+                <Text style={styles.headerTitle}>Craft Your Custom Tour</Text>
+                <Text style={styles.headerSub}>Tell us your dream holiday, we handle the rest</Text>
+              </View>
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable onPress={handleClose} style={styles.closeBtn} hitSlop={8}>
               <Text style={styles.closeBtnText}>✕</Text>
             </Pressable>
           </View>
 
-          <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.formScroll}
+            contentContainerStyle={styles.formContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Enquiry Type */}
+            <Text style={styles.label}>ENQUIRY TYPE</Text>
+            <ChipSelector
+              options={enquiryTypeOptions}
+              value={enquiryType}
+              onChange={setEnquiryType}
+            />
+
+            {/* Name */}
+            <Text style={styles.label}>YOUR FULL NAME *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Rahul Sen"
+              placeholderTextColor={COLORS.textMuted}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+
+            {/* Mobile */}
+            <Text style={styles.label}>MOBILE NUMBER *</Text>
+            <View style={styles.inputRow}>
+              <View style={styles.dialCodeBox}>
+                <Text style={styles.dialCodeText}>🇮🇳 +91</Text>
+              </View>
+              <TextInput
+                style={[styles.input, styles.mobileInput]}
+                placeholder="10-digit number"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="phone-pad"
+                value={mobile}
+                onChangeText={setMobile}
+                maxLength={10}
+              />
+            </View>
+
+            {/* Destination */}
             <Text style={styles.label}>WHERE DO YOU WANT TO GO? *</Text>
             <TextInput
               style={styles.input}
@@ -85,164 +256,249 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               onChangeText={setDestination}
             />
 
+            {/* Travel Date & Duration row */}
             <View style={styles.row}>
+              <View style={styles.col}>
+                <Text style={styles.label}>TRAVEL DATE</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Dec 2025"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={travelDate}
+                  onChangeText={setTravelDate}
+                />
+              </View>
               <View style={styles.col}>
                 <Text style={styles.label}>DURATION</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="e.g. 7 Days"
                   placeholderTextColor={COLORS.textMuted}
-                  value={duration}
-                  onChangeText={setDuration}
+                  value={travelDuration}
+                  onChangeText={setTravelDuration}
+                />
+              </View>
+            </View>
+
+            {/* Pax & Rooms row */}
+            <View style={styles.row}>
+              <View style={styles.col}>
+                <Text style={styles.label}>NO. OF TRAVELLERS</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 4"
+                  placeholderTextColor={COLORS.textMuted}
+                  keyboardType="numeric"
+                  value={paxNo}
+                  onChangeText={setPaxNo}
                 />
               </View>
               <View style={styles.col}>
-                <Text style={styles.label}>TRAVELLERS</Text>
+                <Text style={styles.label}>NO. OF ROOMS</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. 2 Adults, 1 Child"
+                  placeholder="e.g. 2"
                   placeholderTextColor={COLORS.textMuted}
-                  value={travellers}
-                  onChangeText={setTravellers}
+                  keyboardType="numeric"
+                  value={noRoom}
+                  onChangeText={setNoRoom}
                 />
               </View>
             </View>
 
-            <Text style={styles.label}>BUDGET PREFERENCE</Text>
-            <View style={styles.budgetRow}>
-              {['Standard (Budget)', 'Deluxe (Comfort)', 'Luxury 5-Star'].map(b => (
-                <Pressable
-                  key={b}
-                  onPress={() => setBudget(b)}
-                  style={[styles.budgetChip, budget === b && styles.budgetChipActive]}
-                >
-                  <Text style={[styles.budgetChipText, budget === b && styles.budgetChipTextActive]}>
-                    {b}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.label}>YOUR FULL NAME *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Rahul Sen"
-              placeholderTextColor={COLORS.textMuted}
-              value={name}
-              onChangeText={setName}
+            {/* Vehicle Type */}
+            <Text style={styles.label}>VEHICLE TYPE</Text>
+            <ChipSelector
+              options={[{ label: 'Any', value: '' }, ...vehicleOptions]}
+              value={vehicleType}
+              onChange={setVehicleType}
             />
 
-            <Text style={styles.label}>MOBILE NUMBER *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="10-digit mobile number"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
+            {/* Meal Plan */}
+            <Text style={styles.label}>MEAL PLAN</Text>
+            <ChipSelector
+              options={[{ label: 'Any', value: '' }, ...mealOptions]}
+              value={mealPlan}
+              onChange={setMealPlan}
             />
 
-            <Text style={styles.label}>SPECIAL PREFERENCES (OPTIONAL)</Text>
+            {/* Special Requirements */}
+            <Text style={styles.label}>SPECIAL REQUIREMENTS (OPTIONAL)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="e.g. Candlelight dinner, pure veg food, flight inclusive, private cab..."
+              placeholder="e.g. Honeymoon package, pure veg food, flight inclusive, wheelchair accessible..."
               placeholderTextColor={COLORS.textMuted}
               multiline
               numberOfLines={3}
-              value={specialNote}
-              onChangeText={setSpecialNote}
+              textAlignVertical="top"
+              value={specialRequirements}
+              onChangeText={setSpecialRequirements}
             />
 
+            {/* Trust note */}
+            <View style={styles.trustNote}>
+              <Text style={styles.trustIcon}>✨</Text>
+              <Text style={styles.trustText}>
+                Our holiday specialists will create a completely personalized itinerary for you within 24 hours.
+              </Text>
+            </View>
+
+            {/* Submit Button */}
             <Pressable
               onPress={handleSubmit}
               disabled={isSubmitting}
-              style={[styles.submitBtn, isSubmitting && styles.disabled]}
+              style={({ pressed }) => [
+                styles.submitBtn,
+                isSubmitting && styles.submitBtnDisabled,
+                pressed && !isSubmitting && styles.submitBtnPressed,
+              ]}
             >
-              <Text style={styles.submitBtnText}>
-                {isSubmitting ? 'Submitting...' : 'Request Custom Itinerary  →'}
-              </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.submitBtnText}>Request Custom Itinerary</Text>
+                  <Text style={styles.submitBtnArrow}>→</Text>
+                </>
+              )}
             </Pressable>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  disabled: {
-    opacity: 0.7,
-  },
-  overlay: {
+  keyboardAvoid: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 24,
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
-  modalHeader: {
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    elevation: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+  },
+  handleBar: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  headerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIconText: {
+    fontSize: 20,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: COLORS.text,
   },
-  headerSubtitle: {
-    fontSize: 12,
+  headerSub: {
+    fontSize: 11,
     color: COLORS.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E2E8F0',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.text,
+    color: COLORS.textSecondary,
   },
   formScroll: {
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+  formContent: {
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: COLORS.textSecondary,
     letterSpacing: 0.8,
     marginBottom: 6,
-    marginTop: 10,
+    marginTop: 14,
   },
   input: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 14,
     color: COLORS.text,
   },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dialCodeBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialCodeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  mobileInput: {
+    flex: 1,
+  },
   textArea: {
-    minHeight: 70,
+    minHeight: 80,
     textAlignVertical: 'top',
+    paddingTop: 12,
   },
   row: {
     flexDirection: 'row',
@@ -251,44 +507,86 @@ const styles = StyleSheet.create({
   col: {
     flex: 1,
   },
-  budgetRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  chipRow: {
     gap: 8,
-    marginBottom: 6,
+    paddingVertical: 4,
+    paddingRight: 4,
   },
-  budgetChip: {
+  chip: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 10,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
   },
-  budgetChipActive: {
+  chipActive: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primarySubtle,
   },
-  budgetChipText: {
-    fontSize: 11,
+  chipText: {
+    fontSize: 12,
     color: COLORS.textSecondary,
     fontWeight: '600',
   },
-  budgetChipTextActive: {
+  chipTextActive: {
     color: COLORS.primary,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  trustNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 4,
+    backgroundColor: COLORS.goldLight,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  trustIcon: {
+    fontSize: 13,
+    marginTop: 1,
+  },
+  trustText: {
+    fontSize: 11,
+    color: COLORS.goldDark,
+    lineHeight: 16,
+    flex: 1,
+    fontWeight: '600',
   },
   submitBtn: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 15,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 18,
+    elevation: 3,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  submitBtnDisabled: {
+    opacity: 0.65,
+  },
+  submitBtnPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
   submitBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  submitBtnArrow: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '800',
   },
 });

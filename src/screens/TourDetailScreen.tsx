@@ -127,7 +127,6 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
       variantName: activeSeason.name,
       travelDate: selectedDate || (activeSeason.dates?.[0]?.date ?? ''),
     });
-    onNavigate('enquiry');
   };
 
   if (loading) {

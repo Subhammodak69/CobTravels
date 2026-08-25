@@ -13,7 +13,6 @@ export const ProfileScreen: React.FC<Props> = ({isLoggedIn, userPhone, user, enq
   const displayName = user?.name || user?.mobile || `+91 ${userPhone}`;
   return <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <View style={styles.header}><View style={styles.avatar}><Text style={styles.avatarText}>👤</Text></View><View style={styles.headerCopy}><Text style={styles.name}>{displayName}</Text><Text style={styles.sub}>{user?.email || user?.mobile || 'Registered member'}</Text></View></View>
-    <View style={styles.brandCard}><Image source={require('../assets/logo.jpg')} style={styles.logo} /><View><Text style={styles.brand}>COOCHBEHAR TRAVELS</Text><Text style={styles.brandSub}>Manage your account</Text></View></View>
     <Text style={styles.sectionTitle}>Account</Text>
     <ProfileRow icon="👤" title="Profile details" subtitle="View your personal and emergency contact details" onPress={() => onNavigate('profile_details')} />
     <ProfileRow icon="✎" title="Edit profile" subtitle="Update your name, contact and address" onPress={() => onNavigate('edit_profile')} />

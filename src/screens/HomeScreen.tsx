@@ -22,6 +22,7 @@ interface HomeScreenProps {
   onNavigate: (screen: NavScreen) => void;
   onFilterType: (type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED') => void;
   onOpenCustomTour: () => void;
+  onEnquireTour?: (tour: TourPackageSummary) => void;
   savedTours: string[];
   onToggleSave: (slug: string) => void;
 }
@@ -34,6 +35,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigate,
   onFilterType,
   onOpenCustomTour,
+  onEnquireTour,
   savedTours,
   onToggleSave,
 }) => {
@@ -161,10 +163,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             key={tour.id}
             tour={tour}
             onPress={() => onSelectTour(tour)}
-            onEnquire={() => {
-              onSelectTour(tour);
-              onNavigate('enquiry');
-            }}
+            onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}
             isSaved={savedTours.includes(tour.slug)}
             onToggleSave={() => onToggleSave(tour.slug)}
           />
@@ -223,10 +222,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             key={tour.id}
             tour={tour}
             onPress={() => onSelectTour(tour)}
-            onEnquire={() => {
-              onSelectTour(tour);
-              onNavigate('enquiry');
-            }}
+            onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}
             isSaved={savedTours.includes(tour.slug)}
             onToggleSave={() => onToggleSave(tour.slug)}
           />
@@ -255,10 +251,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             key={tour.id}
             tour={tour}
             onPress={() => onSelectTour(tour)}
-            onEnquire={() => {
-              onSelectTour(tour);
-              onNavigate('enquiry');
-            }}
+            onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}
             isSaved={savedTours.includes(tour.slug)}
             onToggleSave={() => onToggleSave(tour.slug)}
           />
