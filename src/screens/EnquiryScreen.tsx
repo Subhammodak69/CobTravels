@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { COLORS, useColors } from '../theme/theme';
+import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
 import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
 import enums from '../utils/enums.json';
@@ -46,10 +46,12 @@ function ChipSelector({
   options,
   value,
   onChange,
+  styles,
 }: {
   options: ChipOption[];
   value: string;
   onChange: (v: string) => void;
+  styles: any;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -92,8 +94,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   onEnquirySubmitted,
   user: initialUser,
 }) => {
-  const COLORS = useColors();
-  const styles = makeStyles(COLORS);
+  const { colors: COLORS, isDark } = useTheme();
+  const styles = makeStyles(COLORS, isDark);
   const { showDialog } = useAppDialog();
   const [name, setName] = useState(initialUser?.name || '');
   const [mobile, setMobile] = useState(initialUser?.mobile || '');
@@ -141,8 +143,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     }
     if (mobile.trim().length < 10) {
       await showDialog({
-        title: 'Invalid Mobile',
-        message: 'Enter a valid 10-digit mobile number.',
+        title: 'Invalid Mobile Number',
+        message: 'Please enter a valid 10-digit mobile number.',
         variant: 'warning',
       });
       return;
@@ -151,9 +153,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     setIsSubmitting(true);
     try {
       const visitor_id = await getVisitorId();
-      const customer_id = initialUser?.id || '';
-
-      const payload = {
+      const payload: Record<string, any> = {
         name: name.trim(),
         mobile: mobile.trim(),
         destination: destination.trim(),
@@ -163,31 +163,27 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         no_room: Number(noRoom) || 2,
         vehicle_type: vehicleType || 'ANY',
         meal_plan: mealPlan || 'ANY',
-        special_requirements: specialRequirements.trim(),
-        enquiry_type: enquiryType || 'CUSTOM_TOUR',
+        special_requirements: specialRequirements.trim() || undefined,
+        enquiry_type: enquiryType,
         channel: 'APP',
-        visitor_id: visitor_id || '',
-        customer_id: customer_id || '',
+        visitor_id,
+        customer_id: initialUser?.id || undefined,
       };
 
       const result = await submitCustomEnquiry(payload);
-
       if (onEnquirySubmitted) onEnquirySubmitted(result);
 
       await showDialog({
-        title: 'Custom Plan Requested! 🌟',
+        title: 'Enquiry Received! 🌟',
         message: `Thank you ${name}! Our holiday specialist will design a personalized itinerary for ${destination} and contact you on ${mobile} within 24 hours.`,
         variant: 'success',
         confirmText: 'Great!',
       });
       resetForm();
-      if (onNavigate) {
-        onNavigate('home');
-      }
     } catch (error: any) {
       await showDialog({
-        title: 'Could not submit',
-        message: error?.message || 'Please try again.',
+        title: 'Submission Failed',
+        message: error?.message || 'We could not submit your enquiry. Please check your connection and try again.',
         variant: 'error',
       });
     } finally {
@@ -206,7 +202,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Top Header Card */}
+        {/* Header summary card */}
         <View style={styles.headerCard}>
           <View style={styles.headerIconContainer}>
             <Text style={styles.headerIcon}>🎨</Text>
@@ -225,9 +221,10 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           options={enquiryTypeOptions}
           value={enquiryType}
           onChange={setEnquiryType}
+          styles={styles}
         />
 
-        {/* Name */}
+        {/* Full Name */}
         <Text style={styles.label}>YOUR FULL NAME *</Text>
         <TextInput
           style={styles.input}
@@ -238,7 +235,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           autoCapitalize="words"
         />
 
-        {/* Mobile */}
+        {/* Mobile Number */}
         <Text style={styles.label}>MOBILE NUMBER *</Text>
         <View style={styles.inputRow}>
           <View style={styles.dialCodeBox}>
@@ -265,7 +262,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           onChangeText={setDestination}
         />
 
-        {/* Travel Date & Duration row */}
+        {/* Travel Date & Duration */}
         <View style={styles.row}>
           <View style={styles.col}>
             <Text style={styles.label}>TRAVEL DATE</Text>
@@ -289,7 +286,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           </View>
         </View>
 
-        {/* Pax & Rooms row */}
+        {/* Pax & Room count */}
         <View style={styles.row}>
           <View style={styles.col}>
             <Text style={styles.label}>NO. OF TRAVELLERS (PAX)</Text>
@@ -315,27 +312,29 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           </View>
         </View>
 
-        {/* Vehicle Type */}
+        {/* Preferred Vehicle */}
         <Text style={styles.label}>VEHICLE TYPE</Text>
         <ChipSelector
-          options={[{ label: 'Any / Not Sure', value: '' }, ...vehicleOptions]}
+          options={[{ label: 'Any / Not Sure', value: 'ANY' }, ...vehicleOptions]}
           value={vehicleType}
           onChange={setVehicleType}
+          styles={styles}
         />
 
         {/* Meal Plan */}
         <Text style={styles.label}>MEAL PLAN</Text>
         <ChipSelector
-          options={[{ label: 'Any / None', value: '' }, ...mealOptions]}
+          options={[{ label: 'Any Plan', value: 'ANY' }, ...mealOptions]}
           value={mealPlan}
           onChange={setMealPlan}
+          styles={styles}
         />
 
         {/* Special Requirements */}
         <Text style={styles.label}>SPECIAL REQUIREMENTS (OPTIONAL)</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="e.g. Honeymoon inclusions, pure veg food, flight inclusive, private cab only, wheelchair..."
+          placeholder="e.g. Honeymoon setup, pure veg meals, senior citizen friendly, airport transfers..."
           placeholderTextColor={COLORS.textMuted}
           multiline
           numberOfLines={4}
@@ -344,15 +343,15 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           onChangeText={setSpecialRequirements}
         />
 
-        {/* Trust note */}
+        {/* Trust Note */}
         <View style={styles.trustNote}>
           <Text style={styles.trustIcon}>✨</Text>
           <Text style={styles.trustText}>
-            Our holiday specialists will create a completely personalized itinerary for you within 24 hours.
+            Our experienced travel experts will reach out to you within 24 hours with a tailored itinerary and transparent quotation.
           </Text>
         </View>
 
-        {/* Submit Button */}
+        {/* Submit button */}
         <Pressable
           onPress={handleSubmit}
           disabled={isSubmitting}
@@ -366,7 +365,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <>
-              <Text style={styles.submitBtnText}>Request Custom Itinerary</Text>
+              <Text style={styles.submitBtnText}>Submit Custom Enquiry</Text>
               <Text style={styles.submitBtnArrow}>→</Text>
             </>
           )}
@@ -378,196 +377,195 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   );
 };
 
-const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  headerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  headerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  headerIcon: {
-    fontSize: 24,
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  pageTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: COLORS.text,
-  },
-  pageSubtitle: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: COLORS.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-    marginTop: 14,
-  },
-  input: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dialCodeBox: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dialCodeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  mobileInput: {
-    flex: 1,
-  },
-  textArea: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  col: {
-    flex: 1,
-  },
-  chipRow: {
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 4,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.card,
-  },
-  chipActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primarySubtle,
-  },
-  chipText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: COLORS.primary,
-    fontWeight: '800',
-  },
-  trustNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 18,
-    marginBottom: 4,
-    backgroundColor: COLORS.goldLight,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  trustIcon: {
-    fontSize: 14,
-    marginTop: 1,
-  },
-  trustText: {
-    fontSize: 11,
-    color: COLORS.goldDark,
-    lineHeight: 16,
-    flex: 1,
-    fontWeight: '600',
-  },
-  submitBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 20,
-    elevation: 3,
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  submitBtnDisabled: {
-    opacity: 0.65,
-  },
-  submitBtnPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  submitBtnArrow: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  bottomSpacer: {
-    height: 30,
-  },
-});
-
-const styles = makeStyles(COLORS);
+const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boolean) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.bg,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 40,
+    },
+    headerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: COLORS.card,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOpacity: isDark ? 0.2 : 0.05,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+    },
+    headerIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: isDark ? '#0F3B32' : '#DCFCE7',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 14,
+    },
+    headerIcon: {
+      fontSize: 24,
+    },
+    headerTextContainer: {
+      flex: 1,
+    },
+    pageTitle: {
+      fontSize: 18,
+      fontWeight: '900',
+      color: COLORS.text,
+    },
+    pageSubtitle: {
+      fontSize: 12,
+      color: COLORS.textSecondary,
+      marginTop: 2,
+      lineHeight: 16,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: COLORS.textSecondary,
+      letterSpacing: 0.8,
+      marginBottom: 6,
+      marginTop: 14,
+    },
+    input: {
+      backgroundColor: isDark ? COLORS.card : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 14,
+      color: COLORS.text,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    dialCodeBox: {
+      backgroundColor: isDark ? COLORS.card : COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dialCodeText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: COLORS.text,
+    },
+    mobileInput: {
+      flex: 1,
+    },
+    textArea: {
+      minHeight: 90,
+      textAlignVertical: 'top',
+      paddingTop: 12,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    col: {
+      flex: 1,
+    },
+    chipRow: {
+      gap: 8,
+      paddingVertical: 4,
+      paddingRight: 4,
+    },
+    chip: {
+      borderWidth: 1,
+      borderColor: isDark ? COLORS.border : '#CBD5E1',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: isDark ? COLORS.surface : '#F8FAFC',
+    },
+    chipActive: {
+      borderColor: isDark ? COLORS.primary : COLORS.primary,
+      backgroundColor: isDark ? COLORS.primary : COLORS.primary,
+    },
+    chipText: {
+      fontSize: 12,
+      color: isDark ? COLORS.textSecondary : '#334155',
+      fontWeight: '600',
+    },
+    chipTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+    },
+    trustNote: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 18,
+      marginBottom: 4,
+      backgroundColor: COLORS.goldLight,
+      borderRadius: 10,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(245, 158, 11, 0.3)' : '#FDE68A',
+    },
+    trustIcon: {
+      fontSize: 14,
+      marginTop: 1,
+    },
+    trustText: {
+      fontSize: 11,
+      color: COLORS.goldDark,
+      lineHeight: 16,
+      flex: 1,
+      fontWeight: '600',
+    },
+    submitBtn: {
+      backgroundColor: isDark ? COLORS.gold : COLORS.primary,
+      borderRadius: 12,
+      paddingVertical: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 20,
+      elevation: 3,
+      shadowColor: isDark ? COLORS.gold : COLORS.primary,
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    submitBtnDisabled: {
+      opacity: 0.65,
+    },
+    submitBtnPressed: {
+      opacity: 0.88,
+      transform: [{ scale: 0.98 }],
+    },
+    submitBtnText: {
+      color: isDark ? COLORS.primaryDark : '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    submitBtnArrow: {
+      color: isDark ? COLORS.primaryDark : '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    bottomSpacer: {
+      height: 30,
+    },
+  });
