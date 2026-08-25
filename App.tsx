@@ -3,14 +3,14 @@ import { AppState, BackHandler, StatusBar, StyleSheet, View } from 'react-native
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import { COLORS } from './src/theme/theme';
+import { COLORS, ThemeProvider, useColors, useAppColorScheme } from './src/theme/theme';
 import {
   TourPackageSummary,
   EnquiryData,
   NotificationItem,
   NavScreen,
 } from './src/types';
-import { fetchTourPackages, fetchMe, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser } from './src/api/tourApi';
+import { fetchTourPackages, fetchMe, fetchEnquiries, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord } from './src/api/tourApi';
 
 // Components
 import { Header } from './src/components/Header';
@@ -35,7 +35,9 @@ import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { AppDialogProvider } from './src/components/AppDialog';
 
-export default function App() {
+function AppInner() {
+  const appColors = useColors();
+  const colorScheme = useAppColorScheme();
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
   const screenHistory = React.useRef<NavScreen[]>(['splash']);
   const currentScreenRef = React.useRef<NavScreen>('splash');
@@ -105,6 +107,31 @@ export default function App() {
   const [userPhone, setUserPhone] = useState('');
   const [savedTours, setSavedTours] = useState<string[]>([]);
   const [enquiries, setEnquiries] = useState<EnquiryData[]>([]);
+  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+
+  const loadEnquiries = useCallback(async () => {
+    if (!(await getAccessToken())) { setEnquiries([]); return; }
+    setLoadingEnquiries(true);
+    try {
+      const records = await fetchEnquiries();
+      setEnquiries(records.map((item: EnquiryRecord) => ({
+        ...item,
+        id: item.id,
+        tourTitle: item.subject || item.destination || 'Travel enquiry',
+        destination: item.destination,
+        fullName: item.enquirer_name || '',
+        mobile: item.enquirer_phone || '',
+        travelDate: item.travel_date || '',
+        adults: Number(item.pax_no || 0),
+        children: 0,
+        message: item.message || item.special_requirements || '',
+        status: item.status as EnquiryData['status'],
+        createdAt: item.created_at,
+      })));
+    } catch (error) {
+      showApiError(error, 'We could not load your enquiries.');
+    } finally { setLoadingEnquiries(false); }
+  }, []);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
@@ -147,13 +174,14 @@ export default function App() {
             setCurrentScreen('home');
           }
         } catch { setIsLoggedIn(false); setUser(null); }
+        await loadEnquiries();
       }
       if (customerId) identifiedCustomerRef.current = customerId;
       await identifyVisitor(customerId);
       if (mounted) setVisitorReady(true);
     })();
     return () => { mounted = false; };
-  }, [loadTours]);
+  }, [loadTours, loadEnquiries]);
 
   // Wishlist toggle
   const toggleSaveTour = (slug: string) => {
@@ -201,7 +229,8 @@ export default function App() {
     // Find the tour summary to pass to the modal
     const matchedTour = tours.find(t => t.slug === details.tourSlug) || null;
     setEnquiryModalTour(matchedTour);
-    setEnquiryModalPackageId(details.tourSlug);
+    // Pass actual UUID (matchedTour.id) so the modal can send it; also keep slug available via tour.slug for /select/{slug}
+    setEnquiryModalPackageId(matchedTour?.id || details.tourSlug);
     setEnquiryModalVariantId(details.variantName);
     setEnquiryModalVisible(true);
     trackVisitorEvent('enquiry_started', currentScreenRef.current, details);
@@ -223,6 +252,7 @@ export default function App() {
   const handleLoginSuccess = async (phone: string) => {
     setIsLoggedIn(true);
     setUserPhone(phone);
+    await loadEnquiries();
     try { const result = await fetchMe(); setUser(result.data || null); } catch { setUser(null); }
     trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
     fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});
@@ -300,6 +330,7 @@ export default function App() {
           <EnquiryScreen
             onNavigate={navigateTo}
             onEnquirySubmitted={handleEnquirySubmitted}
+            user={user}
           />
         );
 
@@ -347,7 +378,7 @@ export default function App() {
         return <MyTripsScreen />;
 
       case 'my_enquiries':
-        return <MyEnquiriesScreen enquiries={enquiries} />;
+        return <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} />;
 
       case 'bills_invoices':
         return <BillsInvoicesScreen />;
@@ -380,11 +411,40 @@ export default function App() {
     currentScreen !== 'auth' &&
     currentScreen !== 'tour_detail';
 
+  const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {
+    if (currentScreen === 'splash') {
+      return { bg: '#072421', barStyle: 'light-content' };
+    }
+    if (currentScreen === 'auth') {
+      return {
+        bg: colorScheme === 'dark' ? appColors.primaryDark : '#FFFFFF',
+        barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
+      };
+    }
+    // Screens with top Header (Home, TourList, Enquiry, Profile, Notifications, etc.)
+    if (showHeader) {
+      return { bg: appColors.primaryDark, barStyle: 'light-content' };
+    }
+    // Tour Detail and other full-bleed screens
+    return {
+      bg: appColors.bg,
+      barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
+    };
+  };
+
+  const statusConfig = getScreenStatusBarConfig();
+
   return (
-    <SafeAreaProvider>
+    <>
       <AppDialogProvider>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          { backgroundColor: statusConfig.bg },
+        ]}
+        edges={currentScreen === 'splash' ? [] : ['top', 'left', 'right']}
+      >
+        <StatusBar barStyle={statusConfig.barStyle} />
 
         {showHeader && (
           <Header
@@ -397,7 +457,7 @@ export default function App() {
           />
         )}
 
-        <View style={styles.content}>{renderScreen()}</View>
+        <View style={[styles.content, {backgroundColor: appColors.bg}]}>{renderScreen()}</View>
 
         {showBottomNav && (
           <BottomNav
@@ -428,10 +488,21 @@ export default function App() {
           tour={enquiryModalTour}
           packageId={enquiryModalPackageId}
           variantId={enquiryModalVariantId}
+          user={user}
         />
       </SafeAreaView>
       <Toast config={toastConfig} />
       </AppDialogProvider>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppInner />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Square crop box inset from screen edges
-const CROP_SIZE = SCREEN_WIDTH - 0; // full width square crop
+// Square crop frame size
+const CROP_SIZE = SCREEN_WIDTH - 24; // 12px inset from each side for a clean WhatsApp-like crop box
+const MIN_SCALE = 1.0;
+const MAX_SCALE = 5.0;
 
 interface ImageCropModalProps {
   visible: boolean;
@@ -30,29 +32,32 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   onClose,
   onCropDone,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isGesturing, setIsGesturing] = useState(false); // show grid only while touching
 
-  // Animated pan & scale on native thread (60 fps)
+  // Animated values
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const scale = useRef(new Animated.Value(1)).current;
   const gridOpacity = useRef(new Animated.Value(0)).current;
 
-  // Refs for live gesture math (avoids calling getValue())
+  // Real-time tracking refs (synced via listeners)
   const currentPan = useRef({ x: 0, y: 0 });
   const currentScale = useRef(1);
-  const startPan = useRef({ x: 0, y: 0 });
-  const startScale = useRef(1);
-  const initialPinchDist = useRef<number | null>(null);
-  const pinchCenter = useRef({ x: 0, y: 0 });
-  const isPinching = useRef(false);
-  const lastTap = useRef(0);
-  const gestureTouchCount = useRef(0);
+
+  // Incremental gesture tracking refs
+  const lastTouchPos = useRef<{ x: number; y: number } | null>(null);
+  const lastPinchDist = useRef<number | null>(null);
+  const lastMidPoint = useRef<{ x: number; y: number } | null>(null);
+  const lastTapTime = useRef<number>(0);
 
   useEffect(() => {
     const pId = pan.addListener((v) => { currentPan.current = v; });
     const sId = scale.addListener(({ value }) => { currentScale.current = value; });
-    return () => { pan.removeListener(pId); scale.removeListener(sId); };
+    return () => {
+      pan.removeListener(pId);
+      scale.removeListener(sId);
+    };
   }, [pan, scale]);
 
   useEffect(() => {
@@ -61,136 +66,177 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       scale.setValue(1);
       currentPan.current = { x: 0, y: 0 };
       currentScale.current = 1;
-      isPinching.current = false;
-      initialPinchDist.current = null;
+      lastTouchPos.current = null;
+      lastPinchDist.current = null;
+      lastMidPoint.current = null;
     }
   }, [visible, imageUri]);
 
-  const dist = (touches: readonly any[]) => {
-    const [a, b] = touches;
-    return Math.sqrt(Math.pow(a.pageX - b.pageX, 2) + Math.pow(a.pageY - b.pageY, 2));
+  const calcDist = (t1: any, t2: any) => {
+    const dx = t1.pageX - t2.pageX;
+    const dy = t1.pageY - t2.pageY;
+    return Math.sqrt(dx * dx + dy * dy);
   };
 
-  const mid = (touches: readonly any[]) => ({
-    x: (touches[0].pageX + touches[1].pageX) / 2,
-    y: (touches[0].pageY + touches[1].pageY) / 2,
+  const calcMid = (t1: any, t2: any) => ({
+    x: (t1.pageX + t2.pageX) / 2,
+    y: (t1.pageY + t2.pageY) / 2,
   });
 
   const showGrid = () => {
-    setIsGesturing(true);
-    Animated.timing(gridOpacity, { toValue: 1, duration: 80, useNativeDriver: true }).start();
+    Animated.timing(gridOpacity, {
+      toValue: 1,
+      duration: 100,
+      useNativeDriver: true,
+    }).start();
   };
 
   const hideGrid = () => {
-    Animated.timing(gridOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
-      setIsGesturing(false);
-    });
+    Animated.timing(gridOpacity, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
   };
 
-  // Elastic spring-back to stay within crop zone
+  // WhatsApp-style elastic spring-back to keep image inside crop boundary
   const springBack = () => {
-    let tScale = Math.max(1, Math.min(currentScale.current, 5));
-    const maxPanX = (SCREEN_WIDTH * (tScale - 1)) / 2;
-    const maxPanY = (SCREEN_WIDTH * (tScale - 1)) / 2;
+    let targetScale = currentScale.current;
+    if (targetScale < MIN_SCALE) {
+      targetScale = MIN_SCALE;
+    } else if (targetScale > MAX_SCALE) {
+      targetScale = MAX_SCALE;
+    }
 
-    const tX = Math.max(-maxPanX, Math.min(currentPan.current.x, maxPanX));
-    const tY = Math.max(-maxPanY, Math.min(currentPan.current.y, maxPanY));
+    const maxPanX = (CROP_SIZE * (targetScale - 1)) / 2;
+    const maxPanY = (CROP_SIZE * (targetScale - 1)) / 2;
+
+    let targetX = currentPan.current.x;
+    let targetY = currentPan.current.y;
+
+    if (targetScale <= MIN_SCALE) {
+      targetX = 0;
+      targetY = 0;
+    } else {
+      targetX = Math.max(-maxPanX, Math.min(targetX, maxPanX));
+      targetY = Math.max(-maxPanY, Math.min(targetY, maxPanY));
+    }
 
     Animated.parallel([
-      Animated.spring(scale, { toValue: tScale, friction: 6, tension: 70, useNativeDriver: true }),
-      Animated.spring(pan, { toValue: { x: tX, y: tY }, friction: 6, tension: 70, useNativeDriver: true }),
+      Animated.spring(scale, {
+        toValue: targetScale,
+        friction: 7,
+        tension: 65,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pan, {
+        toValue: { x: targetX, y: targetY },
+        friction: 7,
+        tension: 65,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => false,
 
       onPanResponderGrant: (evt) => {
         showGrid();
-        startPan.current = { ...currentPan.current };
-        startScale.current = currentScale.current;
-        gestureTouchCount.current = evt.nativeEvent.touches.length;
-
-        if (evt.nativeEvent.touches.length >= 2) {
-          isPinching.current = true;
-          initialPinchDist.current = dist(evt.nativeEvent.touches);
-          pinchCenter.current = mid(evt.nativeEvent.touches);
-        } else {
-          isPinching.current = false;
-          initialPinchDist.current = null;
-          // Double tap → toggle zoom
-          const now = Date.now();
-          if (now - lastTap.current < 280) {
-            Animated.parallel([
-              Animated.spring(scale, {
-                toValue: currentScale.current > 1.2 ? 1 : 2.5,
-                friction: 6, tension: 70, useNativeDriver: true,
-              }),
-              ...(currentScale.current > 1.2
-                ? [Animated.spring(pan, { toValue: { x: 0, y: 0 }, friction: 6, tension: 70, useNativeDriver: true })]
-                : []),
-            ]).start();
-          }
-          lastTap.current = now;
-        }
-      },
-
-      onPanResponderMove: (evt, gs) => {
         const touches = evt.nativeEvent.touches;
 
         if (touches.length >= 2) {
-          // Initialize pinch if second finger joined mid-gesture
-          if (!isPinching.current || initialPinchDist.current === null) {
-            isPinching.current = true;
-            initialPinchDist.current = dist(touches);
-            startScale.current = currentScale.current;
-            startPan.current = { ...currentPan.current };
-            pinchCenter.current = mid(touches);
-          }
-
-          // Scale from raw finger distance
-          const newDist = dist(touches);
-          const factor = newDist / (initialPinchDist.current || newDist);
-          scale.setValue(Math.max(0.8, Math.min(startScale.current * factor, 6)));
-
-          // Pan from midpoint movement (no gestureState drift)
-          const midPt = mid(touches);
-          pan.setValue({
-            x: startPan.current.x + (midPt.x - pinchCenter.current.x),
-            y: startPan.current.y + (midPt.y - pinchCenter.current.y),
-          });
+          lastPinchDist.current = calcDist(touches[0], touches[1]);
+          lastMidPoint.current = calcMid(touches[0], touches[1]);
+          lastTouchPos.current = null;
         } else if (touches.length === 1) {
-          if (isPinching.current) {
-            // Re-anchor after lifting one finger
-            isPinching.current = false;
-            initialPinchDist.current = null;
-            startPan.current = { ...currentPan.current };
-            startScale.current = currentScale.current;
-            return;
+          lastTouchPos.current = { x: touches[0].pageX, y: touches[0].pageY };
+          lastPinchDist.current = null;
+          lastMidPoint.current = null;
+
+          // Double tap to toggle zoom
+          const now = Date.now();
+          if (now - lastTapTime.current < 280) {
+            if (currentScale.current > 1.2) {
+              Animated.parallel([
+                Animated.spring(scale, { toValue: 1, friction: 6, tension: 70, useNativeDriver: true }),
+                Animated.spring(pan, { toValue: { x: 0, y: 0 }, friction: 6, tension: 70, useNativeDriver: true }),
+              ]).start();
+            } else {
+              Animated.spring(scale, { toValue: 2.2, friction: 6, tension: 70, useNativeDriver: true }).start();
+            }
           }
-          pan.setValue({
-            x: startPan.current.x + gs.dx,
-            y: startPan.current.y + gs.dy,
-          });
+          lastTapTime.current = now;
+        }
+      },
+
+      onPanResponderMove: (evt) => {
+        const touches = evt.nativeEvent.touches;
+
+        if (touches.length >= 2) {
+          // ── Two-finger Pinch-to-Zoom & Pan ──
+          const currentDist = calcDist(touches[0], touches[1]);
+          const currentMid = calcMid(touches[0], touches[1]);
+
+          // Incremental Scale multiplier (super smooth, 100% reliable)
+          if (lastPinchDist.current !== null && lastPinchDist.current > 0) {
+            const scaleMultiplier = currentDist / lastPinchDist.current;
+            const newScale = Math.max(0.6, Math.min(currentScale.current * scaleMultiplier, 6.5));
+            scale.setValue(newScale);
+            currentScale.current = newScale;
+          }
+
+          // Incremental Midpoint Pan
+          if (lastMidPoint.current !== null) {
+            const dx = currentMid.x - lastMidPoint.current.x;
+            const dy = currentMid.y - lastMidPoint.current.y;
+            const nextX = currentPan.current.x + dx;
+            const nextY = currentPan.current.y + dy;
+            pan.setValue({ x: nextX, y: nextY });
+            currentPan.current = { x: nextX, y: nextY };
+          }
+
+          lastPinchDist.current = currentDist;
+          lastMidPoint.current = currentMid;
+          lastTouchPos.current = null;
+        } else if (touches.length === 1) {
+          // ── Single-finger Pan / Drag ──
+          const currentX = touches[0].pageX;
+          const currentY = touches[0].pageY;
+
+          if (lastTouchPos.current !== null) {
+            const dx = currentX - lastTouchPos.current.x;
+            const dy = currentY - lastTouchPos.current.y;
+            const nextX = currentPan.current.x + dx;
+            const nextY = currentPan.current.y + dy;
+            pan.setValue({ x: nextX, y: nextY });
+            currentPan.current = { x: nextX, y: nextY };
+          }
+
+          lastTouchPos.current = { x: currentX, y: currentY };
+          lastPinchDist.current = null;
+          lastMidPoint.current = null;
         }
       },
 
       onPanResponderRelease: (evt) => {
         if (evt.nativeEvent.touches.length === 0) {
-          isPinching.current = false;
-          initialPinchDist.current = null;
+          lastTouchPos.current = null;
+          lastPinchDist.current = null;
+          lastMidPoint.current = null;
           hideGrid();
           springBack();
         }
       },
 
       onPanResponderTerminate: () => {
-        isPinching.current = false;
-        initialPinchDist.current = null;
+        lastTouchPos.current = null;
+        lastPinchDist.current = null;
+        lastMidPoint.current = null;
         hideGrid();
         springBack();
       },
@@ -200,19 +246,21 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   const handleDone = () => {
     if (!imageUri) return;
     setIsProcessing(true);
-    setTimeout(() => { setIsProcessing(false); onCropDone(imageUri); }, 280);
+    setTimeout(() => {
+      setIsProcessing(false);
+      onCropDone(imageUri);
+    }, 280);
   };
 
   if (!imageUri) return null;
 
-  const TOP_OVERLAY = (SCREEN_HEIGHT - CROP_SIZE) / 2 - 30;
-  const BOTTOM_OVERLAY = (SCREEN_HEIGHT - CROP_SIZE) / 2 - 50;
+  const topOverlayHeight = (SCREEN_HEIGHT - CROP_SIZE) / 2 - 20;
+  const bottomOverlayHeight = (SCREEN_HEIGHT - CROP_SIZE) / 2 - 40;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.root}>
-
-        {/* ── Full-screen gesture area (image lives here) ── */}
+        {/* Full-screen gesture surface */}
         <View style={styles.gestureArea} {...panResponder.panHandlers}>
           <Animated.Image
             source={{ uri: imageUri }}
@@ -229,49 +277,46 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             resizeMode="contain"
           />
 
-          {/* Dark overlay ABOVE the crop box */}
-          <View style={[styles.overlay, { height: TOP_OVERLAY, top: 0 }]} pointerEvents="none" />
-          {/* Dark overlay BELOW the crop box */}
-          <View style={[styles.overlay, { height: BOTTOM_OVERLAY, bottom: 0 }]} pointerEvents="none" />
+          {/* Dimmed backdrop outside the crop frame */}
+          <View style={[styles.darkOverlay, { top: 0, height: topOverlayHeight }]} pointerEvents="none" />
+          <View style={[styles.darkOverlay, { bottom: 0, height: bottomOverlayHeight }]} pointerEvents="none" />
 
-          {/* ── Crop box frame centred on screen ── */}
-          <View style={styles.cropFrame} pointerEvents="none">
-            {/* White border */}
+          {/* ── WhatsApp-style Square Crop Frame with 3x3 Grid ── */}
+          <View style={styles.cropBox} pointerEvents="none">
+            {/* White frame outline */}
             <View style={styles.cropBorder} />
 
-            {/* 3×3 Grid — fades in while touching, out on release */}
+            {/* 3x3 Rule-of-Thirds Grid (visible while gesturing) */}
             <Animated.View style={[StyleSheet.absoluteFill, { opacity: gridOpacity }]}>
-              {/* Horizontal lines */}
               <View style={[styles.gridH, { top: CROP_SIZE / 3 }]} />
               <View style={[styles.gridH, { top: (CROP_SIZE / 3) * 2 }]} />
-              {/* Vertical lines */}
               <View style={[styles.gridV, { left: CROP_SIZE / 3 }]} />
               <View style={[styles.gridV, { left: (CROP_SIZE / 3) * 2 }]} />
             </Animated.View>
 
-            {/* WhatsApp-style thick corner handles (L-shape) */}
+            {/* Thick L-shaped Corner Handles (WhatsApp signature style) */}
             {/* Top-Left */}
-            <View style={[styles.handleH, { top: 0, left: 0 }]} />
-            <View style={[styles.handleV, { top: 0, left: 0 }]} />
+            <View style={[styles.cornerH, { top: 0, left: 0 }]} />
+            <View style={[styles.cornerV, { top: 0, left: 0 }]} />
             {/* Top-Right */}
-            <View style={[styles.handleH, { top: 0, right: 0 }]} />
-            <View style={[styles.handleV, { top: 0, right: 0 }]} />
+            <View style={[styles.cornerH, { top: 0, right: 0 }]} />
+            <View style={[styles.cornerV, { top: 0, right: 0 }]} />
             {/* Bottom-Left */}
-            <View style={[styles.handleH, { bottom: 0, left: 0 }]} />
-            <View style={[styles.handleV, { bottom: 0, left: 0 }]} />
+            <View style={[styles.cornerH, { bottom: 0, left: 0 }]} />
+            <View style={[styles.cornerV, { bottom: 0, left: 0 }]} />
             {/* Bottom-Right */}
-            <View style={[styles.handleH, { bottom: 0, right: 0 }]} />
-            <View style={[styles.handleV, { bottom: 0, right: 0 }]} />
+            <View style={[styles.cornerH, { bottom: 0, right: 0 }]} />
+            <View style={[styles.cornerV, { bottom: 0, right: 0 }]} />
 
-            {/* Edge mid-handles */}
-            <View style={[styles.edgeHandleH, { top: -1.5, left: CROP_SIZE / 2 - 14 }]} />
-            <View style={[styles.edgeHandleH, { bottom: -1.5, left: CROP_SIZE / 2 - 14 }]} />
-            <View style={[styles.edgeHandleV, { left: -1.5, top: CROP_SIZE / 2 - 14 }]} />
-            <View style={[styles.edgeHandleV, { right: -1.5, top: CROP_SIZE / 2 - 14 }]} />
+            {/* Mid-edge handle indicators */}
+            <View style={[styles.midHandleH, { top: -1.5, left: CROP_SIZE / 2 - 14 }]} />
+            <View style={[styles.midHandleH, { bottom: -1.5, left: CROP_SIZE / 2 - 14 }]} />
+            <View style={[styles.midHandleV, { left: -1.5, top: CROP_SIZE / 2 - 14 }]} />
+            <View style={[styles.midHandleV, { right: -1.5, top: CROP_SIZE / 2 - 14 }]} />
           </View>
         </View>
 
-        {/* ── Top bar ── */}
+        {/* ── Top Navigation Bar ── */}
         <View style={styles.topBar} pointerEvents="box-none">
           <Pressable onPress={onClose} hitSlop={16} style={styles.navBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
@@ -283,111 +328,96 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             style={[styles.doneBtn, isProcessing && { opacity: 0.6 }]}
             disabled={isProcessing}
           >
-            {isProcessing
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.doneTxt}>Choose</Text>}
+            {isProcessing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.doneTxt}>Choose</Text>
+            )}
           </Pressable>
         </View>
 
-        {/* ── Bottom hint ── */}
+        {/* ── Bottom instruction hint ── */}
         <View style={styles.bottomHint} pointerEvents="none">
-          <Text style={styles.hintText}>Pinch to zoom • Drag to position</Text>
+          <Text style={styles.hintText}>Pinch with 2 fingers to zoom • Drag to move</Text>
         </View>
       </View>
     </Modal>
   );
 };
 
-const HANDLE_THICK = 3;
-const HANDLE_LEN = 22;
+const CORNER_THICK = 3.5;
+const CORNER_LEN = 22;
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#000000',
   },
-
-  /* Full-screen gesture surface */
   gestureArea: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fullImage: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH,   // square image region
+    width: CROP_SIZE,
+    height: CROP_SIZE,
   },
-
-  /* Dimmed areas outside the crop box */
-  overlay: {
+  darkOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.62)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
-
-  /* The centred square crop frame */
-  cropFrame: {
+  cropBox: {
     position: 'absolute',
     width: CROP_SIZE,
     height: CROP_SIZE,
     alignSelf: 'center',
-    top: (SCREEN_HEIGHT - CROP_SIZE) / 2 - 30,
+    top: (SCREEN_HEIGHT - CROP_SIZE) / 2 - 20,
   },
-
-  /* Main border */
   cropBorder: {
     ...StyleSheet.absoluteFill,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(255, 255, 255, 0.85)',
   },
-
-  /* 3×3 grid lines */
   gridH: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 0.8,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
   },
   gridV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 0.8,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
   },
-
-  /* Corner handles – horizontal bar of L */
-  handleH: {
+  cornerH: {
     position: 'absolute',
-    width: HANDLE_LEN,
-    height: HANDLE_THICK,
+    width: CORNER_LEN,
+    height: CORNER_THICK,
     backgroundColor: '#FFFFFF',
   },
-  /* Corner handles – vertical bar of L */
-  handleV: {
+  cornerV: {
     position: 'absolute',
-    width: HANDLE_THICK,
-    height: HANDLE_LEN,
+    width: CORNER_THICK,
+    height: CORNER_LEN,
     backgroundColor: '#FFFFFF',
   },
-
-  /* Mid-edge handles */
-  edgeHandleH: {
+  midHandleH: {
     position: 'absolute',
     width: 28,
-    height: HANDLE_THICK,
+    height: CORNER_THICK,
     backgroundColor: '#FFFFFF',
   },
-  edgeHandleV: {
+  midHandleV: {
     position: 'absolute',
-    width: HANDLE_THICK,
+    width: CORNER_THICK,
     height: 28,
     backgroundColor: '#FFFFFF',
   },
-
-  /* Top bar (sits over the gesture area) */
   topBar: {
     position: 'absolute',
     top: 45,
@@ -397,19 +427,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    zIndex: 10,
   },
-  navBtn: { paddingVertical: 8, paddingHorizontal: 4 },
-  cancelText: { color: '#E2E8F0', fontSize: 16, fontWeight: '500' },
-  title: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  navBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  cancelText: {
+    color: '#E2E8F0',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   doneBtn: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 18,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  doneTxt: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-
-  /* Bottom hint */
+  doneTxt: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   bottomHint: {
     position: 'absolute',
     bottom: 28,
@@ -418,7 +462,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hintText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 13,
     fontWeight: '500',
     letterSpacing: 0.3,

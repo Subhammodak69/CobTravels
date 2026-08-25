@@ -8,7 +8,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { NavScreen } from '../types';
 import { openWhatsAppChat } from '../api/tourApi';
 
@@ -31,6 +31,8 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
   userPhone,
   isLoggedIn = false,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const handleNav = (screen: NavScreen) => {
     onClose();
     onNavigate(screen);
@@ -216,7 +218,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   flexFill: {
     flex: 1,
   },
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
   drawerContent: {
     width: '82%',
     maxWidth: 340,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.bg,
     height: '100%',
     display: 'flex',
   },

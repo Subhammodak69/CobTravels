@@ -11,7 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
 import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
 import enums from '../utils/enums.json';
@@ -40,17 +40,18 @@ async function submitCustomEnquiry(payload: Record<string, any>): Promise<{ succ
   return body;
 }
 
-// Helper to render horizontal chip selectors
 type ChipOption = { label: string; value: string };
 
 function ChipSelector({
   options,
   value,
   onChange,
+  styles,
 }: {
   options: ChipOption[];
   value: string;
   onChange: (v: string) => void;
+  styles: any;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -93,6 +94,8 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   onClose,
   onSubmitSuccess,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const { showDialog } = useAppDialog();
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -155,7 +158,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
         meal_plan: mealPlan || undefined,
         special_requirements: specialRequirements.trim() || undefined,
         enquiry_type: enquiryType,
-        channel: 'WEBSITE',
+        channel: 'APP',
         visitor_id,
       });
       if (onSubmitSuccess) onSubmitSuccess(result);
@@ -216,6 +219,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               options={enquiryTypeOptions}
               value={enquiryType}
               onChange={setEnquiryType}
+              styles={styles}
             />
 
             {/* Name */}
@@ -312,6 +316,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               options={[{ label: 'Any', value: '' }, ...vehicleOptions]}
               value={vehicleType}
               onChange={setVehicleType}
+              styles={styles}
             />
 
             {/* Meal Plan */}
@@ -320,6 +325,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               options={[{ label: 'Any', value: '' }, ...mealOptions]}
               value={mealPlan}
               onChange={setMealPlan}
+              styles={styles}
             />
 
             {/* Special Requirements */}
@@ -369,224 +375,226 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  keyboardAvoid: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '92%',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
-    elevation: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -6 },
-  },
-  handleBar: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#CBD5E1',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#DCFCE7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerIconText: {
-    fontSize: 20,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  headerSub: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  formScroll: {
-    paddingHorizontal: 20,
-  },
-  formContent: {
-    paddingTop: 14,
-    paddingBottom: 10,
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.textSecondary,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-    marginTop: 14,
-  },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: COLORS.text,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dialCodeBox: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dialCodeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  mobileInput: {
-    flex: 1,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingTop: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  col: {
-    flex: 1,
-  },
-  chipRow: {
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 4,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-  },
-  chipActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primarySubtle,
-  },
-  chipText: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: COLORS.primary,
-    fontWeight: '800',
-  },
-  trustNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 16,
-    marginBottom: 4,
-    backgroundColor: COLORS.goldLight,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  trustIcon: {
-    fontSize: 13,
-    marginTop: 1,
-  },
-  trustText: {
-    fontSize: 11,
-    color: COLORS.goldDark,
-    lineHeight: 16,
-    flex: 1,
-    fontWeight: '600',
-  },
-  submitBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 18,
-    elevation: 3,
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  submitBtnDisabled: {
-    opacity: 0.65,
-  },
-  submitBtnPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  submitBtnArrow: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});
+const makeStyles = (COLORS: ReturnType<typeof useColors>) =>
+  StyleSheet.create({
+    keyboardAvoid: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    },
+    sheet: {
+      backgroundColor: COLORS.bg,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      maxHeight: '92%',
+      paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+      elevation: 24,
+      shadowColor: '#000',
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: -6 },
+    },
+    handleBar: {
+      width: 44,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: COLORS.border,
+      alignSelf: 'center',
+      marginTop: 10,
+      marginBottom: 4,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    headerIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: COLORS.primarySubtle,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerIconText: {
+      fontSize: 20,
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: COLORS.text,
+    },
+    headerSub: {
+      fontSize: 11,
+      color: COLORS.textSecondary,
+      marginTop: 2,
+    },
+    closeBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: COLORS.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeBtnText: {
+      fontSize: 14,
+      color: COLORS.textSecondary,
+      fontWeight: '700',
+    },
+    formScroll: {
+      maxHeight: 520,
+    },
+    formContent: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 24,
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: COLORS.textSecondary,
+      letterSpacing: 0.6,
+      marginBottom: 6,
+      marginTop: 14,
+    },
+    input: {
+      backgroundColor: COLORS.card,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 14,
+      color: COLORS.text,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    dialCodeBox: {
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dialCodeText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: COLORS.text,
+    },
+    mobileInput: {
+      flex: 1,
+    },
+    textArea: {
+      minHeight: 80,
+      textAlignVertical: 'top',
+      paddingTop: 12,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    col: {
+      flex: 1,
+    },
+    chipRow: {
+      gap: 8,
+      paddingVertical: 4,
+      paddingRight: 4,
+    },
+    chip: {
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: COLORS.surface,
+    },
+    chipActive: {
+      borderColor: COLORS.primary,
+      backgroundColor: COLORS.primarySubtle,
+    },
+    chipText: {
+      fontSize: 12,
+      color: COLORS.textSecondary,
+      fontWeight: '600',
+    },
+    chipTextActive: {
+      color: COLORS.primary,
+      fontWeight: '800',
+    },
+    trustNote: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 16,
+      marginBottom: 4,
+      backgroundColor: COLORS.goldLight,
+      borderRadius: 8,
+      padding: 10,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    trustIcon: {
+      fontSize: 13,
+      marginTop: 1,
+    },
+    trustText: {
+      fontSize: 11,
+      color: COLORS.goldDark,
+      lineHeight: 16,
+      flex: 1,
+      fontWeight: '600',
+    },
+    submitBtn: {
+      backgroundColor: COLORS.primary,
+      borderRadius: 12,
+      paddingVertical: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 18,
+      elevation: 3,
+      shadowColor: COLORS.primary,
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+    },
+    submitBtnDisabled: {
+      opacity: 0.65,
+    },
+    submitBtnPressed: {
+      opacity: 0.88,
+      transform: [{ scale: 0.98 }],
+    },
+    submitBtnText: {
+      color: '#FFFFFF',
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+    submitBtnArrow: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '800',
+    },
+  });

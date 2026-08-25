@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { AuthUser, updateMe, uploadFileApi } from '../api/tourApi';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { NavScreen } from '../types';
 import { showApiError } from '../utils/toast';
 import { useAppDialog } from '../components/AppDialog';
@@ -29,6 +29,8 @@ export const EditProfileScreen: React.FC<{
   onSaved: (user: AuthUser) => void;
   onNavigate: (screen: NavScreen) => void;
 }> = ({ user, onSaved }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const { showDialog } = useAppDialog();
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -264,7 +266,7 @@ export const EditProfileScreen: React.FC<{
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -401,7 +403,7 @@ const styles = StyleSheet.create({
   },
   urlInput: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
   },
   urlDoneBtn: {
     backgroundColor: COLORS.primary,

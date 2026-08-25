@@ -11,10 +11,34 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
-import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
+import {
+  BASE_API,
+  getVisitorId,
+  getAccessToken,
+  fetchTourPackageSelect,
+  TourPackageSelectData,
+  fetchMe,
+  AuthUser,
+} from '../api/tourApi';
 import { TourPackageSummary } from '../types';
+import enums from '../utils/enums.json';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isValidUUID = (val?: string) => typeof val === 'string' && UUID_REGEX.test(val.trim());
+
+// Build channel options from enums.json (EnquiryChannel or fallback)
+const channelOptions: string[] = Object.values(
+  (enums as any).EnquiryChannel || {
+    WEBSITE: 'WEBSITE',
+    WHATSAPP: 'WHATSAPP',
+    PHONE: 'PHONE',
+    EMAIL: 'EMAIL',
+    OFFLINE: 'OFFLINE',
+    ADMIN: 'ADMIN',
+  }
+);
 
 interface EnquiryModalProps {
   visible: boolean;
@@ -22,19 +46,10 @@ interface EnquiryModalProps {
   tour?: TourPackageSummary | null;
   packageId?: string;
   variantId?: string;
+  user?: AuthUser | null;
 }
 
-async function submitFixedEnquiry(payload: {
-  channel: string;
-  package_id?: string;
-  variant_id?: string;
-  subject: string;
-  message: string;
-  name: string;
-  mobile: string;
-  visitor_id?: string;
-  customer_id?: string;
-}): Promise<{ success: boolean; message: string }> {
+async function submitFixedEnquiry(payload: Record<string, any>): Promise<{ success: boolean; message: string }> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -58,28 +73,93 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   tour,
   packageId,
   variantId,
+  user: initialUser,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const { showDialog } = useAppDialog();
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [channel, setChannel] = useState('WEBSITE');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [customerId, setCustomerId] = useState('');
+
+  // Selected package details from /api/v1/tour-packages/select/{slug}
+  const [selectData, setSelectData] = useState<TourPackageSelectData | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+  const [loadingSelect, setLoadingSelect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Pre-fill subject from tour info
   useEffect(() => {
-    if (tour && visible) {
+    if (!visible) return;
+
+    // 1. Pre-fill user profile info and customer_id from /api/v1/auth/me
+    (async () => {
+      let currentCustomer = initialUser?.id || '';
+      if (initialUser) {
+        setName(initialUser.name || '');
+        setMobile(initialUser.mobile || '');
+      } else {
+        try {
+          const token = await getAccessToken();
+          if (token) {
+            const meRes = await fetchMe();
+            if (meRes.data) {
+              if (meRes.data.id) currentCustomer = meRes.data.id;
+              setName(prev => prev || meRes.data?.name || '');
+              setMobile(prev => prev || meRes.data?.mobile || '');
+            }
+          }
+        } catch {
+          // guest user
+        }
+      }
+      setCustomerId(currentCustomer);
+    })();
+
+    // 2. Fetch package options & variants from /api/v1/tour-packages/select/{slug}
+    const tourSlug = tour?.slug || (packageId && !isValidUUID(packageId) ? packageId : '');
+    if (tourSlug) {
+      setLoadingSelect(true);
+      fetchTourPackageSelect(tourSlug)
+        .then(data => {
+          setSelectData(data);
+          // Pre-select variant
+          if (variantId && data.variants.some(v => v.id === variantId || v.name === variantId)) {
+            const match = data.variants.find(v => v.id === variantId || v.name === variantId);
+            if (match) setSelectedVariantId(match.id);
+          } else if (data.variants.length > 0) {
+            setSelectedVariantId(data.variants[0].id);
+          }
+        })
+        .catch(() => {
+          setSelectData(null);
+        })
+        .finally(() => {
+          setLoadingSelect(false);
+        });
+    } else {
+      setSelectData(null);
+    }
+
+    // 3. Pre-fill subject
+    if (tour) {
       setSubject(`Enquiry about ${tour.title}`);
-    } else if (visible) {
+    } else {
       setSubject('');
     }
-  }, [tour, visible]);
+  }, [visible, tour, packageId, variantId, initialUser]);
 
   const resetForm = () => {
     setName('');
     setMobile('');
+    setChannel('WEBSITE');
     setSubject('');
     setMessage('');
+    setSelectData(null);
+    setSelectedVariantId('');
+    setCustomerId('');
   };
 
   const handleClose = () => {
@@ -100,16 +180,37 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
     setIsSubmitting(true);
     try {
       const visitor_id = await getVisitorId();
-      await submitFixedEnquiry({
-        channel: 'WEBSITE',
-        package_id: packageId || tour?.id || '',
-        variant_id: variantId || '',
-        subject: subject.trim() || `Tour Enquiry`,
+
+      // Resolve package UUID (from /select/{slug} or tour?.id or packageId)
+      const rawPkg = selectData?.id || (isValidUUID(tour?.id) ? tour?.id : '') || (isValidUUID(packageId) ? packageId : '');
+      const rawVar = selectedVariantId || (isValidUUID(variantId) ? variantId : '');
+
+      // Strictly ordered exact payload schema with channel: 'APP'
+      const payload = {
+        package_id: rawPkg || '',
+        variant_id: rawVar || '',
+        channel: 'APP',
+        subject: subject.trim(),
         message: message.trim(),
         name: name.trim(),
         mobile: mobile.trim(),
-        visitor_id,
+        visitor_id: visitor_id || '',
+        customer_id: customerId || '',
+      };
+
+      const confirmed = await showDialog({
+        title: 'Confirm enquiry',
+        message: `Send enquiry for ${selectData?.title || tour?.title || 'this tour'}?`,
+        variant: 'info',
+        confirmText: 'Send enquiry',
+        cancelText: 'Edit',
       });
+      if (!confirmed) {
+        setIsSubmitting(false);
+        return;
+      }
+
+      await submitFixedEnquiry(payload);
       await showDialog({
         title: 'Enquiry Sent! 🎉',
         message: `Thank you, ${name}! Our travel expert will contact you shortly on ${mobile}.`,
@@ -148,7 +249,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
               <View>
                 <Text style={styles.headerTitle}>Send Enquiry</Text>
                 <Text style={styles.headerSub} numberOfLines={1}>
-                  {tour ? tour.title : 'Get in touch with our team'}
+                  {selectData?.title || tour?.title || 'Get in touch with our team'}
                 </Text>
               </View>
             </View>
@@ -175,6 +276,39 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Package Variants (loaded dynamically from /api/v1/tour-packages/select/{slug}) */}
+            {loadingSelect ? (
+              <View style={styles.loadingVariantsRow}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={styles.loadingVariantsText}>Loading package options…</Text>
+              </View>
+            ) : selectData?.variants && selectData.variants.length > 0 ? (
+              <View style={styles.sectionBlock}>
+                <Text style={styles.label}>SELECT TOUR OPTION / VARIANT</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                  {selectData.variants.map((v) => {
+                    const isSelected = selectedVariantId === v.id;
+                    return (
+                      <Pressable
+                        key={v.id}
+                        onPress={() => setSelectedVariantId(v.id)}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                          {v.name || v.season_name}
+                        </Text>
+                        {v.season_name && v.name !== v.season_name && (
+                          <Text style={[styles.chipSub, isSelected && styles.chipSubActive]}>
+                            {v.season_name}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
+
             {/* Name */}
             <Text style={styles.label}>YOUR NAME *</Text>
             <TextInput
@@ -209,7 +343,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             <Text style={styles.label}>SUBJECT</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Enquiry about Kashmir tour"
+              placeholder="e.g. Group booking enquiry"
               placeholderTextColor={COLORS.textMuted}
               value={subject}
               onChangeText={setSubject}
@@ -217,45 +351,47 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             />
 
             {/* Message */}
-            <Text style={styles.label}>MESSAGE (OPTIONAL)</Text>
+            <Text style={styles.label}>MESSAGE / REQUIREMENTS</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Tell us your travel dates, group size, or any specific requirements..."
+              placeholder="Tell us travel dates, number of guests, special requests…"
               placeholderTextColor={COLORS.textMuted}
               multiline
-              numberOfLines={4}
+              numberOfLines={3}
               textAlignVertical="top"
               value={message}
               onChangeText={setMessage}
             />
 
-            {/* Trust note */}
-            <View style={styles.trustNote}>
+            {/* Trust reassurance */}
+            <View style={styles.trustBox}>
               <Text style={styles.trustIcon}>🔒</Text>
               <Text style={styles.trustText}>
-                Your details are private and secure. We'll respond within 24 hours.
+                Your details are safe. We will only contact you regarding this tour request.
               </Text>
             </View>
 
-            {/* Submit */}
+            {/* Submit button */}
             <Pressable
-              onPress={handleSubmit}
-              disabled={isSubmitting}
               style={({ pressed }) => [
                 styles.submitBtn,
                 isSubmitting && styles.submitBtnDisabled,
                 pressed && !isSubmitting && styles.submitBtnPressed,
               ]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <Text style={styles.submitBtnText}>Send Enquiry</Text>
+                  <Text style={styles.submitBtnText}>Submit Enquiry</Text>
                   <Text style={styles.submitBtnArrow}>→</Text>
                 </>
               )}
             </Pressable>
+
+            <View style={styles.bottomSpacer} />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -263,7 +399,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   keyboardAvoid: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -273,51 +409,51 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '88%',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
-    elevation: 24,
+    maxHeight: '90%',
+    paddingTop: 10,
+    elevation: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
   },
   handleBar: {
-    width: 44,
+    width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     flex: 1,
+    marginRight: 10,
   },
   headerIcon: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: COLORS.primarySubtle,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   headerIconText: {
-    fontSize: 20,
+    fontSize: 18,
   },
   headerTitle: {
     fontSize: 17,
@@ -327,16 +463,15 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    marginTop: 1,
-    maxWidth: 220,
+    marginTop: 2,
   },
   closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   closeBtnText: {
     fontSize: 13,
@@ -348,34 +483,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 20,
-    marginTop: 12,
-    backgroundColor: COLORS.primarySubtle,
-    borderRadius: 8,
+    marginTop: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(13,59,54,0.12)',
+    paddingVertical: 8,
+    backgroundColor: COLORS.primarySubtle,
+    borderRadius: 10,
   },
   tourChipLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: COLORS.primary,
-    flex: 1,
   },
   tourChipPrice: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: COLORS.gold,
+    color: COLORS.primaryDark,
   },
   formScroll: {
-    paddingHorizontal: 20,
+    maxHeight: 460,
   },
   formContent: {
-    paddingTop: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  loadingVariantsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 8,
+  },
+  loadingVariantsText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+  sectionBlock: {
+    marginBottom: 4,
+  },
+  chipsRow: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: COLORS.surface,
+  },
+  chipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySubtle,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  chipTextActive: {
+    color: COLORS.primary,
+  },
+  chipSub: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  chipSubActive: {
+    color: COLORS.primary,
   },
   label: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: COLORS.textSecondary,
     letterSpacing: 0.8,
@@ -383,12 +561,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   input: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     fontSize: 14,
     color: COLORS.text,
   },
@@ -397,12 +575,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dialCodeBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -415,42 +593,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   textArea: {
-    minHeight: 88,
+    minHeight: 75,
     textAlignVertical: 'top',
-    paddingTop: 12,
+    paddingTop: 10,
   },
-  trustNote: {
+  trustBox: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
     marginTop: 14,
-    marginBottom: 4,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: COLORS.surface,
     borderRadius: 8,
     padding: 10,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
   },
   trustIcon: {
     fontSize: 13,
-    marginTop: 1,
   },
   trustText: {
     fontSize: 11,
-    color: '#166534',
-    lineHeight: 16,
+    color: COLORS.textMuted,
     flex: 1,
-    fontWeight: '500',
+    lineHeight: 15,
   },
   submitBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 18,
+    marginTop: 16,
     elevation: 3,
     shadowColor: COLORS.primary,
     shadowOpacity: 0.3,
@@ -474,5 +647,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  bottomSpacer: {
+    height: 10,
   },
 });

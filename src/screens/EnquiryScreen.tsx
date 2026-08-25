@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
 import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
 import enums from '../utils/enums.json';
@@ -19,6 +19,7 @@ import { NavScreen } from '../types';
 interface EnquiryScreenProps {
   onNavigate?: (screen: NavScreen) => void;
   onEnquirySubmitted?: (enquiry: any) => void;
+  user?: import('../api/tourApi').AuthUser | null;
 }
 
 async function submitCustomEnquiry(payload: Record<string, any>): Promise<{ success: boolean; message: string }> {
@@ -89,31 +90,42 @@ const enquiryTypeOptions: ChipOption[] = Object.entries(enums.EnquiryType)
 export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   onNavigate,
   onEnquirySubmitted,
+  user: initialUser,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const { showDialog } = useAppDialog();
-  const [name, setName] = useState('');
-  const [mobile, setMobile] = useState('');
+  const [name, setName] = useState(initialUser?.name || '');
+  const [mobile, setMobile] = useState(initialUser?.mobile || '');
   const [destination, setDestination] = useState('');
   const [travelDate, setTravelDate] = useState('');
   const [travelDuration, setTravelDuration] = useState('');
-  const [paxNo, setPaxNo] = useState('2');
-  const [noRoom, setNoRoom] = useState('1');
-  const [vehicleType, setVehicleType] = useState('');
-  const [mealPlan, setMealPlan] = useState('');
+  const [paxNo, setPaxNo] = useState('4');
+  const [noRoom, setNoRoom] = useState('2');
+  const [vehicleType, setVehicleType] = useState('ANY');
+  const [mealPlan, setMealPlan] = useState('ANY');
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [enquiryType, setEnquiryType] = useState('CUSTOM_TOUR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Auto-sync logged in user info if available
+  React.useEffect(() => {
+    if (initialUser) {
+      if (initialUser.name) setName(initialUser.name);
+      if (initialUser.mobile) setMobile(initialUser.mobile);
+    }
+  }, [initialUser]);
+
   const resetForm = () => {
-    setName('');
-    setMobile('');
+    setName(initialUser?.name || '');
+    setMobile(initialUser?.mobile || '');
     setDestination('');
     setTravelDate('');
     setTravelDuration('');
-    setPaxNo('2');
-    setNoRoom('1');
-    setVehicleType('');
-    setMealPlan('');
+    setPaxNo('4');
+    setNoRoom('2');
+    setVehicleType('ANY');
+    setMealPlan('ANY');
     setSpecialRequirements('');
     setEnquiryType('CUSTOM_TOUR');
   };
@@ -139,21 +151,26 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     setIsSubmitting(true);
     try {
       const visitor_id = await getVisitorId();
-      const result = await submitCustomEnquiry({
+      const customer_id = initialUser?.id || '';
+
+      const payload = {
         name: name.trim(),
         mobile: mobile.trim(),
         destination: destination.trim(),
         travel_date: travelDate.trim(),
         travel_duration: travelDuration.trim(),
-        pax_no: Number(paxNo) || 2,
-        no_room: Number(noRoom) || 1,
-        vehicle_type: vehicleType || undefined,
-        meal_plan: mealPlan || undefined,
-        special_requirements: specialRequirements.trim() || undefined,
-        enquiry_type: enquiryType,
-        channel: 'WEBSITE',
-        visitor_id,
-      });
+        pax_no: Number(paxNo) || 4,
+        no_room: Number(noRoom) || 2,
+        vehicle_type: vehicleType || 'ANY',
+        meal_plan: mealPlan || 'ANY',
+        special_requirements: specialRequirements.trim(),
+        enquiry_type: enquiryType || 'CUSTOM_TOUR',
+        channel: 'APP',
+        visitor_id: visitor_id || '',
+        customer_id: customer_id || '',
+      };
+
+      const result = await submitCustomEnquiry(payload);
 
       if (onEnquirySubmitted) onEnquirySubmitted(result);
 
@@ -361,7 +378,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -376,7 +393,7 @@ const styles = StyleSheet.create({
   headerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -423,7 +440,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
@@ -437,7 +454,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dialCodeBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
@@ -477,7 +494,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
   },
   chipActive: {
     borderColor: COLORS.primary,
@@ -552,3 +569,5 @@ const styles = StyleSheet.create({
     height: 30,
   },
 });
+
+const styles = makeStyles(COLORS);

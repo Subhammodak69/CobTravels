@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { NotificationItem, NavScreen } from '../types';
 
 interface NotificationsScreenProps {
@@ -15,6 +15,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   onMarkAllRead,
   onSelectNotification,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const getIcon = (type: string) => {
     switch (type) {
       case 'OFFER':
@@ -79,7 +81,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -90,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -109,7 +111,7 @@ const styles = StyleSheet.create({
   },
   notifCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,

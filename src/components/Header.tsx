@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 
 interface HeaderProps {
   title?: string;
@@ -22,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   unreadCount = 0,
   rightAction,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   return (
     <View style={styles.headerContainer}>
       <View style={styles.leftSection}>
@@ -82,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   headerSpacer: {
     width: 38,
   },

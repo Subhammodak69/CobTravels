@@ -8,7 +8,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { useTheme } from '../theme/theme';
 import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
 import { openWhatsAppChat } from '../api/tourApi';
@@ -39,6 +39,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   savedTours,
   onToggleSave,
 }) => {
+  const { colors: COLORS, isDark } = useTheme();
+  const styles = makeStyles(COLORS, isDark);
   const featuredTours = tours.filter(t => t.is_featured);
   const domesticTours = tours.filter(t => t.type === 'DOMESTIC');
   const internationalTours = tours.filter(t => t.type === 'INTERNATIONAL');
@@ -326,120 +328,122 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  bottomSpacer: {
-    height: 24,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-  },
-  heroSection: {
-    height: 260,
-    position: 'relative',
-    justifyContent: 'flex-end',
-    backgroundColor: COLORS.primaryDark,
-  },
-  heroImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(7, 36, 33, 0.72)',
-  },
-  heroContent: {
-    padding: 20,
-    paddingBottom: 24,
-  },
-  sinceBadge: {
-    backgroundColor: 'rgba(217, 119, 6, 0.22)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: COLORS.gold,
-    marginBottom: 8,
-  },
-  sinceBadgeText: {
-    color: COLORS.goldLight,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  heroHeadline: {
-    fontSize: 27,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    lineHeight: 33,
-  },
-  heroGold: {
-    color: COLORS.gold,
-  },
-  heroSub: {
-    color: '#E2E8F0',
-    fontSize: 13,
-    marginTop: 6,
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  categoriesContainer: {
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  categoryPills: {
-    gap: 12,
-    paddingRight: 16,
-    paddingTop: 8,
-  },
-  categoryCard: {
-    width: 125,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  catFeatured: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
-  },
-  catDomestic: {
-    backgroundColor: '#E0F2FE',
-    borderColor: '#BAE6FD',
-  },
-  catIntl: {
-    backgroundColor: '#F3E8FF',
-    borderColor: '#E9D5FF',
-  },
-  catCustom: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#BBF7D0',
-  },
-  catOffers: {
-    backgroundColor: '#FFE4E6',
-    borderColor: '#FECDD3',
-  },
-  categoryIcon: {
-    fontSize: 22,
-    marginBottom: 6,
-  },
-  categoryTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  categorySub: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  section: {
-    padding: 16,
-  },
+const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boolean) =>
+  StyleSheet.create({
+    bottomSpacer: {
+      height: 24,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.bg,
+    },
+    heroSection: {
+      height: 260,
+      position: 'relative',
+      justifyContent: 'flex-end',
+      backgroundColor: COLORS.primaryDark,
+    },
+    heroImage: {
+      ...StyleSheet.absoluteFill,
+      width: '100%',
+      height: 260,
+      opacity: 0.5,
+    },
+    heroOverlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(7, 36, 33, 0.65)',
+    },
+    heroContent: {
+      padding: 20,
+      paddingBottom: 24,
+    },
+    sinceBadge: {
+      backgroundColor: 'rgba(217, 119, 6, 0.2)',
+      borderWidth: 1,
+      borderColor: COLORS.gold,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 20,
+      alignSelf: 'flex-start',
+      marginBottom: 10,
+    },
+    sinceBadgeText: {
+      color: COLORS.gold,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
+    heroHeadline: {
+      fontSize: 28,
+      fontWeight: '900',
+      color: '#FFFFFF',
+      lineHeight: 34,
+    },
+    heroGold: {
+      color: COLORS.gold,
+    },
+    heroSub: {
+      color: '#E2E8F0',
+      fontSize: 13,
+      marginTop: 6,
+      marginBottom: 16,
+      lineHeight: 18,
+    },
+    categoriesContainer: {
+      paddingVertical: 18,
+      paddingHorizontal: 16,
+      backgroundColor: COLORS.card,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+    },
+    categoryPills: {
+      gap: 12,
+      paddingRight: 16,
+      paddingTop: 8,
+    },
+    categoryCard: {
+      width: 125,
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+    },
+    catFeatured: {
+      backgroundColor: isDark ? '#2D2006' : '#FEF3C7',
+      borderColor: isDark ? '#573E0C' : '#FDE68A',
+    },
+    catDomestic: {
+      backgroundColor: isDark ? '#08253B' : '#E0F2FE',
+      borderColor: isDark ? '#104468' : '#BAE6FD',
+    },
+    catIntl: {
+      backgroundColor: isDark ? '#25143A' : '#F3E8FF',
+      borderColor: isDark ? '#46246B' : '#E9D5FF',
+    },
+    catCustom: {
+      backgroundColor: isDark ? '#072E26' : '#DCFCE7',
+      borderColor: isDark ? '#0F5446' : '#BBF7D0',
+    },
+    catOffers: {
+      backgroundColor: isDark ? '#3B101E' : '#FFE4E6',
+      borderColor: isDark ? '#6B1B34' : '#FECDD3',
+    },
+    categoryIcon: {
+      fontSize: 22,
+      marginBottom: 6,
+    },
+    categoryTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: isDark ? '#FFFFFF' : '#0F172A',
+    },
+    categorySub: {
+      fontSize: 10,
+      color: isDark ? 'rgba(255, 255, 255, 0.7)' : '#475569',
+      marginTop: 2,
+    },
+    section: {
+      padding: 16,
+    },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -527,7 +531,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   whySection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     padding: 20,
     marginVertical: 12,
     borderTopWidth: 1,
@@ -587,7 +591,7 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     width: 250,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,

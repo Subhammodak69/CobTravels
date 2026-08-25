@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import Video from 'react-native-video';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { TourPackageSummary } from '../types';
 
 interface TourCardProps {
@@ -21,6 +21,8 @@ export const TourCard: React.FC<TourCardProps> = ({
   onToggleSave,
   layout = 'vertical',
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [previewing, setPreviewing] = useState(false);
   const isDomestic = tour.type === 'DOMESTIC';
   const priceFormatted = tour.starting_price
@@ -195,7 +197,7 @@ export const TourCard: React.FC<TourCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
     borderRadius: 14,

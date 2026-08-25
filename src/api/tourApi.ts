@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Linking, Platform} from 'react-native';
-import {EnquiryData, SeasonVariant, TourPackageDetail, TourPackageSummary} from '../types';
+import {SeasonVariant, TourPackageDetail, TourPackageSummary, Review} from '../types';
 
 export const BASE_API = 'https://coochbehar-travels.onrender.com';
 export const OFFICIAL_WHATSAPP = '919832000000';
@@ -58,7 +58,126 @@ function summary(x:any):TourPackageSummary{return {...x,starting_price:Number(x.
 export async function fetchTourPackages(){const r=await request<ApiEnvelope<any[]>>('/api/v1/tour-packages');return (Array.isArray(r.data)?r.data:[]).map(summary);}
 export async function fetchTourDetail(slug:string):Promise<TourPackageDetail>{const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);if(!r.data)throw new Error('Tour package was not found');const d=r.data;return {...d,is_featured:Boolean(d.is_featured),is_active:d.is_active!==false,seasons:[d.default_variant,...(d.other_variants||[])].filter(Boolean).map(variant),reviews:(d.reviews||[]).map((review:any)=>({...review,is_verified:true,review_gallery:(review.review_gallery||[]).map((item:any)=>({id:item.id,url:item.url,alt:item.alt,type:item.type,photoId:item.url}))}))};}
 export async function fetchTourVariant(slug:string,variantSlug:string){const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`);if(!r.data?.variant)throw new Error('Tour variant was not found');return {variant:variant(r.data.variant),other_variants:r.data.other_variants||[]};}
-export async function submitEnquiryApi(_enquiry:EnquiryData):Promise<{success:boolean;enquiryId:string;message:string}>{throw new Error('The enquiry endpoint was not included in the supplied backend contract.');}
+export interface EnquiryRecord {
+  id: string;
+  enquiry_type?: string;
+  channel?: string;
+  package_id?: string;
+  variant_id?: string;
+  subject?: string;
+  message?: string;
+  enquiry_code?: string;
+  visitor_id?: string;
+  customer_id?: string;
+  status?: string;
+  enquirer_name?: string;
+  enquirer_phone?: string;
+  room_id?: string;
+  vehicle_id?: string;
+  destination?: string;
+  travel_date?: string;
+  travel_duration?: string;
+  pax_no?: number;
+  no_room?: number;
+  vehicle_type?: string;
+  meal_plan?: string;
+  special_requirements?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+export async function fetchEnquiries(): Promise<EnquiryRecord[]> {
+  const response = await authenticated<ApiEnvelope<EnquiryRecord[]>>('/api/v1/enquiries');
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export interface TourPackageSelectData {
+  id: string;
+  title: string;
+  banner?: {
+    image?: string;
+    video?: string;
+  };
+  variants: Array<{
+    id: string;
+    name: string;
+    season_name?: string;
+  }>;
+}
+
+export async function fetchTourPackageSelect(slug: string): Promise<TourPackageSelectData> {
+  const r = await request<ApiEnvelope<TourPackageSelectData>>(`/api/v1/tour-packages/select/${encodeURIComponent(slug)}`);
+  if (!r.data) throw new Error('Package options not found');
+  return r.data;
+}
+
+export async function fetchPackageReviews(slug: string, page = 1, pageSize = 10): Promise<{ reviews: Review[]; pagination?: any }> {
+  try {
+    const r = await request<ApiEnvelope<any>>(`/api/v1/reviews/package/${encodeURIComponent(slug)}?page=${page}&page_size=${pageSize}`);
+    const items = Array.isArray(r.data) ? r.data : (r.data?.items || []);
+    const reviews: Review[] = items.map((review: any) => ({
+      id: review.id,
+      review_code: review.review_code || '',
+      name: review.name || review.reviewer_by || 'Verified Traveler',
+      rating: Number(review.rating || 5),
+      review: review.review || '',
+      is_verified: Boolean(review.is_verified ?? true),
+      is_published: Boolean(review.is_published ?? true),
+      reviewer_by: review.reviewer_by,
+      reviewer_pic: review.reviewer_pic,
+      review_gallery: (review.review_gallery || []).map((item: any) => ({
+        id: item.id || item.url,
+        url: item.url,
+        alt: item.alt,
+        type: item.type,
+        photoId: item.url,
+      })),
+      created_at: review.created_at || new Date().toISOString(),
+    }));
+    return { reviews, pagination: (r as any).pagination };
+  } catch {
+    return { reviews: [] };
+  }
+}
+
+export async function fetchReviewEligibility(slug: string): Promise<{ can_review: boolean; has_reviewed: boolean; review?: any } | null> {
+  try {
+    const r = await authenticated<ApiEnvelope<{ package_id: string; can_review: boolean; has_reviewed: boolean; review?: any }>>(`/api/v1/reviews/eligibility/${encodeURIComponent(slug)}`);
+    return r.data || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function submitReviewApi(payload: {
+  package_id: string;
+  rating: number;
+  review: string;
+  review_gallery?: any[];
+}): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>('/api/v1/reviews', {
+    method: 'POST',
+    body: JSON.stringify({ ...payload, review_gallery: payload.review_gallery || [] }),
+  });
+}
+
+export async function updateReviewApi(reviewId: string, payload: {
+  rating?: number;
+  review?: string;
+  review_gallery?: any[];
+}): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(`/api/v1/reviews/${encodeURIComponent(reviewId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteReviewApi(reviewId: string): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(`/api/v1/reviews/${encodeURIComponent(reviewId)}`, {
+    method: 'DELETE',
+  });
+}
 export async function uploadFileApi(
   file: { uri: string; name?: string; type?: string } | FormData | any
 ): Promise<ApiEnvelope<UploadedFileData>> {
@@ -111,4 +230,3 @@ export async function uploadFileApi(
 }
 
 export function openWhatsAppChat(text:string,phone=OFFICIAL_WHATSAPP){const encoded=encodeURIComponent(text);const app=`whatsapp://send?phone=${phone}&text=${encoded}`;Linking.canOpenURL(app).then(ok=>Linking.openURL(ok?app:`https://wa.me/${phone}?text=${encoded}`)).catch(()=>Linking.openURL(`https://wa.me/${phone}?text=${encoded}`));}
-

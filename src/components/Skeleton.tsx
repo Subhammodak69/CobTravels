@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 
 const SkeletonBlock: React.FC<{ style?: any }> = ({ style }) => {
   const opacity = useRef(new Animated.Value(0.45)).current;
@@ -41,7 +41,7 @@ export const TourDetailSkeleton: React.FC = () => (
   </View>
 );
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   block: { backgroundColor: COLORS.borderDark, borderRadius: 7 },
   list: { padding: 16 },
   card: { backgroundColor: COLORS.card, borderRadius: 14, overflow: 'hidden', marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },
@@ -59,3 +59,5 @@ const styles = StyleSheet.create({
   detailContent: { padding: 22 },
   detailTitle: { width: '85%', height: 32, marginBottom: 20 },
 });
+
+const styles = makeStyles(COLORS);

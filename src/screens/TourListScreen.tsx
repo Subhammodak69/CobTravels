@@ -8,7 +8,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { COLORS, useColors } from '../theme/theme';
 import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
 import { TourListSkeleton } from '../components/Skeleton';
@@ -36,6 +36,8 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
   onToggleSave,
   onEnquireTour,
 }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [filterType, setFilterType] = useState<'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recommended' | 'price_asc' | 'price_desc' | 'duration'>('recommended');
@@ -207,13 +209,13 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
   },
   searchHeader: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.card,
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
