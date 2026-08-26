@@ -18,4 +18,9 @@ buildscript {
     }
 }
 
+def localBuildRoot = System.getenv("COBTRAVELS_ANDROID_BUILD_DIR") ?: new File(System.getProperty("user.home"), ".gradle\\cobtravels-build")
+subprojects {
+    buildDir = new File(localBuildRoot, name)
+}
+
 apply plugin: "com.facebook.react.rootproject"
