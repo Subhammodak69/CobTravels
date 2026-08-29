@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Linking, Platform} from 'react-native';
-import {SeasonVariant, TourPackageDetail, TourPackageSummary, Review} from '../types';
+import {SeasonVariant, TourPackageDetail, TourPackageSummary, Review, TravelDocument} from '../types';
 
 export const BASE_API = 'https://coochbehar-travels.onrender.com';
 export const OFFICIAL_WHATSAPP = '919832000000';
 const ACCESS_TOKEN_KEY = '@cobtravels/access_token';
 const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
 const VISITOR_ID_KEY = '@cobtravels/visitor_id';
+export const REFERRAL_CODE_KEY = '@cobtravels/referral_code';
 export type ApiEnvelope<T> = {success?: boolean; message?: string; data?: T};
 export interface UploadedFileData {
   url: string;
@@ -33,15 +34,25 @@ async function authenticated<T>(path:string, init:RequestInit={}):Promise<T>{
   catch (error) { if (await refreshSession()) return request<T>(path,init,true); throw error; }
 }
 async function getAuthVisitorId(){return (await getTrackedVisitorId()) || (await identifyVisitor()) || '';}
-export async function requestOtp(identifier:string,purpose:'LOGIN'|'SIGNUP'='LOGIN'){return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getAuthVisitorId()})});}
-export async function verifyOtp(identifier:string,otp:string,name='',purpose:'LOGIN'|'SIGNUP'='LOGIN'){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getAuthVisitorId()})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
-export async function loginWithGoogle(idToken:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getAuthVisitorId()})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
+export async function getStoredReferralCode(){return AsyncStorage.getItem(REFERRAL_CODE_KEY);}
+export async function requestOtp(identifier:string,purpose:'LOGIN'|'SIGNUP'='LOGIN',referralCode?:string){return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});}
+export async function verifyOtp(identifier:string,otp:string,name='',purpose:'LOGIN'|'SIGNUP'='LOGIN',referralCode?:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
 export async function refreshSession(){try{const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/sessions/refresh',{method:'POST'});const t=tokens(r);await saveTokens(t.access);return Boolean(t.access);}catch{return false;}}
 export async function logout(all=false){try{await request(`/api/v1/sessions/${all?'logout-all':'logout'}`,{method:'POST'},true);}finally{await clearTokens();}}
 export async function fetchMe(){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me');}
 export async function updateMe(payload:Partial<AuthUser>){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me',{method:'PATCH',body:JSON.stringify(payload)});}
 export async function fetchSessions(){return authenticated<ApiEnvelope<any[]>>('/api/v1/sessions/');}
 export async function deleteSession(id:string){return authenticated(`/api/v1/sessions/${encodeURIComponent(id)}`,{method:'DELETE'});}
+export async function fetchWishlist(){return authenticated<ApiEnvelope<any[]> & {pagination?: any}>('/api/v1/wishlist');}
+export async function addWishlistItem(slug:string){return authenticated<ApiEnvelope<unknown>>(`/api/v1/wishlist/${encodeURIComponent(slug)}`,{method:'POST'});}
+export async function removeWishlistItem(slug:string){return authenticated<ApiEnvelope<unknown>>(`/api/v1/wishlist/${encodeURIComponent(slug)}`,{method:'DELETE'});}
+export async function fetchReferralCode(){return authenticated<ApiEnvelope<{referral_code:string}>>('/api/v1/referrals/code');}
+export async function validateReferralCode(code:string){return request<ApiEnvelope<{referral_code:string;referrer_name:string}>>(`/api/v1/referrals/invite/${encodeURIComponent(code)}`);}
+export async function fetchReferrals(){return authenticated<ApiEnvelope<any[]> & {pagination?: any}>('/api/v1/referrals');}
+export async function fetchDocuments(){return authenticated<ApiEnvelope<TravelDocument[]> & {pagination?: any}>('/api/v1/documents');}
+export async function uploadDocument(file:{uri:string;name?:string;type?:string}, documentType:string, title:string, description:string){const formData=new FormData();formData.append('file',{uri:file.uri,name:file.name||'document',type:file.type||'application/octet-stream'} as any);formData.append('document_type',documentType);formData.append('title',title);formData.append('description',description);return authenticated<ApiEnvelope<unknown>>('/api/v1/documents',{method:'POST',body:formData,headers:{'Content-Type':undefined as any}});}
+export async function downloadDocument(id:string){return authenticated<ApiEnvelope<{document_id:string;file_name:string;download_url:string}>>(`/api/v1/documents/${encodeURIComponent(id)}/download`);}
+export async function deleteDocument(id:string){return authenticated<ApiEnvelope<unknown>>(`/api/v1/documents/${encodeURIComponent(id)}`,{method:'DELETE'});}
 const VISITOR_SERVER_ID_KEY='@cobtravels/visitor_server_id';
 const VISITOR_SESSION_ID_KEY='@cobtravels/visitor_session_id';
 const FINGERPRINT_KEY='@cobtravels/fingerprint';
@@ -54,7 +65,7 @@ export async function endVisitorSession(exitPage=''){const id=await AsyncStorage
 export async function trackVisitorEvent(eventName:string,page='home',eventMetadata:Record<string,any>={}){const visitor=await getTrackedVisitorId();const session=await AsyncStorage.getItem(VISITOR_SESSION_ID_KEY);if(!visitor||!session)return null;try{const r=await request<ApiEnvelope<any>>('/api/v1/visitors/events',{method:'POST',body:JSON.stringify({visitor_id:visitor,session_id:session,event_name:eventName,page,event_metadata:eventMetadata})});return r.data||null;}catch{return null;}}
 export async function trackVisitorEventsBatch(events:any[]){if(!events.length)return null;try{const r=await request<ApiEnvelope<any>>('/api/v1/visitors/events/batch',{method:'POST',body:JSON.stringify({events})});return r.data||null;}catch{return null;}}
 function variant(v:any,i=0):SeasonVariant{return {id:v.id||`variant-${i}`,key:v.slug||`variant-${i}`,display_order:i,variant_code:v.slug||'',name:v.name||'',badge:v.badge,season_type:'',season_name:v.season_name||'',cover_image:v.banner?.image||v.cover_image||'',banner_video:v.banner?.video||'',valid_from:v.valid_from||'',valid_to:v.valid_to||'',duration:`${v.duration_nights??0}N | ${v.duration_days??0}D`,duration_days:Number(v.duration_days||0),duration_nights:Number(v.duration_nights||0),price:Number(v.price||0),currency:'INR',starting_price:Number(v.price||0),seats:Number(v.seats||0),availability:v.availability||'SOLD_OUT',is_active:true,is_default:i===0,route:(v.route||[]).map((x:any)=>({id:String(x.id||''),place:x.city||x.place||'',nights:Number(x.nights||0)} as any)),highlights:v.highlights||[],dates:(v.departure_dates||v.dates||[]).map((x:any)=>({id:String(x.id||''),date:x.date||''})),gallery:(v.gallery||[]).map((x:any)=>({id:String(x.id||''),photoId:x.url||'',url:x.url,alt:x.alt,type:x.type,display_order:x.display_order})),itinerary:(v.itinerary||[]).map((x:any)=>({id:String(x.id||''),day:String(x.day||''),title:x.title,description:x.description||''})),inclusions:v.inclusions||[],exclusions:v.exclusions||[]};}
-function summary(x:any):TourPackageSummary{return {...x,starting_price:Number(x.starting_price??x.price??0),duration_days:Number(x.duration_days??0),duration_nights:Number(x.duration_nights??0),duration:x.duration||'',cover_image:x.cover_image||x.banner?.image||'',banner_video:x.banner?.video||'',season_name:x.season_name||'',is_featured:Boolean(x.is_featured||x.featured||x.badge),is_active:x.is_active!==false};}
+function summary(x:any):TourPackageSummary{return {...x,starting_price:Number(x.starting_price??x.price??0),duration_days:Number(x.duration_days??0),duration_nights:Number(x.duration_nights??0),duration:x.duration||'',cover_image:x.cover_image||x.banner?.image||'',banner_video:x.banner_video||x.banner?.video||'',season_name:x.season_name||'',is_featured:Boolean(x.is_featured||x.featured||x.badge),is_active:x.is_active!==false,is_wishlist:Boolean(x.is_wishlist)};}
 export async function fetchTourPackages(){const r=await request<ApiEnvelope<any[]>>('/api/v1/tour-packages');return (Array.isArray(r.data)?r.data:[]).map(summary);}
 export async function fetchTourDetail(slug:string):Promise<TourPackageDetail>{const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);if(!r.data)throw new Error('Tour package was not found');const d=r.data;return {...d,is_featured:Boolean(d.is_featured),is_active:d.is_active!==false,seasons:[d.default_variant,...(d.other_variants||[])].filter(Boolean).map(variant),reviews:(d.reviews||[]).map((review:any)=>({...review,is_verified:true,review_gallery:(review.review_gallery||[]).map((item:any)=>({id:item.id,url:item.url,alt:item.alt,type:item.type,photoId:item.url}))}))};}
 export async function fetchTourVariant(slug:string,variantSlug:string){const r=await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`);if(!r.data?.variant)throw new Error('Tour variant was not found');return {variant:variant(r.data.variant),other_variants:r.data.other_variants||[]};}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppState, BackHandler, StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, Linking, StatusBar, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
@@ -10,7 +11,7 @@ import {
   NotificationItem,
   NavScreen,
 } from './src/types';
-import { fetchTourPackages, fetchMe, fetchEnquiries, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord } from './src/api/tourApi';
+import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
 
 // Components
 import { Header } from './src/components/Header';
@@ -30,9 +31,13 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ProfileDetailsScreen } from './src/screens/ProfileDetailsScreen';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
+import { DocumentsScreen } from './src/screens/DocumentsScreen';
+import { WishlistScreen } from './src/screens/WishlistScreen';
+import { ReferralsScreen } from './src/screens/ReferralsScreen';
 import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/ProfilePages';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
+import { decodeReferral } from './src/utils/referral';
 import { AppDialogProvider } from './src/components/AppDialog';
 
 function AppInner() {
@@ -106,6 +111,7 @@ function AppInner() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userPhone, setUserPhone] = useState('');
   const [savedTours, setSavedTours] = useState<string[]>([]);
+  const wishlistActionRef = React.useRef<string | null>(null);
   const [enquiries, setEnquiries] = useState<EnquiryData[]>([]);
   const [loadingEnquiries, setLoadingEnquiries] = useState(false);
 
@@ -131,6 +137,14 @@ function AppInner() {
     } catch (error) {
       showApiError(error, 'We could not load your enquiries.');
     } finally { setLoadingEnquiries(false); }
+  }, []);
+
+  const loadWishlist = useCallback(async () => {
+    try {
+      const response = await fetchWishlist();
+      const items: any = Array.isArray(response.data) ? response.data : [];
+      setSavedTours(items.map((item: any) => item.slug).filter(Boolean));
+    } catch (error) { showApiError(error, 'We could not load your wishlist.'); }
   }, []);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -166,6 +180,7 @@ function AppInner() {
           customerId = profile?.id || '';
           setUser(profile);
           setIsLoggedIn(Boolean(profile));
+          if (profile) await loadWishlist();
           setUserPhone(profile?.mobile || '');
           if (profile && mounted) {
             // A returning member should never be stopped at the guest splash screen.
@@ -181,13 +196,37 @@ function AppInner() {
       if (mounted) setVisitorReady(true);
     })();
     return () => { mounted = false; };
-  }, [loadTours, loadEnquiries]);
+  }, [loadTours, loadEnquiries, loadWishlist]);
+
+  useEffect(() => {
+    const processUrl = async (url: string | null | undefined) => {
+      if (!url) return;
+      const encoded = url.match(/[?&]r=([^&]+)/)?.[1];
+      if (!encoded) return;
+      try {
+        const decoded = decodeURIComponent(encoded);
+        const code = decodeReferral(decoded);
+        const result = await validateReferralCode(code);
+        const validCode = result.data?.referral_code;
+        if (validCode) await AsyncStorage.setItem(REFERRAL_CODE_KEY, validCode);
+      } catch { /* Invalid invite links should not interrupt normal navigation. */ }
+    };
+    Linking.getInitialURL().then(processUrl).catch(() => {});
+    const subscription = Linking.addEventListener('url', event => { processUrl(event.url); });
+    return () => subscription.remove();
+  }, []);
 
   // Wishlist toggle
   const toggleSaveTour = (slug: string) => {
-    setSavedTours(prev =>
-      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
-    );
+    if (!isLoggedIn) { navigateTo('auth'); return; }
+    if (wishlistActionRef.current === slug) return;
+    const isSaved = savedTours.includes(slug);
+    setSavedTours(prev => isSaved ? prev.filter(s => s !== slug) : [...prev, slug]);
+    wishlistActionRef.current = slug;
+    (isSaved ? removeWishlistItem(slug) : addWishlistItem(slug)).catch(error => {
+      setSavedTours(prev => isSaved ? [...prev, slug] : prev.filter(s => s !== slug));
+      showApiError(error, 'We could not update your wishlist.');
+    }).finally(() => { wishlistActionRef.current = null; });
     trackVisitorEvent('wishlist_toggled', currentScreenRef.current, { tour_slug: slug });
   };
 
@@ -250,6 +289,7 @@ function AppInner() {
   };
 
   const handleLoginSuccess = async (phone: string) => {
+    await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
     setIsLoggedIn(true);
     setUserPhone(phone);
     await loadEnquiries();
@@ -267,7 +307,7 @@ function AppInner() {
     if (currentScreenRef.current === 'profile' || currentScreenRef.current === 'notifications') navigateTo('home');
   };
 
-  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'notifications'];
+  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'wishlist', 'referrals', 'notifications'];
   const navigateWithAuth = (screen: NavScreen) => {
     if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
     navigateTo(screen);
@@ -373,6 +413,15 @@ function AppInner() {
 
       case 'sessions':
         return <SessionsScreen onLogout={handleLogout} onNavigate={navigateWithAuth} />;
+
+      case 'documents':
+        return <DocumentsScreen onNavigate={navigateWithAuth} />;
+
+      case 'wishlist':
+        return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} />;
+
+      case 'referrals':
+        return <ReferralsScreen />;
 
       case 'my_trips':
         return <MyTripsScreen />;

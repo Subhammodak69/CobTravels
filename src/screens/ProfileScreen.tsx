@@ -20,6 +20,9 @@ export const ProfileScreen: React.FC<Props> = ({isLoggedIn, userPhone, user, enq
     <ProfileRow icon="✈" title="My trips" subtitle="View your upcoming and completed trips" onPress={() => onNavigate('my_trips')} />
     <ProfileRow icon="☷" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} onPress={() => onNavigate('my_enquiries')} />
     <ProfileRow icon="₹" title="Bills & invoices" subtitle="View your booking bills and invoices" onPress={() => onNavigate('bills_invoices')} />
+    <ProfileRow icon="▤" title="My documents" subtitle="Upload and manage incoming and outgoing files" onPress={() => onNavigate('documents')} />
+    <ProfileRow icon="♥" title="My wishlist" subtitle="Your saved travel packages" onPress={() => onNavigate('wishlist')} />
+    <ProfileRow icon="↗" title="Refer & earn" subtitle="Share your travel network" onPress={() => onNavigate('referrals')} />
     <Text style={styles.sectionTitle}>Session</Text>
     <ProfileRow icon="↪" title="Log out" subtitle="Sign out from this device" danger onPress={async () => {const confirmed = await showDialog({title: 'Log out?', message: 'You will be signed out from this device.', variant: 'warning', confirmText: 'Log out', cancelText: 'Cancel'}); if (confirmed) onLogout();}} />
     <ProfileRow icon="×" title="Log out everywhere" subtitle="Sign out from all active devices" danger onPress={async () => {const confirmed = await showDialog({title: 'Log out everywhere?', message: 'All active devices will be signed out of your account.', variant: 'warning', confirmText: 'Log out all', cancelText: 'Cancel'}); if (confirmed) onLogout(true);}} />

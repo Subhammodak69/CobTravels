@@ -96,6 +96,7 @@ export interface TourPackageSummary {
   variant_count: number;
   cover_image?: string;
   badge?: string;
+  is_wishlist?: boolean;
 }
 
 export interface TourPackageDetail {
@@ -112,6 +113,7 @@ export interface TourPackageDetail {
   updated_at: string;
   reviews: Review[];
   seasons: SeasonVariant[];
+  is_wishlist?: boolean;
 }
 
 export interface EnquiryData {
@@ -141,6 +143,28 @@ export interface NotificationItem {
   actionSlug?: string;
 }
 
+export type DocumentDirection = 'incoming' | 'outgoing';
+
+export interface TravelDocument {
+  id: string;
+  document_type: string;
+  title: string;
+  type: DocumentDirection;
+  description?: string;
+  customer_id?: string;
+  customer_name?: string;
+  customer_profile_pic?: string;
+  uploader_name?: string;
+  uploader_profile_pic?: string;
+  uploaded_at?: string;
+  file_url?: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+  uploaded_by?: string;
+  can_delete?: boolean;
+}
+
 export type NavScreen = 
   | 'splash'
   | 'home'
@@ -155,4 +179,7 @@ export type NavScreen =
   | 'sessions'
   | 'my_trips'
   | 'my_enquiries'
-  | 'bills_invoices';
+  | 'bills_invoices'
+  | 'documents'
+  | 'wishlist'
+  | 'referrals';

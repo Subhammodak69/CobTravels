@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { NavScreen } from '../types';
-import { OtpRequestData, requestOtp, verifyOtp } from '../api/tourApi';
+import { OtpRequestData, getStoredReferralCode, requestOtp, verifyOtp } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
 import { useAppDialog } from '../components/AppDialog';
 
@@ -72,7 +72,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
     }
     setLoading(true);
     try {
-      const response = await requestOtp(value, mode);
+      const response = await requestOtp(value, mode, (await getStoredReferralCode()) || undefined);
       const otpData = response.data as OtpRequestData | undefined;
       setOtpSent(true);
       setOtp('');
@@ -100,7 +100,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
     }
     setLoading(true);
     try {
-      await verifyOtp(identifier.trim(), otp.trim(), mode === 'SIGNUP' ? name.trim() : '', mode);
+      await verifyOtp(identifier.trim(), otp.trim(), mode === 'SIGNUP' ? name.trim() : '', mode, (await getStoredReferralCode()) || undefined);
       onLoginSuccess(identifier.trim());
     } catch (error) {
       showApiError(error, 'The verification code could not be verified. Please try again.');
@@ -108,6 +108,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
       setLoading(false);
     }
   };
+
 
   return (
     <KeyboardAvoidingView
