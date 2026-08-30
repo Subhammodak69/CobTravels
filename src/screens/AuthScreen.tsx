@@ -13,11 +13,13 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { NavScreen } from '../types';
-import { OtpRequestData, getStoredReferralCode, requestOtp, verifyOtp } from '../api/tourApi';
+import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import { OtpRequestData, getStoredReferralCode, googleAuth, requestOtp, verifyOtp } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
 import { useAppDialog } from '../components/AppDialog';
 
 type AuthMode = 'LOGIN' | 'SIGNUP';
+const GOOGLE_CLIENT_ID_WEB = '61755144915-pj9o538ffi7dldtemnrlhj36pvenb3n9.apps.googleusercontent.com';
 
 interface Props {
   onLoginSuccess: (identifier: string) => void;
@@ -36,6 +38,13 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
   const [otpSent, setOtpSent] = useState(false);
   const [expiresIn, setExpiresIn] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [hasReferral, setHasReferral] = useState(false);
+
+  useEffect(() => {
+    GoogleSignin.configure({ webClientId: GOOGLE_CLIENT_ID_WEB });
+    getStoredReferralCode().then(code => setHasReferral(Boolean(code))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!otpSent || expiresIn <= 0) return;
@@ -109,6 +118,27 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const result = await GoogleSignin.signIn();
+      if (result.type !== 'success') return;
+      const { idToken } = await GoogleSignin.getTokens();
+      if (!idToken) throw new Error('Google did not return an ID token.');
+      await googleAuth(idToken, (await getStoredReferralCode()) || undefined);
+      onLoginSuccess(result.data.user.email || result.data.user.name || 'google');
+    } catch (error: any) {
+      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) return;
+      const message = isErrorWithCode(error) && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
+        ? 'Google Play Services is unavailable. Please update it and try again.'
+        : 'Google sign-in failed. Please try again.';
+      showApiError(error, message);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
 
   return (
     <KeyboardAvoidingView
@@ -160,6 +190,12 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
 
         {/* Card Form */}
         <View style={styles.card}>
+          {hasReferral && (
+            <View style={styles.referralNotice} accessibilityRole="text">
+              <Text style={styles.referralNoticeTitle}>Invite applied</Text>
+              <Text style={styles.referralNoticeText}>Your invite will be linked to this account.</Text>
+            </View>
+          )}
           {mode === 'SIGNUP' && !otpSent && (
             <View style={styles.inputGroup}>
               <Text style={styles.label}>FULL NAME *</Text>
@@ -256,6 +292,15 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
                   : 'Send Verification Code →'}
               </Text>
             )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${mode === 'LOGIN' ? 'Sign in' : 'Sign up'} with Google`}
+            style={({ pressed }) => [styles.googleBtn, (loading || googleLoading) && styles.submitBtnDisabled, pressed && styles.submitBtnPressed]}
+            onPress={signInWithGoogle}
+            disabled={loading || googleLoading}
+          >
+            {googleLoading ? <ActivityIndicator color={COLORS.primary} size="small" /> : <Text style={styles.googleBtnText}>Continue with Google</Text>}
           </Pressable>
         </View>
 
@@ -494,6 +539,36 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontSize: 14,
       fontWeight: '900',
       letterSpacing: 0.3,
+    },
+    googleBtn: {
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : COLORS.borderDark,
+      borderRadius: 12,
+      paddingVertical: 13,
+      alignItems: 'center',
+      marginTop: 10,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FFFFFF',
+    },
+    googleBtnText: {
+      color: isDark ? '#FFFFFF' : COLORS.text,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    referralNotice: {
+      backgroundColor: isDark ? 'rgba(251, 191, 36, 0.12)' : COLORS.goldLight,
+      borderRadius: 10,
+      padding: 11,
+      marginBottom: 12,
+    },
+    referralNoticeTitle: {
+      color: isDark ? COLORS.gold : COLORS.goldDark,
+      fontSize: 12,
+      fontWeight: '900',
+    },
+    referralNoticeText: {
+      color: isDark ? 'rgba(255, 255, 255, 0.72)' : COLORS.textSecondary,
+      fontSize: 11,
+      marginTop: 3,
     },
     footerRow: {
       flexDirection: 'row',

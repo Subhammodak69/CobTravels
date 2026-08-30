@@ -177,6 +177,7 @@ export type NavScreen =
   | 'profile_details'
   | 'edit_profile'
   | 'sessions'
+  | 'notification_settings'
   | 'my_trips'
   | 'my_enquiries'
   | 'bills_invoices'

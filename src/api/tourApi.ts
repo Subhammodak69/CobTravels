@@ -37,6 +37,7 @@ async function getAuthVisitorId(){return (await getTrackedVisitorId()) || (await
 export async function getStoredReferralCode(){return AsyncStorage.getItem(REFERRAL_CODE_KEY);}
 export async function requestOtp(identifier:string,purpose:'LOGIN'|'SIGNUP'='LOGIN',referralCode?:string){return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request',{method:'POST',body:JSON.stringify({identifier,purpose,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});}
 export async function verifyOtp(identifier:string,otp:string,name='',purpose:'LOGIN'|'SIGNUP'='LOGIN',referralCode?:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({identifier,otp,name,purpose,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
+export async function googleAuth(idToken:string,referralCode?:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
 export async function refreshSession(){try{const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/sessions/refresh',{method:'POST'});const t=tokens(r);await saveTokens(t.access);return Boolean(t.access);}catch{return false;}}
 export async function logout(all=false){try{await request(`/api/v1/sessions/${all?'logout-all':'logout'}`,{method:'POST'},true);}finally{await clearTokens();}}
 export async function fetchMe(){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me');}
@@ -238,6 +239,107 @@ export async function uploadFileApi(
     throw new Error(resBody?.message || `File upload failed (${res.status})`);
   }
   return resBody as ApiEnvelope<UploadedFileData>;
+}
+
+// ========== NEW: Trips, Bills, and Notifications ==========
+export interface Trip {
+  id: string;
+  enquiry_code?: string;
+  destination?: string;
+  travel_date?: string;
+  pax_no?: number;
+  status?: string;
+  subject?: string;
+  created_at?: string;
+  updated_at?: string;
+  [key: string]: any;
+}
+
+export interface UserStats {
+  journeys_taken: number;
+  countries_visited: number;
+  total_travel_days: number;
+  member_since?: string;
+  total_spent?: number;
+}
+
+export interface NotificationPreferences {
+  push_notifications: boolean;
+  newsletter: boolean;
+  sms_alerts: boolean;
+  email_updates: boolean;
+}
+
+export interface Invoice {
+  id: string;
+  invoice_code?: string;
+  destination?: string;
+  amount?: number;
+  currency?: string;
+  booking_date?: string;
+  status?: string;
+  travel_date?: string;
+  [key: string]: any;
+}
+
+// Fetch trips - filter enquiries with travel dates
+export async function fetchTrips(): Promise<Trip[]> {
+  try {
+    const response = await fetchEnquiries();
+    return (response || []).filter((trip: Trip) => trip.travel_date || trip.destination);
+  } catch {
+    return [];
+  }
+}
+
+// Fetch user statistics
+export async function fetchUserStats(): Promise<UserStats> {
+  try {
+    // Try to fetch from API if available, otherwise calculate from trips
+    const response = await authenticated<ApiEnvelope<UserStats>>('/api/v1/auth/me/stats');
+    return response.data || { journeys_taken: 0, countries_visited: 0, total_travel_days: 0 };
+  } catch {
+    // Fallback: calculate from trips
+    const trips = await fetchTrips();
+    const uniqueDestinations = new Set(trips.map((t) => t.destination).filter(Boolean));
+    return {
+      journeys_taken: trips.length,
+      countries_visited: uniqueDestinations.size,
+      total_travel_days: 0,
+      member_since: new Date().toISOString(),
+    };
+  }
+}
+
+// Fetch notification preferences
+export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
+  try {
+    const response = await authenticated<ApiEnvelope<NotificationPreferences>>('/api/v1/auth/me/notifications');
+    return response.data || { push_notifications: true, newsletter: true, sms_alerts: false, email_updates: true };
+  } catch {
+    return { push_notifications: true, newsletter: true, sms_alerts: false, email_updates: true };
+  }
+}
+
+// Update notification preferences
+export async function updateNotificationPreferences(prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+  const response = await authenticated<ApiEnvelope<NotificationPreferences>>('/api/v1/auth/me/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify(prefs),
+  });
+  return response.data || prefs as NotificationPreferences;
+}
+
+// Fetch invoices/bills
+export async function fetchInvoices(): Promise<Invoice[]> {
+  try {
+    // Try to fetch from API if available
+    const response = await authenticated<ApiEnvelope<Invoice[]>>('/api/v1/invoices');
+    return Array.isArray(response.data) ? response.data : [];
+  } catch {
+    // Fallback: return empty array (feature not yet available)
+    return [];
+  }
 }
 
 export function openWhatsAppChat(text:string,phone=OFFICIAL_WHATSAPP){const encoded=encodeURIComponent(text);const app=`whatsapp://send?phone=${phone}&text=${encoded}`;Linking.canOpenURL(app).then(ok=>Linking.openURL(ok?app:`https://wa.me/${phone}?text=${encoded}`)).catch(()=>Linking.openURL(`https://wa.me/${phone}?text=${encoded}`));}

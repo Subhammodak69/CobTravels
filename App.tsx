@@ -31,6 +31,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ProfileDetailsScreen } from './src/screens/ProfileDetailsScreen';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
+import { NotificationSettingsScreen } from './src/screens/NotificationSettingsScreen';
 import { DocumentsScreen } from './src/screens/DocumentsScreen';
 import { WishlistScreen } from './src/screens/WishlistScreen';
 import { ReferralsScreen } from './src/screens/ReferralsScreen';
@@ -413,6 +414,9 @@ function AppInner() {
 
       case 'sessions':
         return <SessionsScreen onLogout={handleLogout} onNavigate={navigateWithAuth} />;
+
+      case 'notification_settings':
+        return <NotificationSettingsScreen isLoggedIn={isLoggedIn} />;
 
       case 'documents':
         return <DocumentsScreen onNavigate={navigateWithAuth} />;
