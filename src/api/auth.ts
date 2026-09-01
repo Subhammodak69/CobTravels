@@ -5,6 +5,7 @@ import {
   saveTokens,
   clearTokens,
   getRefreshToken,
+  REFERRAL_CODE_KEY,
 } from './client';
 import {
   ApiEnvelope,
@@ -15,8 +16,6 @@ import {
   SessionItem,
 } from './types';
 import { getAuthVisitorId } from './visitors';
-
-export const REFERRAL_CODE_KEY = '@cobtravels/referral_code';
 
 export async function getStoredReferralCode(): Promise<string | null> {
   return AsyncStorage.getItem(REFERRAL_CODE_KEY);
@@ -98,21 +97,23 @@ export async function googleAuth(
   return r;
 }
 
-export async function logout(all = false): Promise<void> {
+export async function logout(): Promise<void> {
   try {
-    if (all) {
-      await authenticated('/api/v1/sessions/logout-all', { method: 'POST' });
-    } else {
-      const storedRefreshToken = await getRefreshToken();
-      const payload = storedRefreshToken ? { refresh_token: storedRefreshToken } : {};
-      await request('/api/v1/sessions/logout', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }, true);
-    }
+    const storedRefreshToken = await getRefreshToken();
+    const payload = storedRefreshToken ? { refresh_token: storedRefreshToken } : {};
+    await request('/api/v1/sessions/logout', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, true);
   } finally {
     await clearTokens();
   }
+}
+
+export async function logoutAllSessions(): Promise<ApiEnvelope<any>> {
+  return authenticated<ApiEnvelope<any>>('/api/v1/sessions/logout-all', {
+    method: 'POST',
+  });
 }
 
 export async function fetchMe(): Promise<ApiEnvelope<AuthUser>> {

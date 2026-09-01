@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
-import {deleteSession, fetchSessions} from '../api/tourApi';
+import {deleteSession, fetchSessions, logoutAllSessions} from '../api/tourApi';
 import {AppColors, useColors} from '../theme/theme';
 import {NavScreen} from '../types';
 import {showApiError} from '../utils/toast';
@@ -43,6 +43,28 @@ export const SessionsScreen: React.FC<Props> = ({onLogout}) => {
     finally { setAction(null); }
   };
 
+  const handleLogoutAllOther = async () => {
+    const confirmed = await showDialog({
+      title: 'Log out of other sessions?',
+      message: 'All other active devices will be signed out. You will remain logged in on this device.',
+      variant: 'warning',
+      confirmText: 'Log out others',
+      cancelText: 'Cancel',
+    });
+    if (!confirmed) return;
+    try {
+      await logoutAllSessions();
+      await showDialog({
+        title: 'Sessions Ended',
+        message: 'All other devices have been signed out successfully.',
+        variant: 'success',
+      });
+      await load();
+    } catch (error) {
+      showApiError(error, 'Could not log out other sessions.');
+    }
+  };
+
   const sessionDate = (session: any) => session.last_used_at || session.updated_at || session.created_at || session.last_seen;
 
   return (
@@ -61,7 +83,7 @@ export const SessionsScreen: React.FC<Props> = ({onLogout}) => {
             <Pressable style={styles.endButton} onPress={() => end(session)} disabled={action === id}><Text style={styles.endText}>{action === id ? '…' : 'End'}</Text></Pressable>
           </View>;
         })}
-        <Pressable style={styles.logoutAll} onPress={async () => {const confirmed = await showDialog({title: 'Log out everywhere?', message: 'All devices will be signed out of your account.', variant: 'warning', confirmText: 'Logout all', cancelText: 'Cancel'}); if (confirmed) onLogout(true);}}><Text style={styles.logoutText}>Log out of all sessions</Text></Pressable>
+        <Pressable style={styles.logoutAll} onPress={handleLogoutAllOther}><Text style={styles.logoutText}>Log out of all other sessions</Text></Pressable>
       </View>
     </ScrollView>
   );

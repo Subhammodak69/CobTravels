@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, ActivityIndicator } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/theme';
@@ -61,8 +72,7 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
 
     setSendingOtp(true);
     try {
-      // requestOtp(identifier, purpose) - purpose only supports 'LOGIN' | 'SIGNUP' on this backend
-      await requestOtp(identifier, 'LOGIN');
+      await requestOtp(identifier, 'DELETE_ACCOUNT');
       setDeleteOtp('');
       setDeleteOtpModalVisible(true);
     } catch (error) {
@@ -166,12 +176,29 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
         styles={styles}
         iconSet="feather"
         iconName="power"
-        title="Log out everywhere"
-        subtitle="Sign out from all active devices"
+        title="Log out other devices"
+        subtitle="Sign out from all other active sessions"
         danger
         onPress={async () => {
-          const confirmed = await showDialog({ title: 'Log out everywhere?', message: 'All active devices will be signed out of your account.', variant: 'warning', confirmText: 'Log out all', cancelText: 'Cancel' });
-          if (confirmed) onLogout(true);
+          const confirmed = await showDialog({
+            title: 'Log out other devices?',
+            message: 'All other active devices will be signed out. You will remain logged in on this device.',
+            variant: 'warning',
+            confirmText: 'Log out others',
+            cancelText: 'Cancel',
+          });
+          if (!confirmed) return;
+          try {
+            const { logoutAllSessions } = require('../api/tourApi');
+            await logoutAllSessions();
+            await showDialog({
+              title: 'Sessions Ended',
+              message: 'All other active devices have been signed out.',
+              variant: 'success',
+            });
+          } catch (error) {
+            showApiError(error, 'Could not log out other devices.');
+          }
         }}
       />
 
@@ -186,34 +213,64 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
         onPress={sendingOtp ? () => {} : handleDeleteAccountPress}
       />
 
-      {deleteOtpModalVisible && (
-        <View style={styles.otpBox}>
-          <Text style={styles.otpLabel}>ENTER VERIFICATION CODE</Text>
-          <Text style={styles.otpHint}>We sent a code to {identifier}. Enter it below to permanently delete your account.</Text>
-          <TextInput
-            style={[styles.input, styles.otpInput]}
-            keyboardType="number-pad"
-            value={deleteOtp}
-            onChangeText={setDeleteOtp}
-            placeholder="6-digit code"
-            placeholderTextColor={COLORS.textMuted}
-            maxLength={6}
-            editable={!deletingAccount}
-          />
-          <View style={styles.otpActions}>
-            <Pressable style={styles.otpCancelBtn} onPress={handleCancelDeleteOtp} disabled={deletingAccount}>
-              <Text style={styles.otpCancelBtnText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.otpConfirmBtn, (!deleteOtp.trim() || deletingAccount) && styles.buttonDisabled]}
-              onPress={confirmDeleteAccount}
-              disabled={!deleteOtp.trim() || deletingAccount}
-            >
-              {deletingAccount ? <ActivityIndicator color="#fff" /> : <Text style={styles.otpConfirmBtnText}>Confirm delete</Text>}
-            </Pressable>
+      <Modal
+        visible={deleteOtpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelDeleteOtp}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={handleCancelDeleteOtp} />
+          <View style={styles.otpModalCard}>
+            <View style={styles.otpHeader}>
+              <View style={styles.otpDangerIcon}>
+                <Feather name="alert-triangle" size={22} color={COLORS.danger} />
+              </View>
+              <Text style={styles.otpModalTitle}>Verify Account Deletion</Text>
+              <Text style={styles.otpModalSubtitle}>
+                We sent a 6-digit verification code to <Text style={{fontWeight: '700', color: COLORS.text}}>{identifier}</Text>. Enter it below to permanently delete your account.
+              </Text>
+            </View>
+
+            <TextInput
+              style={[styles.input, styles.otpInput]}
+              keyboardType="number-pad"
+              value={deleteOtp}
+              onChangeText={setDeleteOtp}
+              placeholder="••••••"
+              placeholderTextColor={COLORS.textMuted}
+              maxLength={6}
+              editable={!deletingAccount}
+              autoFocus
+              textAlign="center"
+            />
+
+            <View style={styles.otpActions}>
+              <Pressable
+                style={styles.otpCancelBtn}
+                onPress={handleCancelDeleteOtp}
+                disabled={deletingAccount}
+              >
+                <Text style={styles.otpCancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.otpConfirmBtn, (!deleteOtp.trim() || deletingAccount) && styles.buttonDisabled]}
+                onPress={confirmDeleteAccount}
+                disabled={!deleteOtp.trim() || deletingAccount}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.otpConfirmBtnText}>Confirm Delete</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 };
@@ -331,26 +388,60 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     statValue: { fontSize: 18, fontWeight: '900', color: COLORS.primary, marginTop: 6 },
     statLabel: { fontSize: 10, fontWeight: '600', color: COLORS.textSecondary, marginTop: 4, textAlign: 'center' },
 
-    // Delete-account OTP box
-    otpBox: {
+    // Delete-account OTP modal
+    modalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalBackdrop: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    },
+    otpModalCard: {
+      width: '100%',
+      maxWidth: 380,
       backgroundColor: COLORS.card,
-      borderRadius: 13,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: COLORS.danger,
-      padding: 14,
+      borderColor: COLORS.border,
+      padding: 22,
+      shadowColor: '#000',
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+    otpHeader: {
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    otpDangerIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: COLORS.dangerLight,
+      alignItems: 'center',
+      justifyContent: 'center',
       marginBottom: 12,
     },
-    otpLabel: {
-      fontSize: 10,
-      fontWeight: '800',
-      color: COLORS.textMuted,
-      letterSpacing: 0.6,
+    otpModalTitle: {
+      fontSize: 17,
+      fontWeight: '900',
+      color: COLORS.text,
+      textAlign: 'center',
       marginBottom: 6,
     },
-    otpHint: {
+    otpModalSubtitle: {
       fontSize: 12,
       color: COLORS.textSecondary,
-      marginBottom: 12,
+      textAlign: 'center',
+      lineHeight: 18,
     },
     input: {
       height: 48,
@@ -363,8 +454,11 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontSize: 14,
     },
     otpInput: {
-      marginBottom: 12,
-      letterSpacing: 2,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: 6,
+      height: 52,
+      marginBottom: 16,
     },
     otpActions: {
       flexDirection: 'row',
@@ -378,6 +472,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       borderColor: COLORS.border,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: COLORS.surface,
     },
     otpCancelBtnText: {
       color: COLORS.text,

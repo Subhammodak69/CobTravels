@@ -297,15 +297,22 @@ function AppInner() {
     try { const result = await fetchMe(); setUser(result.data || null); } catch { setUser(null); }
     trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
     fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});
-    navigateTo('home');
+    navigateTo('profile');
   };
 
-  const handleLogout = async (all = false) => {
-    try { await logoutApi(all); } catch {}
+  const handleLogout = async () => {
+    try { await logoutApi(); } catch {}
+    try {
+      const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+      await GoogleSignin.signOut();
+    } catch {}
     setIsLoggedIn(false);
     setUserPhone('');
     setUser(null);
-    if (currentScreenRef.current === 'profile' || currentScreenRef.current === 'notifications') navigateTo('home');
+    setSavedTours([]);
+    setEnquiries([]);
+    identifiedCustomerRef.current = null;
+    navigateTo('home');
   };
 
   const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'wishlist', 'referrals', 'notifications'];
@@ -504,13 +511,30 @@ function AppInner() {
             title="COOCHBEHAR TRAVEL"
             showBack={currentScreen !== 'home'}
             onBack={goBack}
-            onOpenMenu={() => setDrawerVisible(true)}
+            onOpenMenu={() => setDrawerVisible(v => !v)}
+            menuOpen={drawerVisible}
             onOpenNotifications={() => navigateWithAuth('notifications')}
             unreadCount={unreadCount}
           />
         )}
 
-        <View style={[styles.content, {backgroundColor: appColors.bg}]}>{renderScreen()}</View>
+        <View style={[styles.content, {backgroundColor: appColors.bg}]}>
+          {renderScreen()}
+
+          {/* Drawer Side Menu positioned within main content area (under header, above bottom nav) */}
+          <DrawerMenu
+            visible={drawerVisible}
+            onClose={() => setDrawerVisible(false)}
+            onNavigate={navigateWithAuth}
+            onFilterTours={handleFilterTours}
+            onOpenCustomTour={() => {
+              setDrawerVisible(false);
+              navigateTo('enquiry');
+            }}
+            isLoggedIn={isLoggedIn}
+            userPhone={userPhone}
+          />
+        </View>
 
         {showBottomNav && (
           <BottomNav
@@ -519,20 +543,6 @@ function AppInner() {
             enquiryCount={enquiries.length}
           />
         )}
-
-        {/* Drawer Side Menu */}
-        <DrawerMenu
-          visible={drawerVisible}
-          onClose={() => setDrawerVisible(false)}
-          onNavigate={navigateWithAuth}
-          onFilterTours={handleFilterTours}
-          onOpenCustomTour={() => {
-            setDrawerVisible(false);
-            navigateTo('enquiry');
-          }}
-          isLoggedIn={isLoggedIn}
-          userPhone={userPhone}
-        />
 
         {/* Fixed Tour Enquiry Modal */}
         <EnquiryModal

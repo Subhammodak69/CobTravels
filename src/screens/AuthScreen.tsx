@@ -122,17 +122,38 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
     setGoogleLoading(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const result = await GoogleSignin.signIn();
-      if (result.type !== 'success') return;
-      const { idToken } = await GoogleSignin.getTokens();
-      if (!idToken) throw new Error('Google did not return an ID token.');
+      // Sign out from cached Google session to always prompt account picker
+      try { await GoogleSignin.signOut(); } catch {}
+      
+      const response = await GoogleSignin.signIn();
+      if (!response) {
+        setGoogleLoading(false);
+        return;
+      }
+      
+      // Support both new and legacy response shapes from @react-native-google-signin
+      const tokens = await GoogleSignin.getTokens();
+      const idToken = tokens?.idToken || (response as any)?.data?.idToken || (response as any)?.idToken;
+      
+      if (!idToken) {
+        throw new Error('Google did not return an ID token. Please try again.');
+      }
+      
       await googleAuth(idToken, (await getStoredReferralCode()) || undefined);
-      onLoginSuccess(result.data.user.email || result.data.user.name || 'google');
+      const userObj = (response as any)?.data?.user || (response as any)?.user;
+      onLoginSuccess(userObj?.email || userObj?.name || 'google_user');
     } catch (error: any) {
-      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) return;
+      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User actively cancelled the Google picker dialog - stay on AuthScreen
+        return;
+      }
+      if (isErrorWithCode(error) && error.code === statusCodes.IN_PROGRESS) {
+        // Sign-in operation is already in progress
+        return;
+      }
       const message = isErrorWithCode(error) && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
         ? 'Google Play Services is unavailable. Please update it and try again.'
-        : 'Google sign-in failed. Please try again.';
+        : error?.message || 'Google sign-in failed. Please try again.';
       showApiError(error, message);
     } finally {
       setGoogleLoading(false);

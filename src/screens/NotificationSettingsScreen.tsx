@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View, Alert } from 'react-native';
+import Feather from 'react-native-vector-icons/Feather';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { AppColors, useColors } from '../theme/theme';
 import { fetchNotificationPreferences, updateNotificationPreferences, NotificationPreferences } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
+import { NotifSettingsSkeleton } from '../components/Skeleton';
 
 interface Props {
   isLoggedIn: boolean;
@@ -72,9 +75,9 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <NotifSettingsSkeleton />
+      </ScrollView>
     );
   }
 
@@ -87,7 +90,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
         <Text style={styles.sectionTitle}>Communication</Text>
 
         <NotificationRow
-          icon="🔔"
+          icon={<Feather name="bell" size={20} color={COLORS.primary} />}
           title="Push notifications"
           subtitle="Trip reminders & booking updates"
           value={prefs.push_notifications}
@@ -97,7 +100,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
         />
 
         <NotificationRow
-          icon="📧"
+          icon={<Feather name="mail" size={20} color={COLORS.primary} />}
           title="Email updates"
           subtitle="Special offers & travel stories"
           value={prefs.email_updates}
@@ -107,9 +110,9 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
         />
 
         <NotificationRow
-          icon="📰"
-          title="Travel newsletter"
-          subtitle="Curated stories & exclusive deals"
+          icon={<FontAwesome name="whatsapp" size={21} color="#25D366" />}
+          title="WhatsApp alerts"
+          subtitle="Trip updates & itineraries on WhatsApp"
           value={prefs.newsletter}
           onToggle={() => handleToggle('newsletter')}
           disabled={saving}
@@ -117,7 +120,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
         />
 
         <NotificationRow
-          icon="📱"
+          icon={<Feather name="message-square" size={20} color={COLORS.primary} />}
           title="SMS alerts"
           subtitle="Booking confirmations via SMS"
           value={prefs.sms_alerts}
@@ -137,7 +140,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
 };
 
 const NotificationRow: React.FC<{
-  icon: string;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   value: boolean;
@@ -149,7 +152,9 @@ const NotificationRow: React.FC<{
   return (
     <View style={styles.row}>
       <View style={styles.rowLeft}>
-        <Text style={styles.rowIcon}>{icon}</Text>
+        <View style={styles.iconWrapper}>
+          {typeof icon === 'string' ? <Text style={styles.rowIcon}>{icon}</Text> : icon}
+        </View>
         <View style={styles.rowText}>
           <Text style={styles.rowTitle}>{title}</Text>
           <Text style={styles.rowSubtitle}>{subtitle}</Text>
@@ -218,9 +223,14 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  iconWrapper: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   rowIcon: {
     fontSize: 20,
-    marginRight: 12,
   },
   rowText: {
     flex: 1,

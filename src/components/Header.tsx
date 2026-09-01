@@ -8,6 +8,7 @@ interface HeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   onOpenMenu?: () => void;
+  menuOpen?: boolean;
   onOpenNotifications?: () => void;
   unreadCount?: number;
   rightAction?: React.ReactNode;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   showBack = false,
   onBack,
   onOpenMenu,
+  menuOpen = false,
   onOpenNotifications,
   unreadCount = 0,
   rightAction,
@@ -41,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
             onPress={onOpenMenu}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
           >
-            <Ionicons name="menu" size={24} color="#FFFFFF" />
+            <Ionicons name={menuOpen ? "close" : "menu"} size={menuOpen ? 22 : 24} color="#FFFFFF" />
           </Pressable>
         )}
       </View>

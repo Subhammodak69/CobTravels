@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { request, ApiEnvelope } from './client';
+import { request } from './client';
+import { ApiEnvelope } from './types';
 
 const VISITOR_ID_KEY = '@cobtravels/visitor_id';
 const VISITOR_SERVER_ID_KEY = '@cobtravels/visitor_server_id';

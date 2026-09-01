@@ -75,7 +75,7 @@ export const MyTripsScreen = () => {
     >
       <Text style={styles.pageTitle}>My trips</Text>
       {loading && trips.length === 0 ? (
-        <ActivityIndicator color={COLORS.primary} size="large" style={{ marginTop: 20 }} />
+        <TripListSkeleton />
       ) : trips.length === 0 ? (
         <View style={styles.emptyBox}>
           <View style={styles.emptyIconWrap}>
@@ -140,7 +140,7 @@ export const BillsInvoicesScreen = () => {
     >
       <Text style={styles.pageTitle}>Bills & invoices</Text>
       {loading && invoices.length === 0 ? (
-        <ActivityIndicator color={COLORS.primary} size="large" style={{ marginTop: 20 }} />
+        <InvoiceListSkeleton />
       ) : invoices.length === 0 ? (
         <View style={styles.emptyBox}>
           <View style={styles.emptyIconWrap}>
@@ -178,7 +178,7 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
     <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
       <Text style={styles.pageTitle}>My enquiries</Text>
       {loading && enquiries.length === 0 ? (
-        <ActivityIndicator color={COLORS.primary} />
+        <EnquiryListSkeleton />
       ) : enquiries.length === 0 ? (
         <View style={styles.emptyBox}>
           <View style={styles.emptyIconWrap}>
