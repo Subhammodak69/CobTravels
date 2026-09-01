@@ -168,7 +168,7 @@ export const EditProfileScreen: React.FC<{
         onCropDone={handleCropDone}
       />
 
-      <View style={styles.card}>
+      <View>
         <Text style={styles.title}>Edit profile</Text>
 
         {/* Profile Avatar with + Icon */}
@@ -274,18 +274,6 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
   },
   title: {
     fontSize: 22,
