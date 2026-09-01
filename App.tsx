@@ -35,7 +35,7 @@ import { NotificationSettingsScreen } from './src/screens/NotificationSettingsSc
 import { DocumentsScreen } from './src/screens/DocumentsScreen';
 import { WishlistScreen } from './src/screens/WishlistScreen';
 import { ReferralsScreen } from './src/screens/ReferralsScreen';
-import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/ProfilePages';
+import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/Tripsinvoicesenquiries';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { decodeReferral } from './src/utils/referral';

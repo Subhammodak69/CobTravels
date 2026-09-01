@@ -40,8 +40,9 @@ export async function verifyOtp(identifier:string,otp:string,name='',purpose:'LO
 export async function googleAuth(idToken:string,referralCode?:string){const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/auth/google',{method:'POST',body:JSON.stringify({id_token:idToken,visitor_id:await getAuthVisitorId(),...(referralCode?{referral_code:referralCode}:{})})});const t=tokens(r);if(!t.access)throw new Error('The server did not return an access token.');await saveTokens(t.access,t.refresh);return r;}
 export async function refreshSession(){try{const r=await request<ApiEnvelope<AuthTokenData>>('/api/v1/sessions/refresh',{method:'POST'});const t=tokens(r);await saveTokens(t.access);return Boolean(t.access);}catch{return false;}}
 export async function logout(all=false){try{await request(`/api/v1/sessions/${all?'logout-all':'logout'}`,{method:'POST'},true);}finally{await clearTokens();}}
-export async function fetchMe(){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me');}
-export async function updateMe(payload:Partial<AuthUser>){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me',{method:'PATCH',body:JSON.stringify(payload)});}
+export async function fetchMe(){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/account/me');}
+export async function updateMe(payload:Partial<AuthUser>){return authenticated<ApiEnvelope<AuthUser>>('/api/v1/account/me',{method:'PATCH',body:JSON.stringify(payload)});}
+export async function deleteAccount(payload: { identifier: string; otp: string }) {return authenticated<ApiEnvelope<null>>('/api/v1/account/me', {method: 'DELETE',body: JSON.stringify(payload),});}
 export async function fetchSessions(){return authenticated<ApiEnvelope<any[]>>('/api/v1/sessions/');}
 export async function deleteSession(id:string){return authenticated(`/api/v1/sessions/${encodeURIComponent(id)}`,{method:'DELETE'});}
 export async function fetchWishlist(){return authenticated<ApiEnvelope<any[]> & {pagination?: any}>('/api/v1/wishlist');}
