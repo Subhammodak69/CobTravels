@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiEnvelope } from './types';
 
 export const BASE_API = 'https://coochbehar-travels.onrender.com';
+export const WEB_APP_URL = 'https://cob-travels-web-peach.vercel.app';
 export const ACCESS_TOKEN_KEY = '@cobtravels/access_token';
 export const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
 export const VISITOR_ID_KEY = '@cobtravels/visitor_id';

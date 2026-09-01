@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
 import {fetchReferralCode, fetchReferrals} from '../api/tourApi';
+import {WEB_APP_URL} from '../api/client';
 import {AppColors, useColors} from '../theme/theme';
 import {encodeReferral} from '../utils/referral';
 import {ReferralListSkeleton} from '../components/Skeleton';
@@ -11,7 +12,7 @@ export const ReferralsScreen: React.FC = () => {
   const [shareLink, setShareLink] = useState('');
   const [referrals, setReferrals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { (async () => { try { const [codeResponse, referralResponse] = await Promise.all([fetchReferralCode(), fetchReferrals()]); const code = codeResponse.data?.referral_code; if (code) setShareLink(`https://coochbehar-travels.onrender.com/invite?r=${encodeURIComponent(encodeReferral(code))}`); setReferrals(Array.isArray(referralResponse.data) ? referralResponse.data : []); } finally { setLoading(false); } })(); }, []);
+  useEffect(() => { (async () => { try { const [codeResponse, referralResponse] = await Promise.all([fetchReferralCode(), fetchReferrals()]); const code = codeResponse.data?.referral_code; if (code) setShareLink(`${WEB_APP_URL}/invite?r=${encodeURIComponent(encodeReferral(code))}`); setReferrals(Array.isArray(referralResponse.data) ? referralResponse.data : []); } finally { setLoading(false); } })(); }, []);
   const share = () => { if (shareLink) Share.share({message: `Join me on Coochbehar Travels and plan your next journey: ${shareLink}`}); };
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}><Text style={styles.title}>Refer & earn</Text><Text style={styles.subtitle}>Invite someone to discover their next journey.</Text><View style={styles.hero}><Text style={styles.heroIcon}>↗</Text><Text style={styles.heroTitle}>Your invite is ready</Text><Text style={styles.heroText}>Share a private invite link. Your referral details stay hidden.</Text><Pressable style={styles.shareButton} onPress={share} disabled={!shareLink || loading}><Text style={styles.shareText}>{loading ? 'Loading...' : 'Share invite link'}</Text></Pressable></View><Text style={styles.sectionTitle}>Referral activity</Text>{loading ? <ReferralListSkeleton count={3} /> : referrals.length === 0 ? <Text style={styles.empty}>No referral activity yet.</Text> : referrals.map(item => <View style={styles.row} key={item.id}><View style={styles.dot} /><View style={styles.copy}><Text style={styles.name}>{item.referred_customer?.name || 'New traveler'}</Text><Text style={styles.meta}>{item.status || 'PENDING'} · {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}</Text></View><Text style={styles.reward}>{item.reward_amount || ''}</Text></View>)}</ScrollView>;
 };
