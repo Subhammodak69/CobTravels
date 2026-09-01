@@ -14,13 +14,31 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../theme/theme';
-import { AuthUser, fetchUserStats, UserStats, deleteAccount, requestOtp } from '../api/tourApi';
+import {
+  AuthUser,
+  fetchUserStats,
+  UserStats,
+  deleteAccount,
+  requestOtp,
+  fetchTrips,
+  fetchDocuments,
+  fetchReferrals,
+  fetchInvoices,
+} from '../api/tourApi';
 import { NavScreen } from '../types';
 import { useAppDialog } from '../components/AppDialog';
 import { showApiError } from '../utils/toast';
 import { ProfileStatsSkeleton } from '../components/Skeleton';
 
-interface Props { isLoggedIn: boolean; userPhone: string; user: AuthUser | null; enquiries: any[]; onNavigate: (screen: NavScreen) => void; onLogout: (all?: boolean) => void; }
+interface Props {
+  isLoggedIn: boolean;
+  userPhone: string;
+  user: AuthUser | null;
+  enquiries: any[];
+  savedTours?: string[];
+  onNavigate: (screen: NavScreen) => void;
+  onLogout: (all?: boolean) => void;
+}
 
 type IconSet = 'feather' | 'mci';
 
@@ -29,12 +47,26 @@ const RowIcon = ({ set, name, size, color }: { set: IconSet; name: string; size:
     ? <MaterialCommunityIcons name={name} size={size} color={color} />
     : <Feather name={name} size={size} color={color} />;
 
-export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, enquiries, onNavigate, onLogout }) => {
+export const ProfileScreen: React.FC<Props> = ({
+  isLoggedIn,
+  userPhone,
+  user,
+  enquiries,
+  savedTours = [],
+  onNavigate,
+  onLogout,
+}) => {
   const { colors: COLORS, isDark } = useTheme();
   const styles = makeStyles(COLORS, isDark);
   const { showDialog } = useAppDialog();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  // Dynamic counts for badge indicators
+  const [tripsCount, setTripsCount] = useState<number | null>(null);
+  const [docsCount, setDocsCount] = useState<number | null>(null);
+  const [referralsCount, setReferralsCount] = useState<number | null>(null);
+  const [invoicesCount, setInvoicesCount] = useState<number | null>(null);
 
   // Delete account flow state
   const [deleteOtpModalVisible, setDeleteOtpModalVisible] = useState(false);
@@ -44,18 +76,36 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    const loadStats = async () => {
+    const loadData = async () => {
       try {
         setStatsLoading(true);
-        const data = await fetchUserStats();
-        setStats(data);
+        const [statsData, tripsData, docsData, refData, invData] = await Promise.allSettled([
+          fetchUserStats(),
+          fetchTrips(),
+          fetchDocuments(),
+          fetchReferrals(),
+          fetchInvoices(),
+        ]);
+        if (statsData.status === 'fulfilled') setStats(statsData.value);
+        if (tripsData.status === 'fulfilled') setTripsCount(tripsData.value.length);
+        if (docsData.status === 'fulfilled') {
+          const list = (docsData.value as any)?.data;
+          setDocsCount(Array.isArray(list) ? list.length : 0);
+        }
+        if (refData.status === 'fulfilled') {
+          const list = (refData.value as any)?.data;
+          setReferralsCount(Array.isArray(list) ? list.length : 0);
+        }
+        if (invData.status === 'fulfilled') {
+          setInvoicesCount(Array.isArray(invData.value) ? invData.value.length : 0);
+        }
       } catch (error) {
-        console.error('Failed to load stats:', error);
+        console.error('Failed to load profile data:', error);
       } finally {
         setStatsLoading(false);
       }
     };
-    loadStats();
+    loadData();
   }, [isLoggedIn]);
 
   const identifier = user?.mobile || userPhone;
@@ -152,12 +202,12 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
       <ProfileRow styles={styles} iconSet="feather" iconName="edit-2" title="Edit profile" subtitle="Update your name, contact and address" onPress={() => onNavigate('edit_profile')} />
       <ProfileRow styles={styles} iconSet="feather" iconName="bell" title="Notification settings" subtitle="Manage push, email & SMS preferences" onPress={() => onNavigate('notification_settings')} />
       <ProfileRow styles={styles} iconSet="feather" iconName="smartphone" title="Active sessions" subtitle="Manage devices signed in to your account" onPress={() => onNavigate('sessions')} />
-      <ProfileRow styles={styles} iconSet="mci" iconName="airplane-takeoff" title="My trips" subtitle="View your upcoming and completed trips" onPress={() => onNavigate('my_trips')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="message-square" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} onPress={() => onNavigate('my_enquiries')} />
-      <ProfileRow styles={styles} iconSet="mci" iconName="currency-inr" title="Bills & invoices" subtitle="View your booking bills and invoices" onPress={() => onNavigate('bills_invoices')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="file-text" title="My documents" subtitle="Upload and manage incoming and outgoing files" onPress={() => onNavigate('documents')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="heart" title="My wishlist" subtitle="Your saved travel packages" onPress={() => onNavigate('wishlist')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="gift" title="Refer & earn" subtitle="Share your travel network" onPress={() => onNavigate('referrals')} />
+      <ProfileRow styles={styles} iconSet="mci" iconName="airplane-takeoff" title="My trips" subtitle="View your upcoming and completed trips" badge={tripsCount} onPress={() => onNavigate('my_trips')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="message-square" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} badge={enquiries.length} onPress={() => onNavigate('my_enquiries')} />
+      <ProfileRow styles={styles} iconSet="mci" iconName="currency-inr" title="Bills & invoices" subtitle="View your booking bills and invoices" badge={invoicesCount} onPress={() => onNavigate('bills_invoices')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="file-text" title="My documents" subtitle="Upload and manage incoming and outgoing files" badge={docsCount} onPress={() => onNavigate('documents')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="heart" title="My wishlist" subtitle="Your saved travel packages" badge={savedTours.length} onPress={() => onNavigate('wishlist')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="gift" title="Refer & earn" subtitle="Share your travel network" badge={referralsCount} onPress={() => onNavigate('referrals')} />
 
       <Text style={styles.sectionTitle}>Session</Text>
       <ProfileRow
@@ -278,9 +328,10 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
 type Styles = ReturnType<typeof makeStyles>;
 
 const ProfileRow = ({
-  iconSet, iconName, title, subtitle, onPress, danger = false, styles,
-}: { iconSet: IconSet; iconName: string; title: string; subtitle: string; onPress: () => void; danger?: boolean; styles: Styles }) => {
+  iconSet, iconName, title, subtitle, onPress, danger = false, styles, badge,
+}: { iconSet: IconSet; iconName: string; title: string; subtitle: string; onPress: () => void; danger?: boolean; styles: Styles; badge?: number | null }) => {
   const iconColor = danger ? styles.dangerText.color as string : styles.rowIconText.color as string;
+  const hasBadge = badge !== undefined && badge !== null && badge > 0;
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={[styles.rowIcon, danger && styles.dangerIcon]}>
@@ -290,6 +341,11 @@ const ProfileRow = ({
         <Text style={[styles.rowTitle, danger && styles.dangerText]} numberOfLines={1}>{title}</Text>
         <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text>
       </View>
+      {hasBadge && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge}</Text>
+        </View>
+      )}
       <Feather name="chevron-right" size={22} color={styles.arrow.color as string} />
     </Pressable>
   );
@@ -363,6 +419,22 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     rowCopy: { flex: 1, minWidth: 0 },
     rowTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text },
     rowSubtitle: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
+    badge: {
+      backgroundColor: '#FF7A00',
+      padding: 2,
+      borderRadius: 12,
+      marginRight: 8,
+      width: 20,
+      height: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    badgeText: {
+      margin:0,
+      fontSize: 10,
+      fontWeight: '900',
+      color: '#FFFFFF',
+    },
     arrow: { color: COLORS.textMuted },
     dangerIcon: { backgroundColor: COLORS.dangerLight },
     dangerText: { color: COLORS.danger },

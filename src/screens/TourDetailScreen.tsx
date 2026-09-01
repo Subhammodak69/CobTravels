@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { TourPackageDetail, SeasonVariant, NavScreen } from '../types';
 import { fetchTourDetail, fetchTourVariant, openWhatsAppChat, submitReviewApi, fetchPackageReviews } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
@@ -519,7 +520,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           style={styles.whatsappActionBtn}
           onPress={handleWhatsAppInquiry}
         >
-          <Text style={styles.whatsappActionIcon}>💬</Text>
+          <FontAwesome name="whatsapp" size={20} color="#25D366" style={{ marginRight: 6 }} />
           <Text style={styles.whatsappActionText}>WhatsApp</Text>
         </Pressable>
 
@@ -1147,7 +1148,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   fixedBottomBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 6,
     left: 0,
     right: 0,
     backgroundColor: COLORS.card,
@@ -1165,7 +1166,9 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   whatsappActionBtn: {
     flex: 1,
-    backgroundColor: '#25D366',
+    borderWidth:1,
+    borderColor: COLORS.success,
+    backgroundColor: '#ffffffff',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1177,7 +1180,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     fontSize: 18,
   },
   whatsappActionText: {
-    color: '#FFFFFF',
+    color: '#0c0c0cff',
     fontWeight: '800',
     fontSize: 14,
   },

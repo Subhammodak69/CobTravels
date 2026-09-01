@@ -408,6 +408,7 @@ function AppInner() {
             user={user}
             userPhone={userPhone}
             enquiries={enquiries}
+            savedTours={savedTours}
             onNavigate={navigateTo}
             onLogout={handleLogout}
           />
