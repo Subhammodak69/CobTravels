@@ -119,8 +119,8 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     borderColor: COLORS.border,
   },
   notifCardUnread: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
+    backgroundColor: COLORS.successLight,
+    borderColor: COLORS.success,
   },
   iconContainer: {
     width: 40,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View, Alert } from 'react-native';
-import { COLORS } from '../theme/theme';
+import { AppColors, useColors } from '../theme/theme';
 import { fetchNotificationPreferences, updateNotificationPreferences, NotificationPreferences } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
 
@@ -9,6 +9,8 @@ interface Props {
 }
 
 export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [prefs, setPrefs] = useState<NotificationPreferences>({
     push_notifications: true,
     newsletter: true,
@@ -91,6 +93,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
           value={prefs.push_notifications}
           onToggle={() => handleToggle('push_notifications')}
           disabled={saving}
+          COLORS={COLORS}
         />
 
         <NotificationRow
@@ -100,6 +103,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
           value={prefs.email_updates}
           onToggle={() => handleToggle('email_updates')}
           disabled={saving}
+          COLORS={COLORS}
         />
 
         <NotificationRow
@@ -109,6 +113,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
           value={prefs.newsletter}
           onToggle={() => handleToggle('newsletter')}
           disabled={saving}
+          COLORS={COLORS}
         />
 
         <NotificationRow
@@ -118,6 +123,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
           value={prefs.sms_alerts}
           onToggle={() => handleToggle('sms_alerts')}
           disabled={saving}
+          COLORS={COLORS}
         />
       </View>
 
@@ -137,26 +143,30 @@ const NotificationRow: React.FC<{
   value: boolean;
   onToggle: () => void;
   disabled?: boolean;
-}> = ({ icon, title, subtitle, value, onToggle, disabled }) => (
-  <View style={styles.row}>
-    <View style={styles.rowLeft}>
-      <Text style={styles.rowIcon}>{icon}</Text>
-      <View style={styles.rowText}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowSubtitle}>{subtitle}</Text>
+  COLORS: AppColors;
+}> = ({ icon, title, subtitle, value, onToggle, disabled, COLORS }) => {
+  const styles = makeStyles(COLORS);
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowIcon}>{icon}</Text>
+        <View style={styles.rowText}>
+          <Text style={styles.rowTitle}>{title}</Text>
+          <Text style={styles.rowSubtitle}>{subtitle}</Text>
+        </View>
       </View>
+      <Switch
+        value={value}
+        onValueChange={onToggle}
+        disabled={disabled}
+        trackColor={{ false: COLORS.border, true: COLORS.primarySubtle }}
+        thumbColor={value ? COLORS.primary : COLORS.textMuted}
+      />
     </View>
-    <Switch
-      value={value}
-      onValueChange={onToggle}
-      disabled={disabled}
-      trackColor={{ false: COLORS.border, true: COLORS.primarySubtle }}
-      thumbColor={value ? COLORS.primary : COLORS.textMuted}
-    />
-  </View>
-);
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -195,7 +205,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 13,

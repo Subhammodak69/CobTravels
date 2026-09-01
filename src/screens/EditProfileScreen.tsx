@@ -276,7 +276,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.card,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -432,7 +432,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     color: COLORS.text,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.surface,
     fontSize: 14,
   },
   button: {

@@ -7,6 +7,7 @@ import { AuthUser, fetchUserStats, UserStats, deleteAccount, requestOtp } from '
 import { NavScreen } from '../types';
 import { useAppDialog } from '../components/AppDialog';
 import { showApiError } from '../utils/toast';
+import { ProfileStatsSkeleton } from '../components/Skeleton';
 
 interface Props { isLoggedIn: boolean; userPhone: string; user: AuthUser | null; enquiries: any[]; onNavigate: (screen: NavScreen) => void; onLogout: (all?: boolean) => void; }
 
@@ -126,7 +127,7 @@ export const ProfileScreen: React.FC<Props> = ({ isLoggedIn, userPhone, user, en
       </View>
 
       {statsLoading ? (
-        <View style={styles.statsLoading}><ActivityIndicator color={COLORS.primary} /></View>
+        <ProfileStatsSkeleton />
       ) : stats ? (
         <View style={styles.statsGrid}>
           <StatCard iconSet="mci" iconName="airplane" label="Journeys" value={stats.journeys_taken} styles={styles} color={COLORS.primary} />

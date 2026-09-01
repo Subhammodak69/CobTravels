@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { COLORS } from '../theme/theme';
+import { AppColors, useColors } from '../theme/theme';
 import { EnquiryData } from '../types';
 import { fetchTrips, fetchInvoices, Trip, Invoice } from '../api/tourApi';
+import { TripListSkeleton, InvoiceListSkeleton, EnquiryListSkeleton } from '../components/Skeleton';
 
 type IconSet = 'feather' | 'mci';
 
@@ -12,16 +13,6 @@ const RowIcon = ({ set, name, size, color }: { set: IconSet; name: string; size:
   set === 'mci'
     ? <MaterialCommunityIcons name={name} size={size} color={color} />
     : <Feather name={name} size={size} color={color} />;
-
-const EmptyPage = ({ iconSet, iconName, title, message }: { iconSet: IconSet; iconName: string; title: string; message: string }) => (
-  <ScrollView style={styles.container} contentContainerStyle={styles.center}>
-    <View style={styles.icon}>
-      <RowIcon set={iconSet} name={iconName} size={30} color={COLORS.primary} />
-    </View>
-    <Text style={styles.title}>{title}</Text>
-    <Text style={styles.message}>{message}</Text>
-  </ScrollView>
-);
 
 // Format date helper
 const formatDate = (dateStr?: string): string => {
@@ -36,15 +27,20 @@ const formatDate = (dateStr?: string): string => {
 };
 
 // Small helper for an icon + label + value meta row (used by trips & invoices)
-const MetaRow = ({ iconSet, iconName, label, value }: { iconSet: IconSet; iconName: string; label: string; value: string }) => (
-  <View style={styles.metaRow}>
-    <RowIcon set={iconSet} name={iconName} size={13} color={COLORS.textSecondary} />
-    <Text style={styles.metaLabel}>{label}</Text>
-    <Text style={styles.metaValue}>{value}</Text>
-  </View>
-);
+const MetaRow = ({ iconSet, iconName, label, value, COLORS }: { iconSet: IconSet; iconName: string; label: string; value: string; COLORS: AppColors }) => {
+  const styles = makeStyles(COLORS);
+  return (
+    <View style={styles.metaRow}>
+      <RowIcon set={iconSet} name={iconName} size={13} color={COLORS.textSecondary} />
+      <Text style={styles.metaLabel}>{label}</Text>
+      <Text style={styles.metaValue}>{value}</Text>
+    </View>
+  );
+};
 
 export const MyTripsScreen = () => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -98,8 +94,8 @@ export const MyTripsScreen = () => {
               </Text>
             </View>
             <Text style={styles.tripDestination}>{trip.destination || trip.subject || 'Your journey'}</Text>
-            <MetaRow iconSet="feather" iconName="calendar" label="Travel date:" value={formatDate(trip.travel_date)} />
-            <MetaRow iconSet="feather" iconName="users" label="Travellers:" value={`${trip.pax_no || 1} person${Number(trip.pax_no) !== 1 ? 's' : ''}`} />
+            <MetaRow iconSet="feather" iconName="calendar" label="Travel date:" value={formatDate(trip.travel_date)} COLORS={COLORS} />
+            <MetaRow iconSet="feather" iconName="users" label="Travellers:" value={`${trip.pax_no || 1} person${Number(trip.pax_no) !== 1 ? 's' : ''}`} COLORS={COLORS} />
           </View>
         ))
       )}
@@ -108,6 +104,8 @@ export const MyTripsScreen = () => {
 };
 
 export const BillsInvoicesScreen = () => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,8 +161,8 @@ export const BillsInvoicesScreen = () => {
             </View>
             <Text style={styles.invoiceDestination}>{invoice.destination || 'Travel booking'}</Text>
             <View style={styles.invoiceMeta}>
-              <MetaRow iconSet="feather" iconName="calendar" label="Booking date:" value={formatDate(invoice.booking_date)} />
-              <MetaRow iconSet="mci" iconName="airplane" label="Travel date:" value={formatDate(invoice.travel_date)} />
+              <MetaRow iconSet="feather" iconName="calendar" label="Booking date:" value={formatDate(invoice.booking_date)} COLORS={COLORS} />
+              <MetaRow iconSet="mci" iconName="airplane" label="Travel date:" value={formatDate(invoice.travel_date)} COLORS={COLORS} />
             </View>
           </View>
         ))
@@ -173,43 +171,47 @@ export const BillsInvoicesScreen = () => {
   );
 };
 
-export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: boolean; onRefresh?: () => void }> = ({ enquiries, loading = false, onRefresh }) => (
-  <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
-    <Text style={styles.pageTitle}>My enquiries</Text>
-    {loading && enquiries.length === 0 ? (
-      <ActivityIndicator color={COLORS.primary} />
-    ) : enquiries.length === 0 ? (
-      <View style={styles.emptyBox}>
-        <View style={styles.emptyIconWrap}>
-          <Feather name="clipboard" size={26} color={COLORS.primary} />
+export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: boolean; onRefresh?: () => void }> = ({ enquiries, loading = false, onRefresh }) => {
+  const COLORS = useColors();
+  const styles = makeStyles(COLORS);
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
+      <Text style={styles.pageTitle}>My enquiries</Text>
+      {loading && enquiries.length === 0 ? (
+        <ActivityIndicator color={COLORS.primary} />
+      ) : enquiries.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <View style={styles.emptyIconWrap}>
+            <Feather name="clipboard" size={26} color={COLORS.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>No enquiries yet</Text>
+          <Text style={styles.message}>Your tour enquiries and their latest status will appear here.</Text>
         </View>
-        <Text style={styles.emptyTitle}>No enquiries yet</Text>
-        <Text style={styles.message}>Your tour enquiries and their latest status will appear here.</Text>
-      </View>
-    ) : (
-      enquiries.map((item, index) => (
-        <View style={styles.enquiry} key={item.id || String(index)}>
-          <View style={styles.row}>
-            <Text style={styles.enquiryTitle}>{item.tourTitle || item.destination || 'Custom tour'}</Text>
-            <Text style={styles.status}>{item.status || 'NEW'}</Text>
+      ) : (
+        enquiries.map((item, index) => (
+          <View style={styles.enquiry} key={item.id || String(index)}>
+            <View style={styles.row}>
+              <Text style={styles.enquiryTitle}>{item.tourTitle || item.destination || 'Custom tour'}</Text>
+              <Text style={styles.status}>{item.status || 'NEW'}</Text>
+            </View>
+            <View style={styles.enquiryMetaRow}>
+              <Feather name="calendar" size={12} color={COLORS.textSecondary} />
+              <Text style={styles.meta}>Travel date: {item.travelDate || 'Not selected'}</Text>
+            </View>
+            <View style={styles.enquiryMetaRow}>
+              <Feather name="phone" size={12} color={COLORS.textSecondary} />
+              <Text style={styles.meta}>Mobile: {item.mobile || 'Not provided'}</Text>
+            </View>
+            {item.message ? <Text style={styles.meta} numberOfLines={2}>{item.message}</Text> : null}
+            {item.id && <Text style={styles.ref}>Reference: {item.id}</Text>}
           </View>
-          <View style={styles.enquiryMetaRow}>
-            <Feather name="calendar" size={12} color={COLORS.textSecondary} />
-            <Text style={styles.meta}>Travel date: {item.travelDate || 'Not selected'}</Text>
-          </View>
-          <View style={styles.enquiryMetaRow}>
-            <Feather name="phone" size={12} color={COLORS.textSecondary} />
-            <Text style={styles.meta}>Mobile: {item.mobile || 'Not provided'}</Text>
-          </View>
-          {item.message ? <Text style={styles.meta} numberOfLines={2}>{item.message}</Text> : null}
-          {item.id && <Text style={styles.ref}>Reference: {item.id}</Text>}
-        </View>
-      ))
-    )}
-  </ScrollView>
-);
+        ))
+      )}
+    </ScrollView>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   content: { padding: 16, paddingBottom: 30 },
   center: { alignItems: 'center', justifyContent: 'center', padding: 30 },
@@ -240,7 +242,7 @@ const styles = StyleSheet.create({
   invoiceMeta: { flexDirection: 'column' },
 
   status: { fontSize: 10, fontWeight: '800', color: COLORS.goldDark, backgroundColor: COLORS.goldLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusConfirmed: { backgroundColor: '#d1fae5', color: '#047857' },
+  statusConfirmed: { backgroundColor: COLORS.successLight, color: COLORS.success },
   statusNew: { backgroundColor: COLORS.goldLight, color: COLORS.goldDark },
 
   enquiry: { backgroundColor: COLORS.card, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, padding: 15, marginBottom: 10 },
