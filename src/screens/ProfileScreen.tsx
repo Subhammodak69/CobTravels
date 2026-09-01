@@ -190,10 +190,10 @@ export const ProfileScreen: React.FC<Props> = ({
         <ProfileStatsSkeleton />
       ) : stats ? (
         <View style={styles.statsGrid}>
-          <StatCard iconSet="mci" iconName="airplane" label="Journeys" value={stats.journeys_taken} styles={styles} color={COLORS.primary} />
-          <StatCard iconSet="mci" iconName="earth" label="Countries" value={stats.countries_visited} styles={styles} color={COLORS.primary} />
-          <StatCard iconSet="feather" iconName="calendar" label="Travel days" value={stats.total_travel_days} styles={styles} color={COLORS.primary} />
-          <StatCard iconSet="feather" iconName="star" label="Member since" value={new Date(stats.member_since || '').getFullYear() || '2024'} styles={styles} color={COLORS.primary} />
+          <StatCard iconSet="mci" iconName="airplane" label="Journeys" value={stats.journeys_taken} styles={styles} color={COLORS.text} />
+          <StatCard iconSet="mci" iconName="earth" label="Countries" value={stats.countries_visited} styles={styles} color={COLORS.text} />
+          <StatCard iconSet="feather" iconName="calendar" label="Travel days" value={stats.total_travel_days} styles={styles} color={COLORS.text} />
+          <StatCard iconSet="feather" iconName="star" label="Member since" value={new Date(stats.member_since || '').getFullYear() || '2024'} styles={styles} color={COLORS.text} />
         </View>
       ) : null}
 

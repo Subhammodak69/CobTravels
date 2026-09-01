@@ -7,14 +7,12 @@ import { NavScreen } from '../types';
 interface BottomNavProps {
   currentScreen: NavScreen;
   onNavigate: (screen: NavScreen) => void;
-  enquiryCount?: number;
   onEnquiryTab?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   currentScreen,
   onNavigate,
-  enquiryCount = 0,
   onEnquiryTab,
 }) => {
   const { colors: COLORS, isDark } = useTheme();
@@ -77,11 +75,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             <View style={[styles.iconWrapper, isActive && styles.activeIconWrapper]}>
               <Ionicons name={iconName} size={22} color={iconColor} />
-              {tab.key === 'enquiry' && enquiryCount > 0 && (
-                <View style={styles.enquiryBadge}>
-                  <Text style={styles.enquiryBadgeText}>{enquiryCount}</Text>
-                </View>
-              )}
             </View>
             <Text
               style={[
@@ -148,19 +141,5 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       borderRadius: 2,
       backgroundColor: isDark ? '#FFFFFF' : COLORS.primary,
       marginTop: 2,
-    },
-    enquiryBadge: {
-      position: 'absolute',
-      top: -2,
-      right: 2,
-      backgroundColor: COLORS.gold,
-      borderRadius: 6,
-      paddingHorizontal: 4,
-      paddingVertical: 1,
-    },
-    enquiryBadgeText: {
-      color: '#FFFFFF',
-      fontSize: 9,
-      fontWeight: '700',
     },
   });

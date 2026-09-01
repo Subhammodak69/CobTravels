@@ -484,7 +484,10 @@ function AppInner() {
     }
     // Screens with top Header (Home, TourList, Enquiry, Profile, Notifications, etc.)
     if (showHeader) {
-      return { bg: appColors.primaryDark, barStyle: 'light-content' };
+      return {
+        bg: colorScheme === 'dark' ? appColors.primaryDark : '#FFFFFF',
+        barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
+      };
     }
     // Tour Detail and other full-bleed screens
     return {
@@ -541,7 +544,6 @@ function AppInner() {
           <BottomNav
             currentScreen={currentScreen}
             onNavigate={navigateWithAuth}
-            enquiryCount={enquiries.length}
           />
         )}
 

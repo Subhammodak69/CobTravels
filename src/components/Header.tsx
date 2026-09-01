@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { COLORS, useColors } from '../theme/theme';
+import { COLORS, useColors, useTheme } from '../theme/theme';
 
 interface HeaderProps {
   title?: string;
@@ -25,7 +25,10 @@ export const Header: React.FC<HeaderProps> = ({
   rightAction,
 }) => {
   const COLORS = useColors();
-  const styles = makeStyles(COLORS);
+  const { isDark } = useTheme();
+  const styles = makeStyles(COLORS, isDark);
+  const iconColor = isDark ? '#FFFFFF' : COLORS.text;
+
   return (
     <View style={styles.headerContainer}>
       <View style={styles.leftSection}>
@@ -35,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
             onPress={onBack}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
           >
-            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={22} color={iconColor} />
           </Pressable>
         ) : (
           <Pressable
@@ -43,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
             onPress={onOpenMenu}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
           >
-            <Ionicons name={menuOpen ? "close" : "menu"} size={menuOpen ? 22 : 24} color="#FFFFFF" />
+            <Ionicons name={menuOpen ? "close" : "menu"} size={menuOpen ? 22 : 24} color={iconColor} />
           </Pressable>
         )}
       </View>
@@ -51,15 +54,17 @@ export const Header: React.FC<HeaderProps> = ({
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
           <Image
-            source={require('../assets/logo.jpg')}
+            source={isDark ? require('../assets/logo_dark.jpg') :  require('../assets/logo.jpg')}
             style={styles.headerLogo}
-            resizeMode="contain"
+            resizeMode="cover"
           />
+        </View>
+        <View>
           <Text style={styles.brandText} numberOfLines={1}>
             {title}
           </Text>
+          <Text style={styles.subBrand}>EXPLORE THE UNEXPLORED</Text>
         </View>
-        <Text style={styles.subBrand}>EXPLORE THE WORLD WITH US</Text>
       </View>
 
       <View style={styles.rightSection}>
@@ -71,10 +76,12 @@ export const Header: React.FC<HeaderProps> = ({
             onPress={onOpenNotifications}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
           >
-            <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+            <Ionicons name="notifications-outline" size={22} color={iconColor} />
             {unreadCount > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
               </View>
             )}
           </Pressable>
@@ -86,12 +93,12 @@ export const Header: React.FC<HeaderProps> = ({
   );
 };
 
-const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>, isDark: boolean) => StyleSheet.create({
   headerSpacer: {
     width: 38,
   },
   headerContainer: {
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: isDark ? COLORS.primaryDark : '#FFFFFF',
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
@@ -99,7 +106,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : COLORS.border,
   },
   leftSection: {
     width: 40,
@@ -109,31 +116,36 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pressed: {
     opacity: 0.7,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : COLORS.border,
   },
   titleSection: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    justifyContent: 'center',
+    gap: 8,
   },
   headerLogo: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    width: 40,
+    height: 40,
+    borderRadius: 50,
+    marginRight: 10,
+    borderWidth:1,
+    borderColor:COLORS.border,
   },
   brandText: {
-    color: '#FFFFFF',
+    color: isDark ? '#FFFFFF' : COLORS.text,
     fontWeight: '800',
     fontSize: 14,
     letterSpacing: 1.5,
@@ -143,7 +155,8 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     fontSize: 8.5,
     letterSpacing: 1.2,
     fontWeight: '700',
-    marginTop: 1,
+    marginTop: 2,
+    textAlign: 'start',
   },
   rightSection: {
     width: 40,
