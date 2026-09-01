@@ -52,6 +52,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     '1': true,
   });
   const [selectedMedia, setSelectedMedia] = useState<MediaSelection | null>(null);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number>(0);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -348,12 +349,33 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
               {activeSeason.gallery.map((media, index) => media.url ? (
                 media.type === 'video' ? (
-                  <Pressable key={media.id || index} style={styles.galleryVideo} onPress={() => setSelectedMedia({uri: media.url as string, type: 'video', title: media.alt || 'Tour video'})}>
+                  <Pressable
+                    key={media.id || index}
+                    style={styles.galleryVideo}
+                    onPress={() => {
+                      setSelectedMediaIndex(index);
+                      setSelectedMedia({
+                        uri: media.url as string,
+                        type: 'video',
+                        title: media.alt || `${tour?.title || 'Tour'} video`,
+                      });
+                    }}
+                  >
                     <Text style={styles.galleryVideoIcon}>▶</Text>
                     <Text style={styles.galleryVideoText}>Watch video</Text>
                   </Pressable>
                 ) : (
-                  <Pressable key={media.id || index} onPress={() => setSelectedMedia({uri: media.url as string, type: 'image', title: media.alt || 'Tour gallery image'})}>
+                  <Pressable
+                    key={media.id || index}
+                    onPress={() => {
+                      setSelectedMediaIndex(index);
+                      setSelectedMedia({
+                        uri: media.url as string,
+                        type: 'image',
+                        title: media.alt || `${tour?.title || 'Tour'} gallery`,
+                      });
+                    }}
+                  >
                     <Image source={{uri: media.url}} style={styles.galleryImage} accessibilityLabel={media.alt || 'Tour gallery image'} />
                   </Pressable>
                 )
@@ -531,6 +553,22 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           <Text style={styles.enquireActionText}>Enquire Now  →</Text>
         </Pressable>
       </View>
+
+      {/* Fullscreen Media Viewer with Prev/Next Navigation */}
+      {selectedMedia && (
+        <MediaViewer
+          mediaList={(activeSeason?.gallery || [])
+            .filter(item => Boolean(item.url))
+            .map(item => ({
+              uri: item.url as string,
+              type: (item.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+              title: item.alt || tour?.title || 'Tour Gallery',
+            }))}
+          initialIndex={selectedMediaIndex}
+          media={selectedMedia}
+          onClose={() => setSelectedMedia(null)}
+        />
+      )}
     </View>
   );
 };
@@ -784,7 +822,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     marginTop: 4,
   },
   seasonChipPriceActive: {
-    color: COLORS.primaryDark,
+    color: COLORS.text,
     fontWeight: '700',
   },
   chipMiniBadge: {
@@ -1148,14 +1186,15 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   fixedBottomBar: {
     position: 'absolute',
-    bottom: 6,
+    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: COLORS.card,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 10,
     flexDirection: 'row',
     gap: 12,
     elevation: 10,
