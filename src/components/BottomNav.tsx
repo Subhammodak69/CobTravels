@@ -84,7 +84,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             >
               {tab.label}
             </Text>
-            {isActive && <View style={styles.activeDot} />}
           </Pressable>
         );
       })}
@@ -99,7 +98,8 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       backgroundColor: isDark ? '#072421' : '#FFFFFF',
       borderTopWidth: 1,
       borderTopColor: isDark ? 'rgba(255, 255, 255, 0.1)' : COLORS.border,
-      paddingVertical: 6,
+      paddingBottom: 18,
+      paddingTop:2,
       paddingHorizontal: 8,
       elevation: 10,
       shadowColor: '#000000',
@@ -135,11 +135,5 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     tabLabelInactive: {
       color: isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted,
     },
-    activeDot: {
-      width: 4,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: isDark ? '#FFFFFF' : COLORS.primary,
-      marginTop: 2,
-    },
+
   });
