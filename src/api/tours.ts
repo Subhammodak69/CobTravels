@@ -93,11 +93,27 @@ export async function fetchTourPackages(
   page = 1,
   pageSize = 10,
   sortBy = 'created_at',
-  sortOrder = 'desc'
+  sortOrder = 'desc',
+  filters: {
+    destination?: string;
+    type?: string;
+    season?: string;
+    is_featured?: boolean;
+    min_price?: number;
+    max_price?: number;
+    search?: string;
+  } = {}
 ): Promise<TourPackageSummary[]> {
-  const r = await request<ApiEnvelope<any[]>>(
-    `/api/v1/tour-packages?page=${page}&page_size=${pageSize}&sort_by=${encodeURIComponent(sortBy)}&sort_order=${encodeURIComponent(sortOrder)}`
-  );
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+  });
+  const r = await request<ApiEnvelope<any[]>>(`/api/v1/tour-packages?${params.toString()}`);
   return (Array.isArray(r.data) ? r.data : []).map(formatSummary);
 }
 

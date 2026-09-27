@@ -24,6 +24,7 @@ import {
   WalletBalance,
   FinancialTransaction,
   PaginatedResult,
+  EnumList,
 } from './types';
 import { TravelDocument } from '../types';
 
@@ -41,6 +42,15 @@ export async function fetchEnquiries(skip = 0, limit = 50): Promise<EnquiryRecor
     `/api/v1/enquiries?skip=${skip}&limit=${limit}`
   );
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function fetchEnums(group = '', search = ''): Promise<EnumList | null> {
+  const params = new URLSearchParams();
+  if (group) params.set('group', group);
+  if (search) params.set('search', search);
+  const query = params.toString();
+  const response = await authenticated<ApiEnvelope<EnumList>>(`/api/v1/enums${query ? `?${query}` : ''}`);
+  return response.data || null;
 }
 
 export async function createEnquiry(payload: EnquiryCreateInput): Promise<ApiEnvelope<EnquiryRecord>> {
@@ -91,8 +101,23 @@ export async function fetchVehicles(
 }
 
 // ── Wishlist ───────────────────────────────────────────────────────────
-export async function fetchWishlist(page = 1, pageSize = 20): Promise<ApiEnvelope<any[]>> {
-  return authenticated<ApiEnvelope<any[]>>(`/api/v1/wishlist?page=${page}&page_size=${pageSize}`);
+export async function fetchWishlist(
+  page = 1,
+  pageSize = 20,
+  filters: {
+    destination?: string;
+    type?: string;
+    season?: string;
+    is_featured?: boolean;
+    search?: string;
+    sort_order?: 'asc' | 'desc';
+  } = {}
+): Promise<ApiEnvelope<any[]>> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+  });
+  return authenticated<ApiEnvelope<any[]>>(`/api/v1/wishlist?${params.toString()}`);
 }
 
 export async function addWishlistItem(slug: string): Promise<ApiEnvelope<unknown>> {
@@ -168,10 +193,15 @@ export async function deleteDocument(id: string): Promise<ApiEnvelope<unknown>> 
 // ── Trips, Invoices, User Stats, Notification Preferences ──────────────
 export async function fetchCustomerTours(
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  filters: { month?: number; year?: number; status?: string } = {}
 ): Promise<CustomerTourListResult> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (filters.month) params.set('month', String(filters.month));
+  if (filters.year) params.set('year', String(filters.year));
+  if (filters.status) params.set('status', filters.status);
   const response = await authenticated<ApiEnvelope<CustomerTour[]>>(
-    `/api/v1/customer-tours?page=${page}&page_size=${pageSize}`
+    `/api/v1/customer-tours?${params.toString()}`
   );
   return {
     items: Array.isArray(response.data) ? response.data : [],

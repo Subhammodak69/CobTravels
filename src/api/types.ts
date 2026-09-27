@@ -5,6 +5,21 @@ export type ApiEnvelope<T> = {
   pagination?: any;
 };
 
+export interface EnumOption {
+  value: string;
+  label: string;
+}
+
+export interface EnumGroup {
+  name: string;
+  label: string;
+  options: EnumOption[];
+}
+
+export interface EnumList {
+  groups: EnumGroup[];
+}
+
 export interface UploadedFileData {
   url: string;
   public_id: string;
