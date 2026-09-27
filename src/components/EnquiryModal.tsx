@@ -18,6 +18,8 @@ import {
   getVisitorId,
   getAccessToken,
   fetchTourPackageVariants,
+  fetchHotels,
+  fetchVehicles,
   fetchMe,
   AuthUser,
 } from '../api/tourApi';
@@ -38,6 +40,32 @@ const channelOptions: string[] = Object.values(
     ADMIN: 'ADMIN',
   }
 );
+
+function ChipSelector({
+  options,
+  value,
+  onChange,
+  styles,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  styles: any;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+      {options.map(option => (
+        <Pressable
+          key={option.value || option.label}
+          onPress={() => onChange(option.value)}
+          style={[styles.chip, value === option.value && styles.chipActive]}
+        >
+          <Text style={[styles.chipText, value === option.value && styles.chipTextActive]}>{option.label}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
 
 interface EnquiryModalProps {
   visible: boolean;
@@ -93,6 +121,11 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   // Variants loaded from /api/v1/tour-packages/{tour_slug}/variants
   const [variants, setVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+  const [hotelId, setHotelId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [hotels, setHotels] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
   const [loadingSelect, setLoadingSelect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -151,6 +184,24 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       setVariants([]);
     }
 
+    const selectedDestinationId = destinationId || (tour as any)?.destination_id || '';
+    if (selectedDestinationId) {
+      setFacilitiesLoading(true);
+      Promise.all([fetchHotels(1, 20, selectedDestinationId), fetchVehicles(1, 20)])
+        .then(([hotelResponse, vehicleResponse]) => {
+          setHotels(Array.isArray(hotelResponse.data) ? hotelResponse.data : []);
+          setVehicles(Array.isArray(vehicleResponse.data) ? vehicleResponse.data : []);
+        })
+        .catch(() => {
+          setHotels([]);
+          setVehicles([]);
+        })
+        .finally(() => setFacilitiesLoading(false));
+    } else {
+      setHotels([]);
+      setVehicles([]);
+    }
+
     // 3. Pre-fill subject
     if (tour) {
       setSubject(`Enquiry about ${tour.title}`);
@@ -169,6 +220,10 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
     setMessage('');
     setVariants([]);
     setSelectedVariantId('');
+    setHotelId('');
+    setVehicleId('');
+    setHotels([]);
+    setVehicles([]);
     setCustomerId('');
   };
 
@@ -214,10 +269,10 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
         adult_count: 1,
         child_count: 0,
         senior_count: 0,
-        hotel_id: '',
-        vehicle_id: '',
+        hotel_id: hotelId,
+        vehicle_id: vehicleId,
         room_count: 0,
-        vehicle_count: 0,
+        vehicle_count: vehicleId ? 1 : 0,
         budget_min: 0,
         budget_max: 0,
         special_requirements: '',
@@ -334,6 +389,25 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                 </ScrollView>
               </View>
             ) : null}
+
+            {/* Destination-specific hotel and vehicle choices */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.label}>PREFERRED HOTEL</Text>
+              <ChipSelector
+                options={[{ label: 'Any / Not Sure', value: '' }, ...hotels.map(hotel => ({ label: `${hotel.name}${hotel.category ? ` · ${hotel.category}` : ''}`, value: hotel.id }))]}
+                value={hotelId}
+                onChange={setHotelId}
+                styles={styles}
+              />
+              {facilitiesLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : null}
+              <Text style={styles.label}>PREFERRED VEHICLE</Text>
+              <ChipSelector
+                options={[{ label: 'Any / Not Sure', value: '' }, ...vehicles.map(vehicle => ({ label: `${vehicle.name}${vehicle.capacity ? ` · ${vehicle.capacity} seats` : ''}`, value: vehicle.id }))]}
+                value={vehicleId}
+                onChange={setVehicleId}
+                styles={styles}
+              />
+            </View>
 
             {/* Name */}
             <Text style={styles.label}>YOUR NAME *</Text>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
-import { createEnquiry, getVisitorId } from '../api/tourApi';
+import { createEnquiry, fetchHotels, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 
 interface CustomTourModalProps {
@@ -82,6 +82,14 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [destination, setDestination] = useState('');
+  const [destinationId, setDestinationId] = useState('');
+  const [packageId, setPackageId] = useState('');
+  const [packages, setPackages] = useState<any[]>([]);
+  const [hotelId, setHotelId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [hotels, setHotels] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [facilitiesLoading, setFacilitiesLoading] = useState(false);
   const [travelDate, setTravelDate] = useState('');
   const [travelDuration, setTravelDuration] = useState('');
   const [paxNo, setPaxNo] = useState('2');
@@ -92,10 +100,40 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   const [enquiryType, setEnquiryType] = useState('CUSTOM_TOUR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!visible) return;
+    fetchTourPackages(1, 50)
+      .then(result => setPackages(result || []))
+      .catch(() => setPackages([]));
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !destinationId) {
+      setHotels([]);
+      setVehicles([]);
+      return;
+    }
+    setFacilitiesLoading(true);
+    Promise.all([fetchHotels(1, 20, destinationId), fetchVehicles(1, 20)])
+      .then(([hotelResponse, vehicleResponse]) => {
+        setHotels(Array.isArray(hotelResponse.data) ? hotelResponse.data : []);
+        setVehicles(Array.isArray(vehicleResponse.data) ? vehicleResponse.data : []);
+      })
+      .catch(() => {
+        setHotels([]);
+        setVehicles([]);
+      })
+      .finally(() => setFacilitiesLoading(false));
+  }, [visible, destinationId]);
+
   const resetForm = () => {
     setName('');
     setMobile('');
     setDestination('');
+    setDestinationId('');
+    setPackageId('');
+    setHotelId('');
+    setVehicleId('');
     setTravelDate('');
     setTravelDuration('');
     setPaxNo('2');
@@ -112,7 +150,7 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !mobile.trim() || !destination.trim()) {
+    if (!name.trim() || !mobile.trim() || !destinationId) {
       await showDialog({
         title: 'Required Fields Missing',
         message: 'Please fill in your Name, Mobile Number, and Destination.',
@@ -133,9 +171,9 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
         channel: 'APP',
         visitor_id,
         customer_id: '',
-        package_id: '',
+        package_id: packageId,
         variant_id: '',
-        destination_id: '',
+        destination_id: destinationId,
         message: `Destination: ${destination.trim()}`,
         name: name.trim(),
         phone: mobile.trim(),
@@ -146,10 +184,10 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
         adult_count: Number(paxNo) || 2,
         child_count: 0,
         senior_count: 0,
-        hotel_id: '',
-        vehicle_id: '',
+        hotel_id: hotelId,
+        vehicle_id: vehicleId,
         room_count: Number(noRoom) || 1,
-        vehicle_count: vehicleType ? 1 : 0,
+        vehicle_count: vehicleId || vehicleType ? 1 : 0,
         budget_min: 0,
         budget_max: 0,
         special_requirements: specialRequirements.trim(),
@@ -244,15 +282,58 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               />
             </View>
 
-            {/* Destination */}
-            <Text style={styles.label}>WHERE DO YOU WANT TO GO? *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Switzerland, Ladakh, Bali, Vietnam..."
-              placeholderTextColor={COLORS.textMuted}
-              value={destination}
-              onChangeText={setDestination}
+            {/* Package or destination first */}
+            <Text style={styles.label}>CHOOSE PACKAGE OR DESTINATION *</Text>
+            <ChipSelector
+              options={[{ label: 'Package', value: 'PACKAGE' }, { label: 'Destination', value: 'DESTINATION' }]}
+              value={packageId ? 'PACKAGE' : destinationId ? 'DESTINATION' : ''}
+              onChange={choice => {
+                setPackageId('');
+                setDestinationId('');
+                setDestination('');
+                setHotelId('');
+                setVehicleId('');
+                if (choice === 'PACKAGE' && packages.length > 0) {
+                  const item = packages[0];
+                  setPackageId(item.id || '');
+                  setDestinationId(item.destination_id || '');
+                  setDestination(item.destination || item.destination_name || '');
+                }
+              }}
+              styles={styles}
             />
+            {packages.length > 0 ? (
+              <>
+                <Text style={styles.label}>PACKAGE</Text>
+                <ChipSelector
+                  options={packages.map(item => ({ label: item.title || item.destination || 'Tour package', value: item.id }))}
+                  value={packageId}
+                  onChange={value => {
+                    const item = packages.find(entry => entry.id === value);
+                    setPackageId(value);
+                    setDestinationId(item?.destination_id || '');
+                    setDestination(item?.destination || item?.destination_name || '');
+                    setHotelId('');
+                    setVehicleId('');
+                  }}
+                  styles={styles}
+                />
+                <Text style={styles.label}>DESTINATION</Text>
+                <ChipSelector
+                  options={Array.from(new Map(packages.filter(item => item.destination_id).map(item => [item.destination_id, { label: item.destination || item.destination_name || 'Destination', value: item.destination_id }])).values())}
+                  value={destinationId}
+                  onChange={value => {
+                    const item = packages.find(entry => entry.destination_id === value);
+                    setPackageId('');
+                    setDestinationId(value);
+                    setDestination(item?.destination || item?.destination_name || '');
+                    setHotelId('');
+                    setVehicleId('');
+                  }}
+                  styles={styles}
+                />
+              </>
+            ) : null}
 
             {/* Travel Date & Duration row */}
             <View style={styles.row}>
@@ -310,6 +391,23 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
               options={[{ label: 'Any', value: '' }, ...vehicleOptions]}
               value={vehicleType}
               onChange={setVehicleType}
+              styles={styles}
+            />
+
+            <Text style={styles.label}>PREFERRED HOTEL</Text>
+            {facilitiesLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : null}
+            <ChipSelector
+              options={[{ label: 'Any', value: '' }, ...hotels.map(hotel => ({ label: hotel.name, value: hotel.id }))]}
+              value={hotelId}
+              onChange={setHotelId}
+              styles={styles}
+            />
+
+            <Text style={styles.label}>PREFERRED VEHICLE</Text>
+            <ChipSelector
+              options={[{ label: 'Any', value: '' }, ...vehicles.map(vehicle => ({ label: `${vehicle.name}${vehicle.capacity ? ` · ${vehicle.capacity} seats` : ''}`, value: vehicle.id }))]}
+              value={vehicleId}
+              onChange={setVehicleId}
               styles={styles}
             />
 

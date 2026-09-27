@@ -160,9 +160,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Pressable>
         </View>
 
-        {loading && tours.length === 0 ? <TourListSkeleton /> : featuredTours.slice(0, 3).map(tour => (
+        {loading && tours.length === 0 ? <TourListSkeleton /> : featuredTours.slice(0, 3).map((tour, index) => (
           <TourCard
-            key={tour.id}
+            key={`${tour.id || tour.slug || 'featured-tour'}-${index}`}
             tour={tour}
             onPress={() => onSelectTour(tour)}
             onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}
@@ -219,9 +219,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Pressable>
         </View>
 
-        {domesticTours.slice(0, 2).map(tour => (
+        {domesticTours.slice(0, 2).map((tour, index) => (
           <TourCard
-            key={tour.id}
+            key={`${tour.id || tour.slug || 'domestic-tour'}-${index}`}
             tour={tour}
             onPress={() => onSelectTour(tour)}
             onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}
@@ -248,9 +248,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Pressable>
         </View>
 
-        {internationalTours.slice(0, 2).map(tour => (
+        {internationalTours.slice(0, 2).map((tour, index) => (
           <TourCard
-            key={tour.id}
+            key={`${tour.id || tour.slug || 'international-tour'}-${index}`}
             tour={tour}
             onPress={() => onSelectTour(tour)}
             onEnquire={onEnquireTour ? () => onEnquireTour(tour) : undefined}

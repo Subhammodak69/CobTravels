@@ -50,8 +50,14 @@ export async function deleteEnquiry(id: string): Promise<ApiEnvelope<unknown>> {
   });
 }
 
-export async function fetchHotels(page = 1, pageSize = 20): Promise<ApiEnvelope<HotelRecord[]>> {
-  return request<ApiEnvelope<HotelRecord[]>>(`/api/v1/hotels?page=${page}&page_size=${pageSize}`);
+export async function fetchHotels(
+  page = 1,
+  pageSize = 20,
+  destinationId = ''
+): Promise<ApiEnvelope<HotelRecord[]>> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (destinationId) params.set('destination_id', destinationId);
+  return request<ApiEnvelope<HotelRecord[]>>(`/api/v1/hotels?${params.toString()}`);
 }
 
 export async function fetchVehicles(page = 1, pageSize = 20): Promise<ApiEnvelope<VehicleRecord[]>> {

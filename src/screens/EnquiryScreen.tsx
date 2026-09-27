@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
-import { createEnquiry, fetchHotels, fetchVehicles, getVisitorId } from '../api/tourApi';
+import { createEnquiry, fetchHotels, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 import { NavScreen } from '../types';
 
@@ -82,6 +82,9 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   const [name, setName] = useState(initialUser?.name || '');
   const [mobile, setMobile] = useState(initialUser?.mobile || '');
   const [destination, setDestination] = useState('');
+  const [destinationId, setDestinationId] = useState('');
+  const [packageId, setPackageId] = useState('');
+  const [packages, setPackages] = useState<any[]>([]);
   const [travelDate, setTravelDate] = useState('');
   const [travelDuration, setTravelDuration] = useState('');
   const [paxNo, setPaxNo] = useState('4');
@@ -97,11 +100,23 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
-    Promise.all([fetchHotels(1, 20), fetchVehicles(1, 20)]).then(([hotelResponse, vehicleResponse]) => {
+    fetchTourPackages(1, 50).then(setPackages).catch(() => setPackages([]));
+  }, []);
+
+  React.useEffect(() => {
+    if (!destinationId) {
+      setHotels([]);
+      setVehicles([]);
+      return;
+    }
+    Promise.all([fetchHotels(1, 20, destinationId), fetchVehicles(1, 20)]).then(([hotelResponse, vehicleResponse]) => {
       setHotels(Array.isArray(hotelResponse.data) ? hotelResponse.data : []);
       setVehicles(Array.isArray(vehicleResponse.data) ? vehicleResponse.data : []);
-    }).catch(() => {});
-  }, []);
+    }).catch(() => {
+      setHotels([]);
+      setVehicles([]);
+    });
+  }, [destinationId]);
 
   // Auto-sync logged in user info if available
   React.useEffect(() => {
@@ -115,6 +130,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     setName(initialUser?.name || '');
     setMobile(initialUser?.mobile || '');
     setDestination('');
+    setDestinationId('');
+    setPackageId('');
     setTravelDate('');
     setTravelDuration('');
     setPaxNo('4');
@@ -128,7 +145,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !mobile.trim() || !destination.trim()) {
+    if (!name.trim() || !mobile.trim() || !destinationId) {
       await showDialog({
         title: 'Required Fields Missing',
         message: 'Please fill in your Name, Mobile Number, and Destination.',
@@ -153,9 +170,9 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         channel: 'APP',
         visitor_id,
         customer_id: initialUser?.id || '',
-        package_id: '',
+        package_id: packageId,
         variant_id: '',
-        destination_id: '',
+        destination_id: destinationId,
         message: `Destination: ${destination.trim()}${specialRequirements.trim() ? `\n\n${specialRequirements.trim()}` : ''}`,
         name: name.trim(),
         phone: mobile.trim(),
@@ -258,14 +275,47 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           />
         </View>
 
-        {/* Destination */}
-        <Text style={styles.label}>WHERE DO YOU WANT TO GO? *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. Switzerland, Ladakh, Bali, Vietnam..."
-          placeholderTextColor={COLORS.textMuted}
-          value={destination}
-          onChangeText={setDestination}
+        {/* Package or destination first */}
+        <Text style={styles.label}>CHOOSE PACKAGE OR DESTINATION *</Text>
+        <ChipSelector
+          options={[{ label: 'Package', value: 'PACKAGE' }, { label: 'Destination', value: 'DESTINATION' }]}
+          value={packageId ? 'PACKAGE' : destinationId ? 'DESTINATION' : ''}
+          onChange={choice => {
+            setPackageId('');
+            setDestinationId('');
+            setDestination('');
+            if (choice === 'PACKAGE' && packages.length > 0) {
+              const item = packages[0];
+              setPackageId(item.id || '');
+              setDestinationId(item.destination_id || '');
+              setDestination(item.destination || item.destination_name || '');
+            }
+          }}
+          styles={styles}
+        />
+        <Text style={styles.label}>PACKAGE</Text>
+        <ChipSelector
+          options={packages.map(item => ({ label: item.title || item.destination || 'Tour package', value: item.id }))}
+          value={packageId}
+          onChange={value => {
+            const item = packages.find(entry => entry.id === value);
+            setPackageId(value);
+            setDestinationId(item?.destination_id || '');
+            setDestination(item?.destination || item?.destination_name || '');
+          }}
+          styles={styles}
+        />
+        <Text style={styles.label}>DESTINATION</Text>
+        <ChipSelector
+          options={Array.from(new Map(packages.filter(item => item.destination_id).map(item => [item.destination_id, { label: item.destination || item.destination_name || 'Destination', value: item.destination_id }])).values())}
+          value={destinationId}
+          onChange={value => {
+            const item = packages.find(entry => entry.destination_id === value);
+            setPackageId('');
+            setDestinationId(value);
+            setDestination(item?.destination || item?.destination_name || '');
+          }}
+          styles={styles}
         />
 
         {/* Travel Date & Duration */}
