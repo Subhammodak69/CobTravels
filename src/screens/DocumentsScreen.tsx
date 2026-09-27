@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -88,7 +88,12 @@ export const DocumentsScreen: React.FC<Props> = () => {
         await RNBlobUtil.fs.unlink(path).catch(() => undefined);
       }
       showSuccess('The document was saved to your device.');
-    } catch (error) { showApiError(error, 'We could not download this document.'); }
+      Alert.alert('Download complete', `${fileName} was downloaded successfully.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'We could not download this document.';
+      showApiError(error, message);
+      Alert.alert('Download failed', message);
+    }
   };
 
   const removeDocument = async (document: TravelDocument) => {
