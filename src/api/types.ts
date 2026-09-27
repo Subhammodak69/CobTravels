@@ -16,6 +16,36 @@ export interface UploadedFileData {
   bytes: number;
 }
 
+export interface ResourceImage {
+  id?: string;
+  alt?: string;
+  url?: string;
+  type?: string;
+  display_order?: number;
+  [key: string]: any;
+}
+
+export interface HotelRecord {
+  id: string;
+  name: string;
+  image?: ResourceImage[];
+  destination_id?: string;
+  category?: string;
+  address?: string;
+  contact?: string;
+  description?: string;
+}
+
+export interface VehicleRecord {
+  id: string;
+  name: string;
+  vehicle_image?: ResourceImage[];
+  vehicle_type?: string;
+  registration_number?: string;
+  capacity?: number;
+  price_per_day?: string | number;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -145,20 +175,6 @@ export interface EnquiryCreateInput {
 }
 
 export type EnquiryUpdateInput = Partial<Omit<EnquiryCreateInput, 'enquiry_type' | 'visitor_id' | 'customer_id' | 'channel'>>;
-
-export interface TourPackageSelectData {
-  id: string;
-  title: string;
-  banner?: {
-    image?: string;
-    video?: string;
-  };
-  variants: Array<{
-    id: string;
-    name: string;
-    season_name?: string;
-  }>;
-}
 
 export interface Trip {
   id: string;

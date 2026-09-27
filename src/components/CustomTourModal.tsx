@@ -13,31 +13,13 @@ import {
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
-import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
+import { createEnquiry, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 
 interface CustomTourModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmitSuccess?: (enquiry: any) => void;
-}
-
-async function submitCustomEnquiry(payload: Record<string, any>): Promise<{ success: boolean; message: string }> {
-  const token = await getAccessToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${BASE_API}/api/v1/enquiries/custom`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.message || `Request failed (${res.status})`);
-  return body;
 }
 
 type ChipOption = { label: string; value: string };
@@ -146,20 +128,32 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
     setIsSubmitting(true);
     try {
       const visitor_id = await getVisitorId();
-      const result = await submitCustomEnquiry({
-        name: name.trim(),
-        mobile: mobile.trim(),
-        destination: destination.trim(),
-        travel_date: travelDate.trim(),
-        travel_duration: travelDuration.trim(),
-        pax_no: Number(paxNo) || 2,
-        no_room: Number(noRoom) || 1,
-        vehicle_type: vehicleType || undefined,
-        meal_plan: mealPlan || undefined,
-        special_requirements: specialRequirements.trim() || undefined,
+      const result = await createEnquiry({
         enquiry_type: enquiryType,
         channel: 'APP',
         visitor_id,
+        customer_id: '',
+        package_id: '',
+        variant_id: '',
+        destination_id: '',
+        message: `Destination: ${destination.trim()}`,
+        name: name.trim(),
+        phone: mobile.trim(),
+        email: '',
+        travel_date: travelDate.trim(),
+        travel_duration_day: 0,
+        travel_duration_night: 0,
+        adult_count: Number(paxNo) || 2,
+        child_count: 0,
+        senior_count: 0,
+        hotel_id: '',
+        vehicle_id: '',
+        room_count: Number(noRoom) || 1,
+        vehicle_count: vehicleType ? 1 : 0,
+        budget_min: 0,
+        budget_max: 0,
+        special_requirements: specialRequirements.trim(),
+        meal_plan: mealPlan || 'ANY',
       });
       if (onSubmitSuccess) onSubmitSuccess(result);
       await showDialog({

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
-import { createEnquiry, getVisitorId } from '../api/tourApi';
+import { createEnquiry, fetchHotels, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 import { NavScreen } from '../types';
 
@@ -87,10 +87,21 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   const [paxNo, setPaxNo] = useState('4');
   const [noRoom, setNoRoom] = useState('2');
   const [vehicleType, setVehicleType] = useState('ANY');
+  const [hotelId, setHotelId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [hotels, setHotels] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
   const [mealPlan, setMealPlan] = useState('ANY');
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [enquiryType, setEnquiryType] = useState('CUSTOM_TOUR');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    Promise.all([fetchHotels(1, 20), fetchVehicles(1, 20)]).then(([hotelResponse, vehicleResponse]) => {
+      setHotels(Array.isArray(hotelResponse.data) ? hotelResponse.data : []);
+      setVehicles(Array.isArray(vehicleResponse.data) ? vehicleResponse.data : []);
+    }).catch(() => {});
+  }, []);
 
   // Auto-sync logged in user info if available
   React.useEffect(() => {
@@ -109,6 +120,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     setPaxNo('4');
     setNoRoom('2');
     setVehicleType('ANY');
+    setHotelId('');
+    setVehicleId('');
     setMealPlan('ANY');
     setSpecialRequirements('');
     setEnquiryType('CUSTOM_TOUR');
@@ -153,8 +166,8 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         adult_count: Number(paxNo) || 4,
         child_count: 0,
         senior_count: 0,
-        hotel_id: '',
-        vehicle_id: '',
+        hotel_id: hotelId,
+        vehicle_id: vehicleId,
         room_count: Number(noRoom) || 2,
         vehicle_count: 0,
         budget_min: 0,
@@ -311,6 +324,22 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           options={[{ label: 'Any / Not Sure', value: 'ANY' }, ...vehicleOptions]}
           value={vehicleType}
           onChange={setVehicleType}
+          styles={styles}
+        />
+
+        <Text style={styles.label}>PREFERRED HOTEL</Text>
+        <ChipSelector
+          options={[{ label: 'Any / Not Sure', value: '' }, ...hotels.map(hotel => ({ label: hotel.name, value: hotel.id }))]}
+          value={hotelId}
+          onChange={setHotelId}
+          styles={styles}
+        />
+
+        <Text style={styles.label}>PREFERRED VEHICLE</Text>
+        <ChipSelector
+          options={[{ label: 'Any / Not Sure', value: '' }, ...vehicles.map(vehicle => ({ label: `${vehicle.name}${vehicle.capacity ? ` · ${vehicle.capacity} seats` : ''}`, value: vehicle.id }))]}
+          value={vehicleId}
+          onChange={setVehicleId}
           styles={styles}
         />
 

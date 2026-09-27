@@ -169,6 +169,8 @@ function AppInner() {
   const [enquiryModalTour, setEnquiryModalTour] = useState<import('./src/types').TourPackageSummary | null>(null);
   const [enquiryModalPackageId, setEnquiryModalPackageId] = useState('');
   const [enquiryModalVariantId, setEnquiryModalVariantId] = useState('');
+  const [enquiryModalDestinationId, setEnquiryModalDestinationId] = useState('');
+  const [enquiryModalTravelDate, setEnquiryModalTravelDate] = useState('');
 
   // Load tour packages from API
   const loadTours = useCallback(async () => {
@@ -285,6 +287,8 @@ function AppInner() {
     tourSlug: string;
     tourTitle: string;
     variantName: string;
+    variantId: string;
+    destinationId: string;
     travelDate: string;
   }) => {
     // Find the tour summary to pass to the modal
@@ -292,7 +296,9 @@ function AppInner() {
     setEnquiryModalTour(matchedTour);
     // Pass actual UUID (matchedTour.id) so the modal can send it; also keep slug available via tour.slug for /select/{slug}
     setEnquiryModalPackageId(matchedTour?.id || details.tourSlug);
-    setEnquiryModalVariantId(details.variantName);
+    setEnquiryModalVariantId(details.variantId || details.variantName);
+    setEnquiryModalDestinationId((matchedTour as any)?.destination_id || details.destinationId || '');
+    setEnquiryModalTravelDate(details.travelDate || '');
     setEnquiryModalVisible(true);
     trackVisitorEvent('enquiry_started', currentScreenRef.current, details);
   };
@@ -301,6 +307,8 @@ function AppInner() {
     setEnquiryModalTour(tour);
     setEnquiryModalPackageId(tour.id);
     setEnquiryModalVariantId('');
+    setEnquiryModalDestinationId((tour as any).destination_id || '');
+    setEnquiryModalTravelDate('');
     setEnquiryModalVisible(true);
     trackVisitorEvent('enquiry_started', currentScreenRef.current, { tour_slug: tour.slug, tour_title: tour.title });
   };
@@ -573,10 +581,12 @@ function AppInner() {
         {/* Fixed Tour Enquiry Modal */}
         <EnquiryModal
           visible={enquiryModalVisible}
-          onClose={() => { setEnquiryModalVisible(false); setEnquiryModalTour(null); }}
+          onClose={() => { setEnquiryModalVisible(false); setEnquiryModalTour(null); setEnquiryModalDestinationId(''); setEnquiryModalTravelDate(''); }}
           tour={enquiryModalTour}
           packageId={enquiryModalPackageId}
           variantId={enquiryModalVariantId}
+          destinationId={enquiryModalDestinationId}
+          travelDate={enquiryModalTravelDate}
           user={user}
         />
       </SafeAreaView>

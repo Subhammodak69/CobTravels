@@ -28,6 +28,8 @@ interface TourDetailScreenProps {
     tourSlug: string;
     tourTitle: string;
     variantName: string;
+    variantId: string;
+    destinationId: string;
     travelDate: string;
   }) => void;
   isSaved?: boolean;
@@ -146,6 +148,8 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
       tourSlug: tour.slug,
       tourTitle: tour.title,
       variantName: activeSeason.name,
+      variantId: activeSeason.id,
+      destinationId: (tour as any).destination_id || '',
       travelDate: selectedDate || (activeSeason.dates?.[0]?.date ?? ''),
     });
   };

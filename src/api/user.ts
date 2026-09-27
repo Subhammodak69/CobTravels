@@ -14,6 +14,8 @@ import {
   BookingTravellerInput,
   EnquiryCreateInput,
   EnquiryUpdateInput,
+  HotelRecord,
+  VehicleRecord,
 } from './types';
 import { TravelDocument } from '../types';
 
@@ -46,6 +48,14 @@ export async function deleteEnquiry(id: string): Promise<ApiEnvelope<unknown>> {
   return authenticated<ApiEnvelope<unknown>>(`/api/v1/enquiries/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+export async function fetchHotels(page = 1, pageSize = 20): Promise<ApiEnvelope<HotelRecord[]>> {
+  return request<ApiEnvelope<HotelRecord[]>>(`/api/v1/hotels?page=${page}&page_size=${pageSize}`);
+}
+
+export async function fetchVehicles(page = 1, pageSize = 20): Promise<ApiEnvelope<VehicleRecord[]>> {
+  return request<ApiEnvelope<VehicleRecord[]>>(`/api/v1/vehicles?page=${page}&page_size=${pageSize}`);
 }
 
 // ── Wishlist ───────────────────────────────────────────────────────────

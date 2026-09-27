@@ -17,8 +17,7 @@ import {
   BASE_API,
   getVisitorId,
   getAccessToken,
-  fetchTourPackageSelect,
-  TourPackageSelectData,
+  fetchTourPackageVariants,
   fetchMe,
   AuthUser,
 } from '../api/tourApi';
@@ -46,6 +45,8 @@ interface EnquiryModalProps {
   tour?: TourPackageSummary | null;
   packageId?: string;
   variantId?: string;
+  destinationId?: string;
+  travelDate?: string;
   user?: AuthUser | null;
 }
 
@@ -73,6 +74,8 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   tour,
   packageId,
   variantId,
+  destinationId = '',
+  travelDate = '',
   user: initialUser,
 }) => {
   const COLORS = useColors();
@@ -81,19 +84,21 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedTravelDate, setSelectedTravelDate] = useState(travelDate);
   const [channel, setChannel] = useState('WEBSITE');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [customerId, setCustomerId] = useState('');
 
-  // Selected package details from /api/v1/tour-packages/select/{slug}
-  const [selectData, setSelectData] = useState<TourPackageSelectData | null>(null);
+  // Variants loaded from /api/v1/tour-packages/{tour_slug}/variants
+  const [variants, setVariants] = useState<any[]>([]);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [loadingSelect, setLoadingSelect] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
+    setSelectedTravelDate(travelDate || '');
 
     // 1. Pre-fill user profile info and customer_id from /api/v1/auth/me
     (async () => {
@@ -121,29 +126,29 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       setCustomerId(currentCustomer);
     })();
 
-    // 2. Fetch package options & variants from /api/v1/tour-packages/select/{slug}
+    // 2. Fetch package variants using the public slug-based endpoint.
     const tourSlug = tour?.slug || (packageId && !isValidUUID(packageId) ? packageId : '');
     if (tourSlug) {
       setLoadingSelect(true);
-      fetchTourPackageSelect(tourSlug)
-        .then(data => {
-          setSelectData(data);
+      fetchTourPackageVariants(tourSlug)
+        .then(result => {
+          setVariants(result.variants);
           // Pre-select variant
-          if (variantId && data.variants.some(v => v.id === variantId || v.name === variantId)) {
-            const match = data.variants.find(v => v.id === variantId || v.name === variantId);
+          if (variantId && result.variants.some(v => v.id === variantId || v.name === variantId || v.key === variantId)) {
+            const match = result.variants.find(v => v.id === variantId || v.name === variantId || v.key === variantId);
             if (match) setSelectedVariantId(match.id);
-          } else if (data.variants.length > 0) {
-            setSelectedVariantId(data.variants[0].id);
+          } else if (result.variants.length > 0) {
+            setSelectedVariantId(result.variants[0].id);
           }
         })
         .catch(() => {
-          setSelectData(null);
+          setVariants([]);
         })
         .finally(() => {
           setLoadingSelect(false);
         });
     } else {
-      setSelectData(null);
+      setVariants([]);
     }
 
     // 3. Pre-fill subject
@@ -152,16 +157,17 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
     } else {
       setSubject('');
     }
-  }, [visible, tour, packageId, variantId, initialUser]);
+  }, [visible, tour, packageId, variantId, initialUser, travelDate]);
 
   const resetForm = () => {
     setName('');
     setMobile('');
     setEmail('');
+    setSelectedTravelDate('');
     setChannel('WEBSITE');
     setSubject('');
     setMessage('');
-    setSelectData(null);
+    setVariants([]);
     setSelectedVariantId('');
     setCustomerId('');
   };
@@ -186,7 +192,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       const visitor_id = await getVisitorId();
 
       // Resolve package UUID (from /select/{slug} or tour?.id or packageId)
-      const rawPkg = selectData?.id || (isValidUUID(tour?.id) ? tour?.id : '') || (isValidUUID(packageId) ? packageId : '');
+      const rawPkg = (isValidUUID(tour?.id) ? tour?.id : '') || (isValidUUID(packageId) ? packageId : '');
       const rawVar = selectedVariantId || (isValidUUID(variantId) ? variantId : '');
 
       // Use the current fixed-tour enquiry contract.
@@ -196,13 +202,13 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
         customer_id: customerId || '',
         package_id: rawPkg || '',
         variant_id: rawVar || '',
-        destination_id: (tour as any)?.destination_id || '',
+        destination_id: destinationId || (tour as any)?.destination_id || '',
         channel: 'APP',
         message: [subject, message].filter(Boolean).join('\n\n').trim(),
         name: name.trim(),
         phone: mobile.trim(),
         email: email.trim(),
-        travel_date: '',
+        travel_date: selectedTravelDate || travelDate || '',
         travel_duration_day: 0,
         travel_duration_night: 0,
         adult_count: 1,
@@ -220,7 +226,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
 
       const confirmed = await showDialog({
         title: 'Confirm enquiry',
-        message: `Send enquiry for ${selectData?.title || tour?.title || 'this tour'}?`,
+        message: `Send enquiry for ${tour?.title || 'this tour'}?`,
         variant: 'info',
         confirmText: 'Send enquiry',
         cancelText: 'Edit',
@@ -269,7 +275,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
               <View>
                 <Text style={styles.headerTitle}>Send Enquiry</Text>
                 <Text style={styles.headerSub} numberOfLines={1}>
-                  {selectData?.title || tour?.title || 'Get in touch with our team'}
+                  {tour?.title || 'Get in touch with our team'}
                 </Text>
               </View>
             </View>
@@ -296,17 +302,17 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Package Variants (loaded dynamically from /api/v1/tour-packages/select/{slug}) */}
+            {/* Package variants loaded from the slug-based variants endpoint */}
             {loadingSelect ? (
               <View style={styles.loadingVariantsRow}>
                 <ActivityIndicator size="small" color={COLORS.primary} />
                 <Text style={styles.loadingVariantsText}>Loading package options…</Text>
               </View>
-            ) : selectData?.variants && selectData.variants.length > 0 ? (
+            ) : variants.length > 0 ? (
               <View style={styles.sectionBlock}>
                 <Text style={styles.label}>SELECT TOUR OPTION / VARIANT</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-                  {selectData.variants.map((v) => {
+                  {variants.map((v) => {
                     const isSelected = selectedVariantId === v.id;
                     return (
                       <Pressable

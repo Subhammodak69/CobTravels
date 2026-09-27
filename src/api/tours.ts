@@ -2,7 +2,6 @@ import { Linking } from 'react-native';
 import { request, authenticated, getAccessToken, BASE_API } from './client';
 import {
   ApiEnvelope,
-  TourPackageSelectData,
   UploadedFileData,
 } from './types';
 import {
@@ -179,14 +178,6 @@ export async function fetchTourVariant(slug: string, variantSlug: string, listed
     details: detail,
     other_variants: r.data?.other_variants || variants.variants.filter(v => v.id !== listedVariant?.id),
   };
-}
-
-export async function fetchTourPackageSelect(slug: string): Promise<TourPackageSelectData> {
-  const r = await request<ApiEnvelope<TourPackageSelectData>>(
-    `/api/v1/tour-packages/select/${encodeURIComponent(slug)}`
-  );
-  if (!r.data) throw new Error('Package options not found');
-  return r.data;
 }
 
 export async function fetchPackageReviews(
