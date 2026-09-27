@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import RNBlobUtil from 'react-native-blob-util';
-import {getDocumentDownloadUrl} from '../api/tourApi';
+import {getDocumentDownloadEndpoint, getDocumentDownloadUrl} from '../api/user';
 import {getAccessToken} from '../api/client';
 import {TravelDocument} from '../types';
 import {useColors} from '../theme/theme';
@@ -38,18 +38,28 @@ export const DocumentViewerScreen: React.FC<Props> = ({document, onBack}) => {
     let mounted = true;
     const loadDocument = async () => {
       try {
-        const downloadUrl = document.file_url;
-        if (!downloadUrl) throw new Error('No document URL was returned.');
-        const token = await getAccessToken();
-        if (!token) throw new Error('Your session has expired. Please sign in again.');
+        const fileUrl = document.file_url;
+        if (!fileUrl) throw new Error('No document URL was returned.');
+
+        // Do not forward the app bearer token to Cloudinary or any external
+        // storage provider. Relative URLs are served through our protected API.
+        const isExternalUrl = /^https?:\/\//i.test(fileUrl);
+        const token = isExternalUrl ? null : await getAccessToken();
+        if (!isExternalUrl && !token) {
+          throw new Error('Your session has expired. Please sign in again.');
+        }
+
+        const requestHeaders: Record<string, string> = {Accept: '*/*'};
+        if (token) requestHeaders.Authorization = `Bearer ${token}`;
 
         const result = await RNBlobUtil.config({
           fileCache: true,
           ...(fileName.includes('.') ? {appendExt: fileName.split('.').pop()} : {}),
-        }).fetch('GET', getDocumentDownloadUrl(downloadUrl), {
-          Authorization: `Bearer ${token}`,
-          Accept: '*/*',
-        });
+        }).fetch(
+          'GET',
+          isExternalUrl ? getDocumentDownloadUrl(fileUrl) : getDocumentDownloadEndpoint(document.id),
+          requestHeaders,
+        );
 
         pathRef.current = result.path();
         if (mounted) setFilePath(result.path());
