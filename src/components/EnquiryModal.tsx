@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
+import { CustomDateField } from './CustomDatePicker';
 import {
   BASE_API,
   getVisitorId,
@@ -313,7 +314,8 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
         style={styles.keyboardAvoid}
       >
         <Pressable style={styles.backdrop} onPress={handleClose} />
@@ -448,6 +450,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
               value={subject}
               onChangeText={setSubject}
               returnKeyType="next"
+            />
+
+            <Text style={styles.label}>TRAVEL DATE</Text>
+            <CustomDateField
+              value={selectedTravelDate}
+              onChange={setSelectedTravelDate}
+              placeholder="Select travel date"
+              title="Select travel date"
             />
 
             {/* Message */}

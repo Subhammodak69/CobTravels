@@ -280,7 +280,8 @@ export const ProfileScreen: React.FC<Props> = ({
         onRequestClose={handleCancelDeleteOtp}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
           style={styles.modalOverlay}
         >
           <Pressable style={styles.modalBackdrop} onPress={handleCancelDeleteOtp} />

@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
+  View,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View,
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
@@ -159,10 +157,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
 
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -335,7 +330,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         </View>
 
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 

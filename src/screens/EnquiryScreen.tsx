@@ -7,14 +7,13 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
 import { createEnquiry, fetchHotels, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 import { NavScreen } from '../types';
+import { CustomDateField } from '../components/CustomDatePicker';
 
 interface EnquiryScreenProps {
   onNavigate?: (screen: NavScreen) => void;
@@ -215,10 +214,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -322,12 +318,11 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         <View style={styles.row}>
           <View style={styles.col}>
             <Text style={styles.label}>TRAVEL DATE</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Dec 2025 / DD-MM-YYYY"
-              placeholderTextColor={COLORS.textMuted}
+            <CustomDateField
               value={travelDate}
-              onChangeText={setTravelDate}
+              onChange={setTravelDate}
+              placeholder="Select travel date"
+              title="Select travel date"
             />
           </View>
           <View style={styles.col}>
@@ -445,7 +440,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 

@@ -6,6 +6,7 @@ import { AppColors, useColors } from '../theme/theme';
 import { EnquiryData } from '../types';
 import { addCustomerTourTraveller, deleteCustomerTourTraveller, deleteEnquiry, fetchCustomerTour, fetchCustomerTours, fetchInvoices, updateCustomerTourTraveller, updateEnquiry, BookingTraveller, BookingTravellerInput, CustomerTour, Invoice } from '../api/tourApi';
 import { TripListSkeleton, InvoiceListSkeleton, EnquiryListSkeleton } from '../components/Skeleton';
+import { CustomDateField } from '../components/CustomDatePicker';
 
 type IconSet = 'feather' | 'mci';
 
@@ -219,7 +220,7 @@ export const MyTripsScreen = () => {
       </Modal>
 
       <Modal visible={travellerModalVisible} transparent animationType="fade" onRequestClose={() => setTravellerModalVisible(false)}>
-        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={styles.travellerModal}>
             <View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingTraveller ? 'Edit traveller' : 'Add traveller'}</Text><Pressable onPress={() => setTravellerModalVisible(false)} style={styles.closeButton}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View>
             <ScrollView keyboardShouldPersistTaps="handled">
@@ -231,7 +232,19 @@ export const MyTripsScreen = () => {
                 ['email', 'Email', 'Email address'],
                 ['relationship_to_customer', 'Relationship', 'e.g. Spouse'],
               ] as const).map(([key, label, placeholder]) => (
-                <View key={key} style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput value={travellerForm[key]} onChangeText={(value) => setTravellerForm((current) => ({ ...current, [key]: value }))} placeholder={placeholder} placeholderTextColor={COLORS.textMuted} style={styles.input} autoCapitalize={key === 'email' ? 'none' : 'words'} /></View>
+                <View key={key} style={styles.field}>
+                  <Text style={styles.fieldLabel}>{label}</Text>
+                  {key === 'date_of_birth' ? (
+                    <CustomDateField
+                      value={travellerForm.date_of_birth}
+                      onChange={value => setTravellerForm(current => ({ ...current, date_of_birth: value }))}
+                      placeholder="Select date of birth"
+                      title="Select date of birth"
+                    />
+                  ) : (
+                    <TextInput value={travellerForm[key]} onChangeText={(value) => setTravellerForm((current) => ({ ...current, [key]: value }))} placeholder={placeholder} placeholderTextColor={COLORS.textMuted} style={styles.input} autoCapitalize={key === 'email' ? 'none' : 'words'} />
+                  )}
+                </View>
               ))}
               <Pressable style={styles.primaryToggle} onPress={() => setTravellerForm((current) => ({ ...current, is_primary: !current.is_primary }))}><View style={[styles.checkbox, travellerForm.is_primary && styles.checkboxChecked]}>{travellerForm.is_primary ? <Feather name="check" size={13} color={COLORS.textLight} /> : null}</View><Text style={styles.toggleText}>Primary traveller</Text></Pressable>
               <Pressable style={styles.saveButton} onPress={saveTraveller} disabled={savingTraveller}>{savingTraveller ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.saveButtonText}>{editingTraveller ? 'Save changes' : 'Add traveller'}</Text>}</Pressable>
@@ -380,8 +393,8 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
         ))
       )}
       <Modal visible={Boolean(editing)} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
-        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.enquiryModal}><View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit enquiry</Text><Pressable onPress={() => setEditing(null)}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled">{fields.map(([key, label]) => <View style={styles.field} key={key}><Text style={styles.fieldLabel}>{label}</Text><TextInput value={form[key]} onChangeText={(value) => setForm(current => ({ ...current, [key]: value }))} style={styles.input} placeholder={label} placeholderTextColor={COLORS.textMuted} /></View>)}<View style={styles.field}><Text style={styles.fieldLabel}>Message</Text><TextInput value={form.message} onChangeText={(value) => setForm(current => ({ ...current, message: value }))} style={[styles.input, styles.multilineInput]} multiline placeholder="Message" placeholderTextColor={COLORS.textMuted} /></View><Pressable style={styles.saveButton} onPress={saveEdit} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.saveButtonText}>Save changes</Text>}</Pressable></ScrollView></View>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+          <View style={styles.enquiryModal}><View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit enquiry</Text><Pressable onPress={() => setEditing(null)}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled">{fields.map(([key, label]) => <View style={styles.field} key={key}><Text style={styles.fieldLabel}>{label}</Text>{key === 'travel_date' ? <CustomDateField value={form.travel_date} onChange={value => setForm(current => ({ ...current, travel_date: value }))} placeholder="Select travel date" title="Select travel date" /> : <TextInput value={form[key]} onChangeText={(value) => setForm(current => ({ ...current, [key]: value }))} style={styles.input} placeholder={label} placeholderTextColor={COLORS.textMuted} />}</View>)}<View style={styles.field}><Text style={styles.fieldLabel}>Message</Text><TextInput value={form.message} onChangeText={(value) => setForm(current => ({ ...current, message: value }))} style={[styles.input, styles.multilineInput]} multiline placeholder="Message" placeholderTextColor={COLORS.textMuted} /></View><Pressable style={styles.saveButton} onPress={saveEdit} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.saveButtonText}>Save changes</Text>}</Pressable></ScrollView></View>
         </KeyboardAvoidingView>
       </Modal>
     </ScrollView>
@@ -409,7 +422,7 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(2, 12, 18, 0.58)', justifyContent: 'flex-end' },
   detailModal: { maxHeight: '88%', backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18 },
-  travellerModal: { maxHeight: '92%', backgroundColor: COLORS.card, borderRadius: 20, margin: 16, padding: 18 },
+  travellerModal: { maxHeight: '92%', backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 16, marginTop: 16, marginBottom: 0, padding: 18 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   modalEyebrow: { color: COLORS.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   modalTitle: { color: COLORS.text, fontSize: 20, fontWeight: '900', marginTop: 3 },

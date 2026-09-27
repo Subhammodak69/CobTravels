@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { AppState, BackHandler, Linking, StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, BackHandler, KeyboardAvoidingView, Linking, Platform, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -656,7 +656,11 @@ function AppInner() {
           />
         )}
 
-        <View style={[styles.content, {backgroundColor: appColors.bg}]}>
+        <KeyboardAvoidingView
+          style={[styles.content, {backgroundColor: appColors.bg}]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
           {renderScreen()}
 
           {/* Drawer Side Menu positioned within main content area (under header, above bottom nav) */}
@@ -672,7 +676,7 @@ function AppInner() {
             isLoggedIn={isLoggedIn}
             userPhone={userPhone}
           />
-        </View>
+        </KeyboardAvoidingView>
 
         {showBottomNav && (
           <BottomNav

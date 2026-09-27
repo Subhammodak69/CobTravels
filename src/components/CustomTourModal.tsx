@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
 import { useAppDialog } from './AppDialog';
+import { CustomDateField } from './CustomDatePicker';
 import { createEnquiry, fetchHotels, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 
@@ -215,7 +216,8 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
         style={styles.keyboardAvoid}
       >
         <Pressable style={styles.backdrop} onPress={handleClose} />
@@ -339,12 +341,11 @@ export const CustomTourModal: React.FC<CustomTourModalProps> = ({
             <View style={styles.row}>
               <View style={styles.col}>
                 <Text style={styles.label}>TRAVEL DATE</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Dec 2025"
-                  placeholderTextColor={COLORS.textMuted}
+                <CustomDateField
                   value={travelDate}
-                  onChangeText={setTravelDate}
+                  onChange={setTravelDate}
+                  placeholder="Select travel date"
+                  title="Select travel date"
                 />
               </View>
               <View style={styles.col}>
