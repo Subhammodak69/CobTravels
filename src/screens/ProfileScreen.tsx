@@ -15,10 +15,6 @@ import {
   AuthUser,
   fetchUserStats,
   UserStats,
-  fetchTrips,
-  fetchDocuments,
-  fetchReferrals,
-  fetchInvoices,
 } from '../api/tourApi';
 import { NavScreen } from '../types';
 import { ProfileStatsSkeleton } from '../components/Skeleton';
@@ -44,7 +40,6 @@ export const ProfileScreen: React.FC<Props> = ({
   userPhone,
   user,
   enquiries,
-  savedTours = [],
   onNavigate,
 }) => {
   const { colors: COLORS } = useTheme();
@@ -53,36 +48,11 @@ export const ProfileScreen: React.FC<Props> = ({
   const [statsLoading, setStatsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Dynamic counts for badge indicators
-  const [tripsCount, setTripsCount] = useState<number | null>(null);
-  const [docsCount, setDocsCount] = useState<number | null>(null);
-  const [referralsCount, setReferralsCount] = useState<number | null>(null);
-  const [invoicesCount, setInvoicesCount] = useState<number | null>(null);
-
   const loadData = useCallback(async () => {
     if (!isLoggedIn) return;
       try {
         setStatsLoading(true);
-        const [statsData, tripsData, docsData, refData, invData] = await Promise.allSettled([
-          fetchUserStats(),
-          fetchTrips(),
-          fetchDocuments(),
-          fetchReferrals(),
-          fetchInvoices(),
-        ]);
-        if (statsData.status === 'fulfilled') setStats(statsData.value);
-        if (tripsData.status === 'fulfilled') setTripsCount(tripsData.value.length);
-        if (docsData.status === 'fulfilled') {
-          const list = (docsData.value as any)?.data;
-          setDocsCount(Array.isArray(list) ? list.length : 0);
-        }
-        if (refData.status === 'fulfilled') {
-          const list = (refData.value as any)?.data;
-          setReferralsCount(Array.isArray(list) ? list.length : 0);
-        }
-        if (invData.status === 'fulfilled') {
-          setInvoicesCount(Array.isArray(invData.value) ? invData.value.length : 0);
-        }
+        setStats(await fetchUserStats());
       } catch (error) {
         console.error('Failed to load profile data:', error);
       } finally {
@@ -144,12 +114,12 @@ export const ProfileScreen: React.FC<Props> = ({
 
       <Text style={styles.sectionTitle}>Account</Text>
       <ProfileRow styles={styles} iconSet="feather" iconName="user" title="Profile details" subtitle="Personal information, security and account settings" onPress={() => onNavigate('profile_details')} />
-      <ProfileRow styles={styles} iconSet="mci" iconName="airplane-takeoff" title="My trips" subtitle="View your upcoming and completed trips" badge={tripsCount} onPress={() => onNavigate('my_trips')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="message-square" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} badge={enquiries.length} onPress={() => onNavigate('my_enquiries')} />
-      <ProfileRow styles={styles} iconSet="mci" iconName="currency-inr" title="Bills & invoices" subtitle="View your booking bills and invoices" badge={invoicesCount} onPress={() => onNavigate('bills_invoices')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="file-text" title="My documents" subtitle="Upload and manage incoming and outgoing files" badge={docsCount} onPress={() => onNavigate('documents')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="heart" title="My wishlist" subtitle="Your saved travel packages" badge={savedTours.length} onPress={() => onNavigate('wishlist')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="gift" title="Refer & earn" subtitle="Share your travel network" badge={referralsCount} onPress={() => onNavigate('referrals')} />
+      <ProfileRow styles={styles} iconSet="mci" iconName="airplane-takeoff" title="My trips" subtitle="View your upcoming and completed trips" onPress={() => onNavigate('my_trips')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="message-square" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} onPress={() => onNavigate('my_enquiries')} />
+      <ProfileRow styles={styles} iconSet="mci" iconName="currency-inr" title="Bills & invoices" subtitle="View your booking bills and invoices" onPress={() => onNavigate('bills_invoices')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="file-text" title="My documents" subtitle="Upload and manage incoming and outgoing files" onPress={() => onNavigate('documents')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="heart" title="My wishlist" subtitle="Your saved travel packages" onPress={() => onNavigate('wishlist')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="gift" title="Refer & earn" subtitle="Share your travel network" onPress={() => onNavigate('referrals')} />
 
     </ScrollView>
   );
@@ -158,10 +128,9 @@ export const ProfileScreen: React.FC<Props> = ({
 type Styles = ReturnType<typeof makeStyles>;
 
 const ProfileRow = ({
-  iconSet, iconName, title, subtitle, onPress, danger = false, styles, badge,
-}: { iconSet: IconSet; iconName: string; title: string; subtitle: string; onPress: () => void; danger?: boolean; styles: Styles; badge?: number | null }) => {
+  iconSet, iconName, title, subtitle, onPress, danger = false, styles,
+}: { iconSet: IconSet; iconName: string; title: string; subtitle: string; onPress: () => void; danger?: boolean; styles: Styles }) => {
   const iconColor = danger ? styles.dangerText.color as string : styles.rowIconText.color as string;
-  const hasBadge = badge !== undefined && badge !== null && badge > 0;
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <View style={[styles.rowIcon, danger && styles.dangerIcon]}>
@@ -171,11 +140,6 @@ const ProfileRow = ({
         <Text style={[styles.rowTitle, danger && styles.dangerText]} numberOfLines={1}>{title}</Text>
         <Text style={styles.rowSubtitle} numberOfLines={2}>{subtitle}</Text>
       </View>
-      {hasBadge && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      )}
       <Feather name="chevron-right" size={22} color={styles.arrow.color as string} />
     </Pressable>
   );
@@ -254,22 +218,6 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors']) =>
     rowCopy: { flex: 1, minWidth: 0 },
     rowTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text },
     rowSubtitle: { fontSize: 11, color: COLORS.textSecondary, marginTop: 3 },
-    badge: {
-      backgroundColor: '#FF7A00',
-      padding: 2,
-      borderRadius: 12,
-      marginRight: 8,
-      width: 20,
-      height: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    badgeText: {
-      margin:0,
-      fontSize: 10,
-      fontWeight: '900',
-      color: '#FFFFFF',
-    },
     arrow: { color: COLORS.textMuted },
     dangerIcon: { backgroundColor: COLORS.dangerLight },
     dangerText: { color: COLORS.danger },

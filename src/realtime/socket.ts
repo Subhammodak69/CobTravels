@@ -15,7 +15,7 @@ export async function createVisitorSocket(customerId = ''): Promise<Socket> {
 
   const socket = io(BASE_API, {
     path: '/socket.io',
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
     autoConnect: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
