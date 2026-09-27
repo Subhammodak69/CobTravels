@@ -107,6 +107,7 @@ function AppInner() {
   const [loadingTours, setLoadingTours] = useState(true);
 
   const [selectedTourSlug, setSelectedTourSlug] = useState<string>('kashmir-paradise-tour');
+  const [selectedTourSummary, setSelectedTourSummary] = useState<TourPackageSummary | null>(null);
   const [initialTourFilter, setInitialTourFilter] = useState<
     'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
   >('ALL');
@@ -135,13 +136,14 @@ function AppInner() {
       setEnquiries(records.map((item: EnquiryRecord) => ({
         ...item,
         id: item.id,
-        tourTitle: item.subject || item.destination || 'Travel enquiry',
-        destination: item.destination,
+        tourTitle: item.subject || item.destination_name || item.destination || 'Travel enquiry',
+        destination: item.destination_name || item.destination,
         fullName: item.enquirer_name || '',
         mobile: item.enquirer_phone || '',
+        email: item.enquirer_email || '',
         travelDate: item.travel_date || '',
-        adults: Number(item.pax_no || 0),
-        children: 0,
+        adults: Number(item.adult_count ?? item.pax_no ?? 0),
+        children: Number(item.child_count || 0),
         message: item.message || item.special_requirements || '',
         status: item.status as EnquiryData['status'],
         createdAt: item.created_at,
@@ -267,6 +269,7 @@ function AppInner() {
 
   const handleSelectTour = (tour: TourPackageSummary) => {
     setSelectedTourSlug(tour.slug);
+    setSelectedTourSummary(tour);
     trackVisitorEvent('tour_selected', currentScreenRef.current, { tour_slug: tour.slug, tour_title: tour.title });
     navigateTo('tour_detail');
   };
@@ -386,6 +389,7 @@ function AppInner() {
         return (
           <TourDetailScreen
             slug={selectedTourSlug}
+            initialTour={selectedTourSummary}
             onBack={goBack}
             onNavigate={navigateWithAuth}
             onStartEnquiry={handleStartEnquiry}

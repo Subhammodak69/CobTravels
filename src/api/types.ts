@@ -77,6 +77,7 @@ export interface EnquiryRecord {
   channel?: string;
   package_id?: string;
   variant_id?: string;
+  destination_id?: string;
   subject?: string;
   message?: string;
   enquiry_code?: string;
@@ -85,20 +86,65 @@ export interface EnquiryRecord {
   status?: string;
   enquirer_name?: string;
   enquirer_phone?: string;
+  enquirer_email?: string;
+  hotel_id?: string;
+  hotel_name?: string;
   room_id?: string;
   vehicle_id?: string;
+  vehicle_name?: string;
+  vehicle_registration_number?: string;
   destination?: string;
+  destination_name?: string;
   travel_date?: string;
   travel_duration?: string;
+  travel_duration_day?: number;
+  travel_duration_night?: number;
   pax_no?: number;
+  adult_count?: number;
+  child_count?: number;
+  senior_count?: number;
+  room_count?: number;
+  vehicle_count?: number;
   no_room?: number;
   vehicle_type?: string;
   meal_plan?: string;
+  budget_min?: number;
+  budget_max?: number;
   special_requirements?: string;
   created_at?: string;
   updated_at?: string;
   [key: string]: any;
 }
+
+export interface EnquiryCreateInput {
+  enquiry_type: string;
+  visitor_id?: string;
+  customer_id?: string;
+  package_id?: string;
+  variant_id?: string;
+  destination_id?: string;
+  channel: string;
+  message?: string;
+  name: string;
+  phone: string;
+  email?: string;
+  travel_date?: string;
+  travel_duration_day?: number;
+  travel_duration_night?: number;
+  adult_count?: number;
+  child_count?: number;
+  senior_count?: number;
+  hotel_id?: string;
+  vehicle_id?: string;
+  room_count?: number;
+  vehicle_count?: number;
+  budget_min?: number;
+  budget_max?: number;
+  special_requirements?: string;
+  meal_plan?: string;
+}
+
+export type EnquiryUpdateInput = Partial<Omit<EnquiryCreateInput, 'enquiry_type' | 'visitor_id' | 'customer_id' | 'channel'>>;
 
 export interface TourPackageSelectData {
   id: string;

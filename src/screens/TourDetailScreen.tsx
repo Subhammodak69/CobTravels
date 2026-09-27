@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { COLORS, useColors } from '../theme/theme';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import { TourPackageDetail, SeasonVariant, NavScreen } from '../types';
+import { TourPackageDetail, TourPackageSummary, SeasonVariant, NavScreen } from '../types';
 import { fetchTourDetail, fetchTourVariant, openWhatsAppChat, submitReviewApi, fetchPackageReviews } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
 import { MediaViewer, MediaSelection } from '../components/MediaViewer';
@@ -21,6 +21,7 @@ import { showApiError } from '../utils/toast';
 
 interface TourDetailScreenProps {
   slug: string;
+  initialTour?: TourPackageSummary | null;
   onBack: () => void;
   onNavigate: (screen: NavScreen) => void;
   onStartEnquiry: (details: {
@@ -35,6 +36,7 @@ interface TourDetailScreenProps {
 
 export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   slug,
+  initialTour,
   onBack,
   onNavigate,
   onStartEnquiry,
@@ -61,7 +63,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchTourDetail(slug);
+      const data = await fetchTourDetail(slug, initialTour);
       let reviews = data.reviews || [];
       try {
         const revRes = await fetchPackageReviews(slug);
@@ -80,7 +82,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
       }
     } catch (error) { showApiError(error, 'Could not load tour details.'); }
     finally { setLoading(false); }
-  }, [slug]);
+  }, [slug, initialTour]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
@@ -91,9 +93,9 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     setSelectedSeasonIndex(index);
     const selected = tour?.seasons?.[index];
     if (!selected || !tour) return;
-    if (index > 0 && selected.key) {
+    if (selected.id || selected.key) {
       try {
-        const result = await fetchTourVariant(tour.slug, selected.key);
+        const result = await fetchTourVariant(tour.slug, selected.key || selected.id);
         setTour(current => current ? {...current, seasons: [current.seasons[0], result.variant, ...current.seasons.slice(2)]} : current);
       } catch (error) {
         showApiError(error, 'Could not load this package option.');

@@ -15,12 +15,14 @@ import {
 export const OFFICIAL_WHATSAPP = '919832000000';
 
 function formatVariant(v: any, i = 0): SeasonVariant {
+  const realId = v.variant_id || v.id;
+  const price = v.selling_price ?? v.price ?? v.starting_price ?? v.list_price ?? 0;
   return {
-    id: v.id || `variant-${i}`,
+    id: realId || `variant-${i}`,
     key: v.slug || `variant-${i}`,
     display_order: i,
     variant_code: v.slug || '',
-    name: v.name || '',
+    name: v.name || v.season_name || '',
     badge: v.badge,
     season_type: '',
     season_name: v.season_name || '',
@@ -31,11 +33,11 @@ function formatVariant(v: any, i = 0): SeasonVariant {
     duration: `${v.duration_nights ?? 0}N | ${v.duration_days ?? 0}D`,
     duration_days: Number(v.duration_days || 0),
     duration_nights: Number(v.duration_nights || 0),
-    price: Number(v.price || 0),
+    price: Number(price || 0),
     currency: 'INR',
-    starting_price: Number(v.price || 0),
-    seats: Number(v.seats || 0),
-    availability: v.availability || 'SOLD_OUT',
+    starting_price: Number(price || 0),
+    seats: Number(v.available_seats ?? v.seats ?? 0),
+    availability: v.availability || (Number(v.available_seats ?? 0) > 0 ? 'AVAILABLE' : 'SOLD_OUT'),
     is_active: true,
     is_default: i === 0,
     route: (v.route || []).map((x: any) => ({
@@ -46,7 +48,7 @@ function formatVariant(v: any, i = 0): SeasonVariant {
     highlights: v.highlights || [],
     dates: (v.departure_dates || v.dates || []).map((x: any) => ({
       id: String(x.id || ''),
-      date: x.date || '',
+      date: x.date || x.departure_date || '',
     })),
     gallery: (v.gallery || []).map((x: any) => ({
       id: String(x.id || ''),
@@ -70,7 +72,12 @@ function formatVariant(v: any, i = 0): SeasonVariant {
 function formatSummary(x: any): TourPackageSummary {
   return {
     ...x,
-    starting_price: Number(x.starting_price ?? x.price ?? 0),
+    tour_code: x.tour_code || x.code || '',
+    slug: x.slug || x.id,
+    destination: x.destination_name || x.destination || '',
+    description: x.description || '',
+    variant_count: Number(x.variant_count || 0),
+    starting_price: Number(x.selling_price ?? x.starting_price ?? x.price ?? 0),
     duration_days: Number(x.duration_days ?? 0),
     duration_nights: Number(x.duration_nights ?? 0),
     duration: x.duration || '',
@@ -83,20 +90,61 @@ function formatSummary(x: any): TourPackageSummary {
   };
 }
 
-export async function fetchTourPackages(): Promise<TourPackageSummary[]> {
-  const r = await request<ApiEnvelope<any[]>>('/api/v1/tour-packages');
+export async function fetchTourPackages(
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'desc'
+): Promise<TourPackageSummary[]> {
+  const r = await request<ApiEnvelope<any[]>>(
+    `/api/v1/tour-packages?page=${page}&page_size=${pageSize}&sort_by=${encodeURIComponent(sortBy)}&sort_order=${encodeURIComponent(sortOrder)}`
+  );
   return (Array.isArray(r.data) ? r.data : []).map(formatSummary);
 }
 
-export async function fetchTourDetail(slug: string): Promise<TourPackageDetail> {
-  const r = await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);
-  if (!r.data) throw new Error('Tour package was not found');
-  const d = r.data;
+export async function fetchTourPackageVariants(
+  tourIdOrSlug: string,
+  page = 1,
+  pageSize = 10
+): Promise<{ variants: SeasonVariant[]; pagination?: any }> {
+  const r = await request<ApiEnvelope<any[]>>(
+    `/api/v1/tour-packages/${encodeURIComponent(tourIdOrSlug)}/variants?page=${page}&page_size=${pageSize}`
+  );
+  return {
+    variants: (Array.isArray(r.data) ? r.data : []).map(formatVariant),
+    pagination: (r as any).pagination,
+  };
+}
+
+export async function fetchTourDetail(
+  slug: string,
+  initialTour?: TourPackageSummary | null
+): Promise<TourPackageDetail> {
+  let d: any;
+  if (initialTour) {
+    d = { ...initialTour, id: initialTour.id, slug: initialTour.slug || slug };
+  } else {
+    const r = await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);
+    if (!r.data) throw new Error('Tour package was not found');
+    d = r.data;
+  }
+  const packageSlug = d.slug || slug;
+  const packageVariants = await fetchTourPackageVariants(packageSlug).catch(() => ({ variants: [] as SeasonVariant[] }));
+  const legacyVariants = [d.default_variant, ...(d.other_variants || [])].filter(Boolean).map(formatVariant);
+  let seasons = packageVariants.variants.length ? packageVariants.variants : legacyVariants;
+  if (packageVariants.variants.length) {
+    const defaultVariant = packageVariants.variants.find(v => v.is_default) || packageVariants.variants[0];
+    const detailedDefault = await fetchTourVariant(packageSlug, defaultVariant.key || defaultVariant.id, packageVariants.variants).catch(() => null);
+    if (detailedDefault?.variant) {
+      seasons = [detailedDefault.variant, ...packageVariants.variants.filter(v => v.id !== defaultVariant.id)];
+    }
+  }
   return {
     ...d,
+    destination: d.destination_name || d.destination || '',
     is_featured: Boolean(d.is_featured),
     is_active: d.is_active !== false,
-    seasons: [d.default_variant, ...(d.other_variants || [])].filter(Boolean).map(formatVariant),
+    seasons,
     reviews: (d.reviews || []).map((review: any) => ({
       ...review,
       is_verified: true,
@@ -111,14 +159,25 @@ export async function fetchTourDetail(slug: string): Promise<TourPackageDetail> 
   };
 }
 
-export async function fetchTourVariant(slug: string, variantSlug: string) {
-  const r = await request<ApiEnvelope<any>>(
-    `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`
-  );
-  if (!r.data?.variant) throw new Error('Tour variant was not found');
+export async function fetchTourVariant(slug: string, variantSlug: string, listedVariants?: SeasonVariant[]) {
+  const variants = listedVariants ? { variants: listedVariants } : await fetchTourPackageVariants(slug).catch(() => ({ variants: [] as SeasonVariant[] }));
+  const listedVariant = variants.variants.find(v => v.id === variantSlug || v.key === variantSlug);
+  let r: ApiEnvelope<any>;
+  try {
+    r = await request<ApiEnvelope<any>>(
+      `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(listedVariant?.key || variantSlug)}/details`
+    );
+  } catch {
+    r = await request<ApiEnvelope<any>>(
+      `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`
+    );
+  }
+  const detail = r.data?.variant || r.data;
+  if (!detail) throw new Error('Tour variant was not found');
   return {
-    variant: formatVariant(r.data.variant),
-    other_variants: r.data.other_variants || [],
+    variant: formatVariant({ ...listedVariant, ...detail }),
+    details: detail,
+    other_variants: r.data?.other_variants || variants.variants.filter(v => v.id !== listedVariant?.id),
   };
 }
 

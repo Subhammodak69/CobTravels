@@ -12,13 +12,40 @@ import {
   CustomerTourPagination,
   BookingTraveller,
   BookingTravellerInput,
+  EnquiryCreateInput,
+  EnquiryUpdateInput,
 } from './types';
 import { TravelDocument } from '../types';
 
 // ── Enquiries ──────────────────────────────────────────────────────────
-export async function fetchEnquiries(): Promise<EnquiryRecord[]> {
-  const response = await authenticated<ApiEnvelope<EnquiryRecord[]>>('/api/v1/enquiries');
+export async function fetchEnquiries(skip = 0, limit = 50): Promise<EnquiryRecord[]> {
+  const response = await authenticated<ApiEnvelope<EnquiryRecord[]>>(
+    `/api/v1/enquiries?skip=${skip}&limit=${limit}`
+  );
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createEnquiry(payload: EnquiryCreateInput): Promise<ApiEnvelope<EnquiryRecord>> {
+  return request<ApiEnvelope<EnquiryRecord>>('/api/v1/enquiries', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEnquiry(
+  id: string,
+  payload: EnquiryUpdateInput
+): Promise<ApiEnvelope<EnquiryRecord>> {
+  return authenticated<ApiEnvelope<EnquiryRecord>>(`/api/v1/enquiries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEnquiry(id: string): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(`/api/v1/enquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }
 
 // ── Wishlist ───────────────────────────────────────────────────────────

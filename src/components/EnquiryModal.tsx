@@ -80,6 +80,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   const { showDialog } = useAppDialog();
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [channel, setChannel] = useState('WEBSITE');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -100,6 +101,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       if (initialUser) {
         setName(initialUser.name || '');
         setMobile(initialUser.mobile || '');
+        setEmail(initialUser.email || '');
       } else {
         try {
           const token = await getAccessToken();
@@ -109,6 +111,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
               if (meRes.data.id) currentCustomer = meRes.data.id;
               setName(prev => prev || meRes.data?.name || '');
               setMobile(prev => prev || meRes.data?.mobile || '');
+              setEmail(prev => prev || meRes.data?.email || '');
             }
           }
         } catch {
@@ -154,6 +157,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   const resetForm = () => {
     setName('');
     setMobile('');
+    setEmail('');
     setChannel('WEBSITE');
     setSubject('');
     setMessage('');
@@ -185,17 +189,33 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       const rawPkg = selectData?.id || (isValidUUID(tour?.id) ? tour?.id : '') || (isValidUUID(packageId) ? packageId : '');
       const rawVar = selectedVariantId || (isValidUUID(variantId) ? variantId : '');
 
-      // Strictly ordered exact payload schema with channel: 'APP'
+      // Use the current fixed-tour enquiry contract.
       const payload = {
-        package_id: rawPkg || '',
-        variant_id: rawVar || '',
-        channel: 'APP',
-        subject: subject.trim(),
-        message: message.trim(),
-        name: name.trim(),
-        mobile: mobile.trim(),
+        enquiry_type: 'FIXED_TOUR',
         visitor_id: visitor_id || '',
         customer_id: customerId || '',
+        package_id: rawPkg || '',
+        variant_id: rawVar || '',
+        destination_id: (tour as any)?.destination_id || '',
+        channel: 'APP',
+        message: [subject, message].filter(Boolean).join('\n\n').trim(),
+        name: name.trim(),
+        phone: mobile.trim(),
+        email: email.trim(),
+        travel_date: '',
+        travel_duration_day: 0,
+        travel_duration_night: 0,
+        adult_count: 1,
+        child_count: 0,
+        senior_count: 0,
+        hotel_id: '',
+        vehicle_id: '',
+        room_count: 0,
+        vehicle_count: 0,
+        budget_min: 0,
+        budget_max: 0,
+        special_requirements: '',
+        meal_plan: 'ANY',
       };
 
       const confirmed = await showDialog({

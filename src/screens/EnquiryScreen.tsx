@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
-import { BASE_API, getVisitorId, getAccessToken } from '../api/tourApi';
+import { createEnquiry, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 import { NavScreen } from '../types';
 
@@ -20,24 +20,6 @@ interface EnquiryScreenProps {
   onNavigate?: (screen: NavScreen) => void;
   onEnquirySubmitted?: (enquiry: any) => void;
   user?: import('../api/tourApi').AuthUser | null;
-}
-
-async function submitCustomEnquiry(payload: Record<string, any>): Promise<{ success: boolean; message: string }> {
-  const token = await getAccessToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${BASE_API}/api/v1/enquiries/custom`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.message || `Request failed (${res.status})`);
-  return body;
 }
 
 type ChipOption = { label: string; value: string };
@@ -153,24 +135,35 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     setIsSubmitting(true);
     try {
       const visitor_id = await getVisitorId();
-      const payload: Record<string, any> = {
-        name: name.trim(),
-        mobile: mobile.trim(),
-        destination: destination.trim(),
-        travel_date: travelDate.trim(),
-        travel_duration: travelDuration.trim(),
-        pax_no: Number(paxNo) || 4,
-        no_room: Number(noRoom) || 2,
-        vehicle_type: vehicleType || 'ANY',
-        meal_plan: mealPlan || 'ANY',
-        special_requirements: specialRequirements.trim() || undefined,
+      const payload = {
         enquiry_type: enquiryType,
         channel: 'APP',
         visitor_id,
-        customer_id: initialUser?.id || undefined,
+        customer_id: initialUser?.id || '',
+        package_id: '',
+        variant_id: '',
+        destination_id: '',
+        message: `Destination: ${destination.trim()}${specialRequirements.trim() ? `\n\n${specialRequirements.trim()}` : ''}`,
+        name: name.trim(),
+        phone: mobile.trim(),
+        email: initialUser?.email || '',
+        travel_date: travelDate.trim(),
+        travel_duration_day: 0,
+        travel_duration_night: 0,
+        adult_count: Number(paxNo) || 4,
+        child_count: 0,
+        senior_count: 0,
+        hotel_id: '',
+        vehicle_id: '',
+        room_count: Number(noRoom) || 2,
+        vehicle_count: 0,
+        budget_min: 0,
+        budget_max: 0,
+        special_requirements: specialRequirements.trim(),
+        meal_plan: mealPlan || 'ANY',
       };
 
-      const result = await submitCustomEnquiry(payload);
+      const result = await createEnquiry(payload);
       if (onEnquirySubmitted) onEnquirySubmitted(result);
 
       await showDialog({

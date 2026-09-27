@@ -4,7 +4,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, useColors } from '../theme/theme';
 import { EnquiryData } from '../types';
-import { addCustomerTourTraveller, deleteCustomerTourTraveller, fetchCustomerTour, fetchCustomerTours, fetchInvoices, updateCustomerTourTraveller, BookingTraveller, BookingTravellerInput, CustomerTour, Invoice } from '../api/tourApi';
+import { addCustomerTourTraveller, deleteCustomerTourTraveller, deleteEnquiry, fetchCustomerTour, fetchCustomerTours, fetchInvoices, updateCustomerTourTraveller, updateEnquiry, BookingTraveller, BookingTravellerInput, CustomerTour, Invoice } from '../api/tourApi';
 import { TripListSkeleton, InvoiceListSkeleton, EnquiryListSkeleton } from '../components/Skeleton';
 
 type IconSet = 'feather' | 'mci';
@@ -314,6 +314,38 @@ export const BillsInvoicesScreen = () => {
 export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: boolean; onRefresh?: () => void }> = ({ enquiries, loading = false, onRefresh }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState({ name: '', phone: '', email: '', travel_date: '', adult_count: '1', child_count: '0', senior_count: '0', room_count: '0', message: '' });
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (item: any) => {
+    setEditing(item);
+    setForm({
+      name: item.enquirer_name || item.fullName || '', phone: item.enquirer_phone || item.mobile || '', email: item.enquirer_email || item.email || '', travel_date: item.travel_date || item.travelDate || '',
+      adult_count: String(item.adult_count ?? item.adults ?? 1), child_count: String(item.child_count ?? item.children ?? 0), senior_count: String(item.senior_count ?? 0), room_count: String(item.room_count ?? item.no_room ?? 0), message: item.message || '',
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editing?.id || !form.name.trim() || !form.phone.trim()) return;
+    setSaving(true);
+    try {
+      await updateEnquiry(editing.id, { ...form, name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(), adult_count: Number(form.adult_count) || 0, child_count: Number(form.child_count) || 0, senior_count: Number(form.senior_count) || 0, room_count: Number(form.room_count) || 0 });
+      setEditing(null);
+      onRefresh?.();
+    } catch (error) { Alert.alert('Could not update enquiry', error instanceof Error ? error.message : 'Please try again.'); }
+    finally { setSaving(false); }
+  };
+
+  const removeEnquiry = (item: any) => {
+    if (!item.id) return;
+    Alert.alert('Delete enquiry?', 'This enquiry will be permanently deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => { try { await deleteEnquiry(item.id); onRefresh?.(); } catch (error) { Alert.alert('Could not delete enquiry', error instanceof Error ? error.message : 'Please try again.'); } } },
+    ]);
+  };
+
+  const fields = [['name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['travel_date', 'Travel date'], ['adult_count', 'Adults'], ['child_count', 'Children'], ['senior_count', 'Seniors'], ['room_count', 'Rooms']] as const;
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
       <Text style={styles.pageTitle}>My enquiries</Text>
@@ -343,10 +375,15 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
               <Text style={styles.meta}>Mobile: {item.mobile || 'Not provided'}</Text>
             </View>
             {item.message ? <Text style={styles.meta} numberOfLines={2}>{item.message}</Text> : null}
-            {item.id && <Text style={styles.ref}>Reference: {item.id}</Text>}
+            {item.id && <><Text style={styles.ref}>Reference: {item.id}</Text><View style={styles.enquiryActions}><Pressable onPress={() => startEdit(item)}><Text style={styles.editAction}>Edit</Text></Pressable><Pressable onPress={() => removeEnquiry(item)}><Text style={styles.deleteAction}>Delete</Text></Pressable></View></>}
           </View>
         ))
       )}
+      <Modal visible={Boolean(editing)} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.enquiryModal}><View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit enquiry</Text><Pressable onPress={() => setEditing(null)}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled">{fields.map(([key, label]) => <View style={styles.field} key={key}><Text style={styles.fieldLabel}>{label}</Text><TextInput value={form[key]} onChangeText={(value) => setForm(current => ({ ...current, [key]: value }))} style={styles.input} placeholder={label} placeholderTextColor={COLORS.textMuted} /></View>)}<View style={styles.field}><Text style={styles.fieldLabel}>Message</Text><TextInput value={form.message} onChangeText={(value) => setForm(current => ({ ...current, message: value }))} style={[styles.input, styles.multilineInput]} multiline placeholder="Message" placeholderTextColor={COLORS.textMuted} /></View><Pressable style={styles.saveButton} onPress={saveEdit} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.saveButtonText}>Save changes</Text>}</Pressable></ScrollView></View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 };
@@ -424,4 +461,9 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   enquiryMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
   meta: { fontSize: 12, color: COLORS.textSecondary },
   ref: { fontSize: 10, color: COLORS.textMuted, marginTop: 8 },
+  enquiryActions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
+  editAction: { color: COLORS.primary, fontSize: 12, fontWeight: '900' },
+  deleteAction: { color: COLORS.danger, fontSize: 12, fontWeight: '900' },
+  enquiryModal: { maxHeight: '92%', backgroundColor: COLORS.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18 },
+  multilineInput: { height: 86, paddingTop: 12, textAlignVertical: 'top' },
 });
