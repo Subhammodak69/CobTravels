@@ -176,12 +176,8 @@ export async function uploadDocument(
   });
 }
 
-export async function downloadDocument(
-  id: string
-): Promise<ApiEnvelope<{ document_id: string; file_name: string; download_url: string }>> {
-  return authenticated<ApiEnvelope<{ document_id: string; file_name: string; download_url: string }>>(
-    `/api/v1/documents/${encodeURIComponent(id)}/download`
-  );
+export function getDocumentDownloadEndpoint(id: string): string {
+  return `${BASE_API}/api/v1/documents/${encodeURIComponent(id)}/download`;
 }
 
 export function getDocumentDownloadUrl(downloadUrl: string): string {

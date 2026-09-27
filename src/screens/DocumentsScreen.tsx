@@ -3,7 +3,7 @@ import {Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text
 import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {deleteDocument, downloadDocument, fetchDocuments, getDocumentDownloadUrl, uploadDocument} from '../api/tourApi';
+import {deleteDocument, fetchDocuments, getDocumentDownloadEndpoint, uploadDocument} from '../api/tourApi';
 import {getAccessToken} from '../api/client';
 import {AppColors, useColors} from '../theme/theme';
 import {DocumentDirection, NavScreen, TravelDocument} from '../types';
@@ -11,9 +11,12 @@ import {showApiError, showSuccess} from '../utils/toast';
 import {useAppDialog} from '../components/AppDialog';
 import {DocumentListSkeleton} from '../components/Skeleton';
 
-interface Props {onNavigate: (screen: NavScreen) => void;}
+interface Props {
+  onNavigate: (screen: NavScreen) => void;
+  onOpenDocument?: (document: TravelDocument) => void;
+}
 
-export const DocumentsScreen: React.FC<Props> = () => {
+export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
   const colors = useColors();
   const styles = makeStyles(colors);
   const {showDialog} = useAppDialog();
@@ -54,13 +57,10 @@ export const DocumentsScreen: React.FC<Props> = () => {
 
   const openDocument = async (document: TravelDocument) => {
     try {
-      const response = await downloadDocument(document.id);
-      const downloadUrl = response.data?.download_url || document.file_url;
-      const url = downloadUrl ? getDocumentDownloadUrl(downloadUrl) : '';
-      if (!url) throw new Error('No download link was returned.');
+      const url = getDocumentDownloadEndpoint(document.id);
       const token = await getAccessToken();
       if (!token) throw new Error('Your session has expired. Please sign in again.');
-      const fileName = (response.data?.file_name || document.file_name || 'document')
+      const fileName = (document.file_name || document.title || 'document')
         .replace(/[<>:"/\\|?*]/g, '_')
         .trim() || 'document';
       const mimeType = document.mime_type || 'application/octet-stream';
@@ -118,7 +118,7 @@ export const DocumentsScreen: React.FC<Props> = () => {
     <View style={styles.tabs}>{(['incoming', 'outgoing'] as DocumentDirection[]).map(tab => <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab)}><Ionicons name={tab === 'incoming' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={17} color={activeTab === tab ? colors.textLight : colors.textSecondary} /><Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab === 'incoming' ? 'Incoming' : 'Outgoing'}</Text></Pressable>)}</View>
     <Pressable style={styles.uploadButton} onPress={() => setShowForm(value => !value)} disabled={uploading}><Ionicons name="cloud-upload-outline" size={19} color="#fff" /><Text style={styles.uploadText}>{uploading ? 'Uploading...' : 'Upload document'}</Text></Pressable>
     {showForm && <View style={styles.form}><Text style={styles.formTitle}>New document</Text><TextInput value={title} onChangeText={setTitle} placeholder="Document title" placeholderTextColor={colors.textMuted} style={styles.input} /><TextInput value={documentType} onChangeText={setDocumentType} placeholder="Type, e.g. ID_PROOF" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" /><TextInput value={description} onChangeText={setDescription} placeholder="Description (optional)" placeholderTextColor={colors.textMuted} style={[styles.input, styles.multiline]} multiline /><Pressable style={styles.chooseButton} onPress={chooseAndUpload} disabled={uploading}><Text style={styles.chooseText}>{uploading ? 'Please wait...' : 'Choose file and upload'}</Text></Pressable></View>}
-    {loading && visibleDocuments.length === 0 ? <DocumentListSkeleton /> : visibleDocuments.length === 0 ? <View style={styles.empty}><Ionicons name="document-text-outline" size={34} color={colors.textMuted} /><Text style={styles.emptyTitle}>No {activeTab} documents</Text><Text style={styles.emptyText}>{activeTab === 'incoming' ? 'Files shared with you will appear here.' : 'Upload a file to share it with your travel team.'}</Text></View> : visibleDocuments.map(document => <View style={styles.card} key={document.id}><View style={styles.fileIcon}><Ionicons name="document-attach-outline" size={22} color={colors.primary} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle} numberOfLines={1}>{document.title || document.file_name || 'Untitled document'}</Text><Text style={styles.meta}>{document.document_type} {document.file_name ? `· ${document.file_name}` : ''}</Text>{document.description ? <Text style={styles.description} numberOfLines={2}>{document.description}</Text> : null}<Text style={styles.date}>{document.uploaded_at ? new Date(document.uploaded_at).toLocaleDateString() : 'Recently uploaded'}</Text></View><View style={styles.actions}><Pressable onPress={() => openDocument(document)} hitSlop={8}><Ionicons name="download-outline" size={21} color={colors.primary} /></Pressable>{document.can_delete !== false && <Pressable onPress={() => removeDocument(document)} disabled={deleting === document.id} hitSlop={8}><Ionicons name="trash-outline" size={20} color={colors.danger} /></Pressable>}</View></View>)}
+    {loading && visibleDocuments.length === 0 ? <DocumentListSkeleton /> : visibleDocuments.length === 0 ? <View style={styles.empty}><Ionicons name="document-text-outline" size={34} color={colors.textMuted} /><Text style={styles.emptyTitle}>No {activeTab} documents</Text><Text style={styles.emptyText}>{activeTab === 'incoming' ? 'Files shared with you will appear here.' : 'Upload a file to share it with your travel team.'}</Text></View> : visibleDocuments.map(document => <View style={styles.card} key={document.id}><View style={styles.fileIcon}><Ionicons name="document-attach-outline" size={22} color={colors.primary} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle} numberOfLines={1}>{document.title || document.file_name || 'Untitled document'}</Text><Text style={styles.meta}>{document.document_type} {document.file_name ? `· ${document.file_name}` : ''}</Text>{document.description ? <Text style={styles.description} numberOfLines={2}>{document.description}</Text> : null}<Text style={styles.date}>{document.uploaded_at ? new Date(document.uploaded_at).toLocaleDateString() : 'Recently uploaded'}</Text></View><View style={styles.actions}><Pressable onPress={() => onOpenDocument?.(document)} hitSlop={8}><Ionicons name="eye-outline" size={21} color={colors.primary} /></Pressable><Pressable onPress={() => openDocument(document)} hitSlop={8}><Ionicons name="download-outline" size={21} color={colors.primary} /></Pressable>{document.can_delete !== false && <Pressable onPress={() => removeDocument(document)} disabled={deleting === document.id} hitSlop={8}><Ionicons name="trash-outline" size={20} color={colors.danger} /></Pressable>}</View></View>)}
   </ScrollView>;
 };
 

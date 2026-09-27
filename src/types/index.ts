@@ -182,5 +182,6 @@ export type NavScreen =
   | 'my_enquiries'
   | 'bills_invoices'
   | 'documents'
+  | 'document_viewer'
   | 'wishlist'
   | 'referrals';

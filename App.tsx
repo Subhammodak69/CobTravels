@@ -10,6 +10,7 @@ import {
   EnquiryData,
   NotificationItem,
   NavScreen,
+  TravelDocument,
 } from './src/types';
 import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
 import { createNotificationSocket, createVisitorSocket } from './src/realtime/socket';
@@ -34,6 +35,7 @@ import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { SessionsScreen } from './src/screens/SessionsScreen';
 import { NotificationSettingsScreen } from './src/screens/NotificationSettingsScreen';
 import { DocumentsScreen } from './src/screens/DocumentsScreen';
+import { DocumentViewerScreen } from './src/screens/DocumentViewerScreen';
 import { WishlistScreen } from './src/screens/WishlistScreen';
 import { ReferralsScreen } from './src/screens/ReferralsScreen';
 import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/Tripsinvoicesenquiries';
@@ -54,6 +56,7 @@ function AppInner() {
   const isLoggedInRef = React.useRef(false);
   const authResolvedRef = React.useRef(false);
   const [visitorReady, setVisitorReady] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<TravelDocument | null>(null);
 
   const setRootScreen = React.useCallback((screen: NavScreen) => {
     screenHistory.current = [screen];
@@ -432,10 +435,15 @@ function AppInner() {
     setRootScreen('auth');
   };
 
-  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'wishlist', 'referrals', 'notifications'];
+  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'document_viewer', 'wishlist', 'referrals', 'notifications'];
   const navigateWithAuth = (screen: NavScreen) => {
     if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
     navigateTo(screen);
+  };
+
+  const openDocumentViewer = (document: TravelDocument) => {
+    setSelectedDocument(document);
+    navigateTo('document_viewer');
   };
 
   const renderScreen = () => {
@@ -543,7 +551,15 @@ function AppInner() {
         return <NotificationSettingsScreen isLoggedIn={isLoggedIn} />;
 
       case 'documents':
-        return <DocumentsScreen onNavigate={navigateWithAuth} />;
+        return <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} />;
+
+      case 'document_viewer':
+        return selectedDocument ? (
+          <DocumentViewerScreen
+            document={selectedDocument}
+            onBack={() => { setSelectedDocument(null); goBack(); }}
+          />
+        ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} />;
 
       case 'wishlist':
         return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} />;
@@ -581,12 +597,14 @@ function AppInner() {
   const showHeader =
     currentScreen !== 'splash' &&
     currentScreen !== 'auth' &&
-    currentScreen !== 'tour_detail';
+    currentScreen !== 'tour_detail' &&
+    currentScreen !== 'document_viewer';
 
   const showBottomNav =
     currentScreen !== 'splash' &&
     currentScreen !== 'auth' &&
-    currentScreen !== 'tour_detail';
+    currentScreen !== 'tour_detail' &&
+    currentScreen !== 'document_viewer';
 
   const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {
     if (currentScreen === 'splash') {
