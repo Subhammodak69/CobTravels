@@ -183,6 +183,7 @@ export type NavScreen =
   | 'edit_enquiry'
   | 'enquiry_details'
   | 'bills_invoices'
+  | 'invoice_details'
   | 'booking_details'
   | 'documents'
   | 'document_viewer'

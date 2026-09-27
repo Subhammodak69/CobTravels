@@ -286,14 +286,13 @@ export const MyTripsScreen: React.FC<{ onOpenBooking?: (tour: CustomerTour) => v
   );
 };
 
-export const BillsInvoicesScreen = () => {
+export const BillsInvoicesScreen: React.FC<{ onOpenInvoice?: (invoice: Invoice) => void }> = ({ onOpenInvoice }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   const loadInvoices = async () => {
     try {
@@ -341,7 +340,7 @@ export const BillsInvoicesScreen = () => {
           <Text style={styles.message}>Your booking bills and invoices will appear here once a booking is confirmed.</Text>
         </View>}
         renderItem={({ item: invoice, index }) => (
-          <View style={styles.invoiceCard}>
+          <Pressable style={styles.invoiceCard} onPress={() => onOpenInvoice?.(invoice)}>
             <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
             <View style={styles.listCardBody}>
               <View style={styles.invoiceHeader}>
@@ -355,22 +354,10 @@ export const BillsInvoicesScreen = () => {
               </View>
               <Text style={styles.invoiceAmount}>₹{invoice.amount || 0}</Text>
             </View>
-            <OverflowButton colors={COLORS} onPress={() => setSelectedInvoice(invoice)} />
-          </View>
+            <OverflowButton colors={COLORS} onPress={() => onOpenInvoice?.(invoice)} />
+          </Pressable>
         )}
       />
-      <Modal visible={Boolean(selectedInvoice)} transparent animationType="slide" onRequestClose={() => setSelectedInvoice(null)}>
-        <View style={styles.modalBackdrop}><View style={styles.invoiceDetailModal}>
-          <View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.modalEyebrow}>PAYMENT DETAILS</Text><Text style={styles.modalTitle}>{selectedInvoice?.invoice_code || 'Invoice'}</Text></View><Pressable onPress={() => setSelectedInvoice(null)} style={styles.closeButton}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View>
-          <Text style={styles.detailDestination}>{selectedInvoice?.destination || 'Travel booking'}</Text>
-          <View style={styles.detailGrid}>
-            <View style={styles.detailItem}><Text style={styles.detailLabel}>Amount</Text><Text style={styles.detailValue}>₹{selectedInvoice?.amount || 0}</Text></View>
-            <View style={styles.detailItem}><Text style={styles.detailLabel}>Status</Text><Text style={styles.detailValue}>{selectedInvoice?.status || 'PENDING'}</Text></View>
-            <View style={styles.detailItem}><Text style={styles.detailLabel}>Booked</Text><Text style={styles.detailValue}>{formatDate(selectedInvoice?.booking_date)}</Text></View>
-            <View style={styles.detailItem}><Text style={styles.detailLabel}>Travel</Text><Text style={styles.detailValue}>{formatDate(selectedInvoice?.travel_date)}</Text></View>
-          </View>
-        </View></View>
-      </Modal>
     </>
   );
 };

@@ -38,6 +38,7 @@ import { DocumentViewerScreen } from './src/screens/DocumentViewerScreen';
 import { WishlistScreen } from './src/screens/WishlistScreen';
 import { ReferralsScreen } from './src/screens/ReferralsScreen';
 import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/Tripsinvoicesenquiries';
+import { InvoiceDetailsScreen } from './src/screens/InvoiceDetailsScreen';
 import { EditEnquiryScreen } from './src/screens/EditEnquiryScreen';
 import { EnquiryDetailsScreen } from './src/screens/EnquiryDetailsScreen';
 import { BookingDetailsScreen } from './src/screens/BookingDetailsScreen';
@@ -197,6 +198,7 @@ function AppInner() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryData | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<import('./src/api/tourApi').CustomerTour | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<import('./src/api/tourApi').Invoice | null>(null);
 
   // Load tour packages from API
   const loadTours = useCallback(async () => {
@@ -418,6 +420,7 @@ function AppInner() {
   const openEnquiryDetails = (enquiry: EnquiryData) => { setSelectedEnquiry(enquiry); navigateTo('enquiry_details'); };
   const openEnquiryEditor = (enquiry: EnquiryData) => { setSelectedEnquiry(enquiry); navigateTo('edit_enquiry'); };
   const openBookingDetails = (booking: import('./src/api/tourApi').CustomerTour) => { setSelectedBooking(booking); navigateTo('booking_details'); };
+  const openInvoiceDetails = (invoice: import('./src/api/tourApi').Invoice) => { setSelectedInvoice(invoice); navigateTo('invoice_details'); };
 
   const handleLoginSuccess = async (phone: string) => {
     await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
@@ -448,7 +451,7 @@ function AppInner() {
     setRootScreen('auth');
   };
 
-  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'edit_enquiry', 'enquiry_details', 'bills_invoices', 'booking_details', 'documents', 'document_viewer', 'wishlist', 'referrals', 'notifications'];
+  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'edit_enquiry', 'enquiry_details', 'bills_invoices', 'invoice_details', 'booking_details', 'documents', 'document_viewer', 'wishlist', 'referrals', 'notifications'];
   const navigateWithAuth = (screen: NavScreen) => {
     if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
     navigateTo(screen);
@@ -550,12 +553,11 @@ function AppInner() {
             enquiries={enquiries}
             savedTours={savedTours}
             onNavigate={navigateTo}
-            onLogout={handleLogout}
           />
         );
 
       case 'profile_details':
-        return <ProfileDetailsScreen user={user} onNavigate={navigateWithAuth} onRefresh={async () => { const result = await fetchMe(); setUser(result.data || null); }} />;
+        return <ProfileDetailsScreen user={user} onNavigate={navigateWithAuth} onLogout={handleLogout} onRefresh={async () => { const result = await fetchMe(); setUser(result.data || null); }} />;
 
       case 'edit_profile':
         return <EditProfileScreen user={user} onSaved={profile => { setUser(profile); setUserPhone(profile.mobile || ''); navigateTo('profile'); }} onNavigate={navigateWithAuth} />;
@@ -596,7 +598,10 @@ function AppInner() {
         return selectedEnquiry ? <EnquiryDetailsScreen enquiry={selectedEnquiry} onBack={goBack} onEdit={() => navigateTo('edit_enquiry')} /> : <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} onViewEnquiry={openEnquiryDetails} onEditEnquiry={openEnquiryEditor} />;
 
       case 'bills_invoices':
-        return <BillsInvoicesScreen />;
+        return <BillsInvoicesScreen onOpenInvoice={openInvoiceDetails} />;
+
+      case 'invoice_details':
+        return selectedInvoice ? <InvoiceDetailsScreen invoice={selectedInvoice} onBack={goBack} /> : <BillsInvoicesScreen onOpenInvoice={openInvoiceDetails} />;
 
       case 'booking_details':
         return selectedBooking ? <BookingDetailsScreen tour={selectedBooking} onBack={goBack} /> : <MyTripsScreen onOpenBooking={openBookingDetails} />;
@@ -629,6 +634,7 @@ function AppInner() {
     currentScreen !== 'document_viewer' &&
     currentScreen !== 'edit_enquiry' &&
     currentScreen !== 'enquiry_details' &&
+    currentScreen !== 'invoice_details' &&
     currentScreen !== 'booking_details';
 
   const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {

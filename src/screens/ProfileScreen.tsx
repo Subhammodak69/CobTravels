@@ -5,13 +5,8 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  ActivityIndicator,
   Image,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,16 +15,12 @@ import {
   AuthUser,
   fetchUserStats,
   UserStats,
-  deleteAccount,
-  requestOtp,
   fetchTrips,
   fetchDocuments,
   fetchReferrals,
   fetchInvoices,
 } from '../api/tourApi';
 import { NavScreen } from '../types';
-import { useAppDialog } from '../components/AppDialog';
-import { showApiError } from '../utils/toast';
 import { ProfileStatsSkeleton } from '../components/Skeleton';
 
 interface Props {
@@ -39,7 +30,6 @@ interface Props {
   enquiries: any[];
   savedTours?: string[];
   onNavigate: (screen: NavScreen) => void;
-  onLogout: (all?: boolean) => void;
 }
 
 type IconSet = 'feather' | 'mci';
@@ -56,11 +46,9 @@ export const ProfileScreen: React.FC<Props> = ({
   enquiries,
   savedTours = [],
   onNavigate,
-  onLogout,
 }) => {
   const { colors: COLORS } = useTheme();
   const styles = makeStyles(COLORS);
-  const { showDialog } = useAppDialog();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,12 +58,6 @@ export const ProfileScreen: React.FC<Props> = ({
   const [docsCount, setDocsCount] = useState<number | null>(null);
   const [referralsCount, setReferralsCount] = useState<number | null>(null);
   const [invoicesCount, setInvoicesCount] = useState<number | null>(null);
-
-  // Delete account flow state
-  const [deleteOtpModalVisible, setDeleteOtpModalVisible] = useState(false);
-  const [deleteOtp, setDeleteOtp] = useState('');
-  const [deletingAccount, setDeletingAccount] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!isLoggedIn) return;
@@ -110,55 +92,6 @@ export const ProfileScreen: React.FC<Props> = ({
 
   useEffect(() => { loadData(); }, [loadData]);
   const handleRefresh = async () => { setRefreshing(true); try { await loadData(); } finally { setRefreshing(false); } };
-
-  const identifier = user?.mobile || userPhone;
-
-  const handleDeleteAccountPress = async () => {
-    const confirmed = await showDialog({
-      title: 'Delete account permanently?',
-      message: 'This will permanently erase your profile, trips, documents and enquiries. This cannot be undone.',
-      variant: 'warning',
-      confirmText: 'Continue',
-      cancelText: 'Cancel',
-    });
-    if (!confirmed) return;
-
-    setSendingOtp(true);
-    try {
-      await requestOtp(identifier, 'DELETE_ACCOUNT');
-      setDeleteOtp('');
-      setDeleteOtpModalVisible(true);
-    } catch (error) {
-      showApiError(error, 'Could not send verification code.');
-    } finally {
-      setSendingOtp(false);
-    }
-  };
-
-  const handleCancelDeleteOtp = () => {
-    setDeleteOtpModalVisible(false);
-    setDeleteOtp('');
-  };
-
-  const confirmDeleteAccount = async () => {
-    if (!deleteOtp.trim()) return;
-    setDeletingAccount(true);
-    try {
-      await deleteAccount({ identifier, otp: deleteOtp.trim() });
-      setDeleteOtpModalVisible(false);
-      setDeleteOtp('');
-      await showDialog({
-        title: 'Account deleted',
-        message: 'Your account and all associated data have been permanently removed.',
-        variant: 'success',
-      });
-      onLogout(true); // force full sign-out after deletion
-    } catch (error) {
-      showApiError(error, 'We could not verify that code. Please try again.');
-    } finally {
-      setDeletingAccount(false);
-    }
-  };
 
   if (!isLoggedIn) {
     return (
@@ -210,10 +143,7 @@ export const ProfileScreen: React.FC<Props> = ({
       ) : null}
 
       <Text style={styles.sectionTitle}>Account</Text>
-      <ProfileRow styles={styles} iconSet="feather" iconName="user" title="Profile details" subtitle="View your personal and emergency contact details" onPress={() => onNavigate('profile_details')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="edit-2" title="Edit profile" subtitle="Update your name, contact and address" onPress={() => onNavigate('edit_profile')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="bell" title="Notification settings" subtitle="Manage push, email & SMS preferences" onPress={() => onNavigate('notification_settings')} />
-      <ProfileRow styles={styles} iconSet="feather" iconName="smartphone" title="Active sessions" subtitle="Manage devices signed in to your account" onPress={() => onNavigate('sessions')} />
+      <ProfileRow styles={styles} iconSet="feather" iconName="user" title="Profile details" subtitle="Personal information, security and account settings" onPress={() => onNavigate('profile_details')} />
       <ProfileRow styles={styles} iconSet="mci" iconName="airplane-takeoff" title="My trips" subtitle="View your upcoming and completed trips" badge={tripsCount} onPress={() => onNavigate('my_trips')} />
       <ProfileRow styles={styles} iconSet="feather" iconName="message-square" title="My enquiries" subtitle={`${enquiries.length} travel enquiries submitted`} badge={enquiries.length} onPress={() => onNavigate('my_enquiries')} />
       <ProfileRow styles={styles} iconSet="mci" iconName="currency-inr" title="Bills & invoices" subtitle="View your booking bills and invoices" badge={invoicesCount} onPress={() => onNavigate('bills_invoices')} />
@@ -221,119 +151,6 @@ export const ProfileScreen: React.FC<Props> = ({
       <ProfileRow styles={styles} iconSet="feather" iconName="heart" title="My wishlist" subtitle="Your saved travel packages" badge={savedTours.length} onPress={() => onNavigate('wishlist')} />
       <ProfileRow styles={styles} iconSet="feather" iconName="gift" title="Refer & earn" subtitle="Share your travel network" badge={referralsCount} onPress={() => onNavigate('referrals')} />
 
-      <Text style={styles.sectionTitle}>Session</Text>
-      <ProfileRow
-        styles={styles}
-        iconSet="feather"
-        iconName="log-out"
-        title="Log out"
-        subtitle="Sign out from this device"
-        danger
-        onPress={async () => {
-          const confirmed = await showDialog({ title: 'Log out?', message: 'You will be signed out from this device.', variant: 'warning', confirmText: 'Log out', cancelText: 'Cancel' });
-          if (confirmed) onLogout();
-        }}
-      />
-      <ProfileRow
-        styles={styles}
-        iconSet="feather"
-        iconName="power"
-        title="Log out other devices"
-        subtitle="Sign out from all other active sessions"
-        danger
-        onPress={async () => {
-          const confirmed = await showDialog({
-            title: 'Log out other devices?',
-            message: 'All other active devices will be signed out. You will remain logged in on this device.',
-            variant: 'warning',
-            confirmText: 'Log out others',
-            cancelText: 'Cancel',
-          });
-          if (!confirmed) return;
-          try {
-            const { logoutAllSessions } = require('../api/tourApi');
-            await logoutAllSessions();
-            await showDialog({
-              title: 'Sessions Ended',
-              message: 'All other active devices have been signed out.',
-              variant: 'success',
-            });
-          } catch (error) {
-            showApiError(error, 'Could not log out other devices.');
-          }
-        }}
-      />
-
-      <Text style={styles.sectionTitle}>Danger zone</Text>
-      <ProfileRow
-        styles={styles}
-        iconSet="feather"
-        iconName="trash-2"
-        title={sendingOtp ? 'Sending code…' : 'Delete account'}
-        subtitle="Permanently erase your account and data"
-        danger
-        onPress={sendingOtp ? () => {} : handleDeleteAccountPress}
-      />
-
-      <Modal
-        visible={deleteOtpModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCancelDeleteOtp}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-          style={styles.modalOverlay}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={handleCancelDeleteOtp} />
-          <View style={styles.otpModalCard}>
-            <View style={styles.otpHeader}>
-              <View style={styles.otpDangerIcon}>
-                <Feather name="alert-triangle" size={22} color={COLORS.danger} />
-              </View>
-              <Text style={styles.otpModalTitle}>Verify Account Deletion</Text>
-              <Text style={styles.otpModalSubtitle}>
-                We sent a 6-digit verification code to <Text style={{fontWeight: '700', color: COLORS.text}}>{identifier}</Text>. Enter it below to permanently delete your account.
-              </Text>
-            </View>
-
-            <TextInput
-              style={[styles.input, styles.otpInput]}
-              keyboardType="number-pad"
-              value={deleteOtp}
-              onChangeText={setDeleteOtp}
-              placeholder="••••••"
-              placeholderTextColor={COLORS.textMuted}
-              maxLength={6}
-              editable={!deletingAccount}
-              autoFocus
-              textAlign="center"
-            />
-
-            <View style={styles.otpActions}>
-              <Pressable
-                style={styles.otpCancelBtn}
-                onPress={handleCancelDeleteOtp}
-                disabled={deletingAccount}
-              >
-                <Text style={styles.otpCancelBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.otpConfirmBtn, (!deleteOtp.trim() || deletingAccount) && styles.buttonDisabled]}
-                onPress={confirmDeleteAccount}
-                disabled={!deleteOtp.trim() || deletingAccount}
-              >
-                {deletingAccount ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.otpConfirmBtnText}>Confirm Delete</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </ScrollView>
   );
 };
