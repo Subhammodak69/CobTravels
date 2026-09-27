@@ -127,6 +127,86 @@ export interface Trip {
   [key: string]: any;
 }
 
+export interface CustomerTourCustomer {
+  id?: string;
+  name?: string;
+  email?: string;
+  mobile?: string;
+  profile_pic?: string;
+}
+
+export interface CustomerTourPackage {
+  id?: string;
+  name?: string;
+  season?: string;
+}
+
+export interface CustomerTourVariant {
+  id?: string;
+  name?: string;
+  banner?: Record<string, any>;
+}
+
+export interface BookingTraveller {
+  id: string;
+  booking_id?: string;
+  full_name: string;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  mobile?: string | null;
+  email?: string | null;
+  relationship_to_customer?: string | null;
+  is_primary?: boolean;
+}
+
+export interface CustomerTour {
+  id: string;
+  booking_code?: string;
+  customer?: CustomerTourCustomer | null;
+  enquiry_id?: string | null;
+  destination_id?: string | null;
+  destination_name?: string | null;
+  package?: CustomerTourPackage | null;
+  variant?: CustomerTourVariant | null;
+  departure_id?: string | null;
+  departure_date?: string | null;
+  return_date?: string | null;
+  booking_type?: string | null;
+  source?: string | null;
+  status?: string | null;
+  total_amount?: string | number | null;
+  paid_amount?: string | number | null;
+  due_amount?: string | number | null;
+  travellers?: BookingTraveller[];
+  [key: string]: any;
+}
+
+export type CustomerTourDetail = CustomerTour;
+
+export interface CustomerTourPagination {
+  current_page?: number;
+  page_size?: number;
+  total_items?: number;
+  total_pages?: number;
+  has_next?: boolean;
+  has_previous?: boolean;
+}
+
+export interface CustomerTourListResult {
+  items: CustomerTour[];
+  pagination?: CustomerTourPagination;
+}
+
+export interface BookingTravellerInput {
+  full_name: string;
+  gender?: string;
+  date_of_birth?: string;
+  mobile?: string;
+  email?: string;
+  relationship_to_customer?: string;
+  is_primary: boolean;
+}
+
 export interface UserStats {
   journeys_taken: number;
   countries_visited: number;

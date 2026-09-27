@@ -6,6 +6,12 @@ import {
   Invoice,
   UserStats,
   NotificationPreferences,
+  CustomerTour,
+  CustomerTourDetail,
+  CustomerTourListResult,
+  CustomerTourPagination,
+  BookingTraveller,
+  BookingTravellerInput,
 } from './types';
 import { TravelDocument } from '../types';
 
@@ -92,12 +98,78 @@ export async function deleteDocument(id: string): Promise<ApiEnvelope<unknown>> 
 }
 
 // ── Trips, Invoices, User Stats, Notification Preferences ──────────────
+export async function fetchCustomerTours(
+  page = 1,
+  pageSize = 20
+): Promise<CustomerTourListResult> {
+  const response = await authenticated<ApiEnvelope<CustomerTour[]>>(
+    `/api/v1/customer-tours?page=${page}&page_size=${pageSize}`
+  );
+  return {
+    items: Array.isArray(response.data) ? response.data : [],
+    pagination: response.pagination as CustomerTourPagination | undefined,
+  };
+}
+
+export async function fetchCustomerTour(id: string): Promise<CustomerTourDetail | null> {
+  const response = await authenticated<ApiEnvelope<CustomerTour | CustomerTour[]>>(
+    `/api/v1/customer-tours/${encodeURIComponent(id)}`
+  );
+  if (Array.isArray(response.data)) return response.data[0] || null;
+  return response.data || null;
+}
+
+export async function addCustomerTourTraveller(
+  bookingId: string,
+  payload: BookingTravellerInput
+): Promise<ApiEnvelope<BookingTraveller>> {
+  return authenticated<ApiEnvelope<BookingTraveller>>(
+    `/api/v1/customer-tours/${encodeURIComponent(bookingId)}/travellers`,
+    { method: 'POST', body: JSON.stringify(payload) }
+  );
+}
+
+export async function updateCustomerTourTraveller(
+  bookingId: string,
+  travellerId: string,
+  payload: Partial<BookingTravellerInput>
+): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(
+    `/api/v1/customer-tours/${encodeURIComponent(bookingId)}/travellers/${encodeURIComponent(travellerId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) }
+  );
+}
+
+export async function deleteCustomerTourTraveller(
+  bookingId: string,
+  travellerId: string
+): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(
+    `/api/v1/customer-tours/${encodeURIComponent(bookingId)}/travellers/${encodeURIComponent(travellerId)}`,
+    { method: 'DELETE' }
+  );
+}
+
 export async function fetchTrips(): Promise<Trip[]> {
   try {
-    const response = await fetchEnquiries();
-    return (response || []).filter((trip: Trip) => trip.travel_date || trip.destination);
+    const response = await fetchCustomerTours();
+    return response.items.map((tour) => ({
+      ...tour,
+      id: tour.id,
+      enquiry_code: tour.booking_code,
+      destination: tour.destination_name || tour.package?.name || '',
+      travel_date: tour.departure_date || '',
+      pax_no: tour.travellers?.length || 1,
+      subject: tour.variant?.name || tour.package?.name || '',
+      status: tour.status || undefined,
+    }));
   } catch {
-    return [];
+    try {
+      const response = await fetchEnquiries();
+      return (response || []).filter((trip: Trip) => trip.travel_date || trip.destination);
+    } catch {
+      return [];
+    }
   }
 }
 
