@@ -123,9 +123,14 @@ export async function fetchTourDetail(
   if (initialTour) {
     d = { ...initialTour, id: initialTour.id, slug: initialTour.slug || slug };
   } else {
-    const r = await request<ApiEnvelope<any>>(`/api/v1/tour-packages/${encodeURIComponent(slug)}`);
-    if (!r.data) throw new Error('Tour package was not found');
-    d = r.data;
+    // The end-user API exposes package lists and variant details, not a
+    // singular /tour-packages/{slug} route.
+    const r = await request<ApiEnvelope<any[]>>(
+      `/api/v1/tour-packages?page=1&page_size=100&search=${encodeURIComponent(slug)}`
+    );
+    const items = Array.isArray(r.data) ? r.data : [];
+    d = items.map(formatSummary).find(item => item.slug === slug) || items.map(formatSummary)[0];
+    if (!d) throw new Error('Tour package was not found');
   }
   const packageSlug = d.slug || slug;
   const packageVariants = await fetchTourPackageVariants(packageSlug).catch(() => ({ variants: [] as SeasonVariant[] }));
@@ -161,16 +166,9 @@ export async function fetchTourDetail(
 export async function fetchTourVariant(slug: string, variantSlug: string, listedVariants?: SeasonVariant[]) {
   const variants = listedVariants ? { variants: listedVariants } : await fetchTourPackageVariants(slug).catch(() => ({ variants: [] as SeasonVariant[] }));
   const listedVariant = variants.variants.find(v => v.id === variantSlug || v.key === variantSlug);
-  let r: ApiEnvelope<any>;
-  try {
-    r = await request<ApiEnvelope<any>>(
-      `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(listedVariant?.key || variantSlug)}/details`
-    );
-  } catch {
-    r = await request<ApiEnvelope<any>>(
-      `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(variantSlug)}`
-    );
-  }
+  const r = await request<ApiEnvelope<any>>(
+    `/api/v1/tour-packages/${encodeURIComponent(slug)}/variants/${encodeURIComponent(listedVariant?.key || variantSlug)}/details`
+  );
   const detail = r.data?.variant || r.data;
   if (!detail) throw new Error('Tour variant was not found');
   return {

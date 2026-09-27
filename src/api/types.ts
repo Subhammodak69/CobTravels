@@ -1,5 +1,3 @@
-import { TravelDocument } from '../types';
-
 export type ApiEnvelope<T> = {
   success?: boolean;
   message?: string;
@@ -312,4 +310,72 @@ export interface Invoice {
   status?: string;
   travel_date?: string;
   [key: string]: any;
+}
+
+export interface QuotationItem {
+  id: string;
+  item_type?: string;
+  name: string;
+  description?: string | null;
+  quantity?: number;
+  unit_price?: string | number;
+  total_price?: string | number;
+}
+
+export interface Quotation {
+  id: string;
+  quotation_code: string;
+  enquiry_id: string;
+  tour_name: string;
+  travel_date?: string | null;
+  return_date?: string | null;
+  subtotal?: string | number;
+  discount_amount?: string | number;
+  tax_amount?: string | number;
+  total_amount?: string | number;
+  valid_until?: string | null;
+  status: string;
+  version?: number;
+  terms_and_conditions?: string | null;
+  important_notes?: string | null;
+  inclusion?: string | null;
+  exclusion?: string | null;
+  rejected_reason?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  items?: QuotationItem[];
+  hotels?: any[];
+  vehicles?: any[];
+  itinerary?: any[];
+  [key: string]: any;
+}
+
+export interface WalletBalance {
+  account_id: string;
+  customer_id: string;
+  balance: string | number;
+  currency: string;
+}
+
+export interface FinancialTransaction {
+  id: string;
+  amount: string | number;
+  transaction_type: string;
+  category?: string | null;
+  description?: string | null;
+  transaction_date?: string | null;
+  status?: string;
+  currency?: string;
+  payment_method?: string | null;
+  booking_id?: string | null;
+  booking_code?: string | null;
+  customer_id?: string | null;
+  reference?: string | null;
+  created_at?: string | null;
+  [key: string]: any;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  pagination?: CustomerTourPagination;
 }

@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { request, authenticated } from './client';
+import { uploadFileApi } from './tours';
 import {
   ApiEnvelope,
   EnquiryRecord,
@@ -18,8 +20,20 @@ import {
   EnquiryUpdateInput,
   HotelRecord,
   VehicleRecord,
+  Quotation,
+  WalletBalance,
+  FinancialTransaction,
+  PaginatedResult,
 } from './types';
 import { TravelDocument } from '../types';
+
+const NOTIFICATION_PREFERENCES_KEY = '@cobtravels/notification_preferences';
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  push_notifications: true,
+  newsletter: true,
+  sms_alerts: false,
+  email_updates: true,
+};
 
 // ── Enquiries ──────────────────────────────────────────────────────────
 export async function fetchEnquiries(skip = 0, limit = 50): Promise<EnquiryRecord[]> {
@@ -55,20 +69,30 @@ export async function deleteEnquiry(id: string): Promise<ApiEnvelope<unknown>> {
 export async function fetchHotels(
   page = 1,
   pageSize = 20,
-  destinationId = ''
+  destinationId = '',
+  category = ''
 ): Promise<ApiEnvelope<HotelRecord[]>> {
   const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
   if (destinationId) params.set('destination_id', destinationId);
+  if (category) params.set('category', category);
   return request<ApiEnvelope<HotelRecord[]>>(`/api/v1/hotels?${params.toString()}`);
 }
 
-export async function fetchVehicles(page = 1, pageSize = 20): Promise<ApiEnvelope<VehicleRecord[]>> {
-  return request<ApiEnvelope<VehicleRecord[]>>(`/api/v1/vehicles?page=${page}&page_size=${pageSize}`);
+export async function fetchVehicles(
+  page = 1,
+  pageSize = 20,
+  vehicleType = '',
+  search = ''
+): Promise<ApiEnvelope<VehicleRecord[]>> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (vehicleType) params.set('vehicle_type', vehicleType);
+  if (search) params.set('search', search);
+  return request<ApiEnvelope<VehicleRecord[]>>(`/api/v1/vehicles?${params.toString()}`);
 }
 
 // ── Wishlist ───────────────────────────────────────────────────────────
-export async function fetchWishlist(): Promise<ApiEnvelope<any[]>> {
-  return authenticated<ApiEnvelope<any[]>>('/api/v1/wishlist');
+export async function fetchWishlist(page = 1, pageSize = 20): Promise<ApiEnvelope<any[]>> {
+  return authenticated<ApiEnvelope<any[]>>(`/api/v1/wishlist?page=${page}&page_size=${pageSize}`);
 }
 
 export async function addWishlistItem(slug: string): Promise<ApiEnvelope<unknown>> {
@@ -96,13 +120,13 @@ export async function validateReferralCode(
   );
 }
 
-export async function fetchReferrals(): Promise<ApiEnvelope<any[]>> {
-  return authenticated<ApiEnvelope<any[]>>('/api/v1/referrals');
+export async function fetchReferrals(page = 1, pageSize = 20): Promise<ApiEnvelope<any[]>> {
+  return authenticated<ApiEnvelope<any[]>>(`/api/v1/referrals?page=${page}&page_size=${pageSize}`);
 }
 
 // ── Documents ──────────────────────────────────────────────────────────
-export async function fetchDocuments(): Promise<ApiEnvelope<TravelDocument[]>> {
-  return authenticated<ApiEnvelope<TravelDocument[]>>('/api/v1/documents');
+export async function fetchDocuments(page = 1, pageSize = 20): Promise<ApiEnvelope<TravelDocument[]>> {
+  return authenticated<ApiEnvelope<TravelDocument[]>>(`/api/v1/documents?page=${page}&page_size=${pageSize}`);
 }
 
 export async function uploadDocument(
@@ -111,20 +135,19 @@ export async function uploadDocument(
   title: string,
   description: string
 ): Promise<ApiEnvelope<unknown>> {
-  const formData = new FormData();
-  formData.append('file', {
-    uri: file.uri,
-    name: file.name || 'document',
-    type: file.type || 'application/octet-stream',
-  } as any);
-  formData.append('document_type', documentType);
-  formData.append('title', title);
-  formData.append('description', description);
+  const upload = await uploadFileApi(file);
+  const uploaded = upload.data;
+  if (!uploaded?.url) throw new Error('The document upload did not return a file URL.');
 
   return authenticated<ApiEnvelope<unknown>>('/api/v1/documents', {
     method: 'POST',
-    body: formData,
-    headers: { 'Content-Type': undefined as any },
+    body: JSON.stringify({
+      file: uploaded.url,
+      file_name: file.name || 'document',
+      document_type: documentType,
+      title,
+      description: description || null,
+    }),
   });
 }
 
@@ -219,53 +242,33 @@ export async function fetchTrips(): Promise<Trip[]> {
 }
 
 export async function fetchUserStats(): Promise<UserStats> {
-  try {
-    const response = await authenticated<ApiEnvelope<UserStats>>('/api/v1/auth/me/stats');
-    return response.data || { journeys_taken: 0, countries_visited: 0, total_travel_days: 0 };
-  } catch {
-    const trips = await fetchTrips();
-    const uniqueDestinations = new Set(trips.map(t => t.destination).filter(Boolean));
-    return {
-      journeys_taken: trips.length,
-      countries_visited: uniqueDestinations.size,
-      total_travel_days: 0,
-      member_since: new Date().toISOString(),
-    };
-  }
+  const trips = await fetchTrips();
+  const uniqueDestinations = new Set(trips.map(t => t.destination).filter(Boolean));
+  return {
+    journeys_taken: trips.length,
+    countries_visited: uniqueDestinations.size,
+    total_travel_days: 0,
+    member_since: new Date().toISOString(),
+  };
 }
 
 export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
   try {
-    const response = await authenticated<ApiEnvelope<NotificationPreferences>>(
-      '/api/v1/auth/me/notifications'
-    );
-    return response.data || {
-      push_notifications: true,
-      newsletter: true,
-      sms_alerts: false,
-      email_updates: true,
-    };
+    const stored = await AsyncStorage.getItem(NOTIFICATION_PREFERENCES_KEY);
+    return stored
+      ? { ...DEFAULT_NOTIFICATION_PREFERENCES, ...JSON.parse(stored) }
+      : DEFAULT_NOTIFICATION_PREFERENCES;
   } catch {
-    return {
-      push_notifications: true,
-      newsletter: true,
-      sms_alerts: false,
-      email_updates: true,
-    };
+    return DEFAULT_NOTIFICATION_PREFERENCES;
   }
 }
 
 export async function updateNotificationPreferences(
   prefs: Partial<NotificationPreferences>
 ): Promise<NotificationPreferences> {
-  const response = await authenticated<ApiEnvelope<NotificationPreferences>>(
-    '/api/v1/auth/me/notifications',
-    {
-      method: 'PATCH',
-      body: JSON.stringify(prefs),
-    }
-  );
-  return (response.data || prefs) as NotificationPreferences;
+  const next = { ...(await fetchNotificationPreferences()), ...prefs };
+  await AsyncStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(next));
+  return next;
 }
 
 export async function fetchNotifications(limit = 50): Promise<NotificationList> {
@@ -288,10 +291,63 @@ export async function markAllNotificationsRead(): Promise<void> {
 }
 
 export async function fetchInvoices(): Promise<Invoice[]> {
-  try {
-    const response = await authenticated<ApiEnvelope<Invoice[]>>('/api/v1/invoices');
-    return Array.isArray(response.data) ? response.data : [];
-  } catch {
-    return [];
-  }
+  const response = await fetchTransactions(1, 100);
+  return response.items.map((transaction) => ({
+    id: transaction.id,
+    invoice_code: transaction.reference || transaction.booking_code || transaction.id,
+    destination: transaction.description || 'Travel booking',
+    amount: Number(transaction.amount || 0),
+    currency: transaction.currency || 'INR',
+    booking_date: transaction.created_at || transaction.transaction_date || undefined,
+    travel_date: transaction.transaction_date || undefined,
+    status: transaction.status,
+    transaction,
+  }));
+}
+
+// ── Quotations ───────────────────────────────────────────────────────
+export async function fetchEnquiryQuotations(enquiryId: string): Promise<Quotation[]> {
+  const response = await authenticated<ApiEnvelope<Quotation[]>>(
+    `/api/v1/quotations/enquiry/${encodeURIComponent(enquiryId)}`
+  );
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function acceptQuotation(
+  quotationId: string,
+  travellers: BookingTravellerInput[]
+): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(
+    `/api/v1/quotations/${encodeURIComponent(quotationId)}/accept`,
+    { method: 'POST', body: JSON.stringify({ travellers }) }
+  );
+}
+
+export async function rejectQuotation(
+  quotationId: string,
+  reason: string
+): Promise<ApiEnvelope<unknown>> {
+  return authenticated<ApiEnvelope<unknown>>(
+    `/api/v1/quotations/${encodeURIComponent(quotationId)}/reject`,
+    { method: 'POST', body: JSON.stringify({ reason }) }
+  );
+}
+
+// ── Wallet and transactions ─────────────────────────────────────────
+export async function fetchWalletBalance(): Promise<WalletBalance | null> {
+  const response = await authenticated<ApiEnvelope<WalletBalance>>('/api/v1/transactions/balance');
+  return response.data || null;
+}
+
+export async function fetchTransactions(
+  page = 1,
+  pageSize = 20
+): Promise<PaginatedResult<FinancialTransaction>> {
+  const response = await authenticated<ApiEnvelope<FinancialTransaction[]>>(
+    `/api/v1/transactions?page=${page}&page_size=${pageSize}`
+  );
+  return {
+    items: Array.isArray(response.data) ? response.data : [],
+    pagination: response.pagination as CustomerTourPagination | undefined,
+  };
 }
