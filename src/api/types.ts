@@ -284,6 +284,24 @@ export interface NotificationPreferences {
   email_updates: boolean;
 }
 
+export interface NotificationRecord {
+  id: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  image_url?: string | null;
+  action_url?: string | null;
+  data?: Record<string, any> | null;
+  is_read?: boolean;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface NotificationList {
+  items: NotificationRecord[];
+  unread_count: number;
+}
+
 export interface Invoice {
   id: string;
   invoice_code?: string;

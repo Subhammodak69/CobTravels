@@ -11,7 +11,8 @@ import {
   NotificationItem,
   NavScreen,
 } from './src/types';
-import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
+import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
+import { createNotificationSocket, createVisitorSocket } from './src/realtime/socket';
 
 // Components
 import { Header } from './src/components/Header';
@@ -161,7 +162,27 @@ function AppInner() {
     } catch (error) { showApiError(error, 'We could not load your wishlist.'); }
   }, []);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await fetchNotifications();
+      setNotifications((response.items || []).map(item => ({
+        id: item.id,
+        title: item.title,
+        message: item.message,
+        type: (['OFFER', 'TOUR', 'SYSTEM', 'REMINDER'].includes(item.notification_type)
+          ? item.notification_type
+          : 'SYSTEM') as NotificationItem['type'],
+        timestamp: item.created_at,
+        read: Boolean(item.is_read),
+        actionSlug: item.data?.slug || item.data?.tour_slug || undefined,
+      })));
+    } catch {
+      setNotifications([]);
+    }
+  }, []);
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const realtimeSocketRef = React.useRef<any>(null);
 
   // Modals & Drawers
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -197,7 +218,9 @@ function AppInner() {
           isLoggedInRef.current = Boolean(profile);
           setUser(profile);
           setIsLoggedIn(Boolean(profile));
-          if (profile) await loadWishlist();
+          if (profile) {
+            await Promise.all([loadWishlist(), loadNotifications()]);
+          }
           setUserPhone(profile?.mobile || '');
           if (profile && mounted) {
             // A returning member should never be stopped at the guest splash screen.
@@ -219,7 +242,67 @@ function AppInner() {
       }
     })();
     return () => { mounted = false; };
-  }, [finishSplash, loadTours, loadEnquiries, loadWishlist, setRootScreen]);
+  }, [finishSplash, loadTours, loadEnquiries, loadWishlist, loadNotifications, setRootScreen]);
+
+  React.useEffect(() => {
+    if (!visitorReady) return undefined;
+
+    let mounted = true;
+    let notificationSocket: WebSocket | null = null;
+
+    const connect = async () => {
+      const visitorSocket = await createVisitorSocket(user?.id || '');
+      if (!mounted) {
+        visitorSocket.disconnect();
+        return;
+      }
+      realtimeSocketRef.current = visitorSocket;
+      visitorSocket.on('connect', () => {
+        visitorSocket.emit('visitor_identify', {
+          customer_id: user?.id || undefined,
+          page: currentScreenRef.current,
+          current_url: currentScreenRef.current,
+        });
+      });
+      visitorSocket.on('connect_error', error => {
+        console.warn('Realtime connection failed:', error?.message || error);
+      });
+
+      const token = await getAccessToken();
+      if (token && mounted) {
+        notificationSocket = createNotificationSocket(token, message => {
+          if (message?.event !== 'notification.created' || !message?.data) return;
+          const item = message.data;
+          setNotifications(previous => [{
+            id: item.id,
+            title: item.title,
+            message: item.message,
+            type: (['OFFER', 'TOUR', 'SYSTEM', 'REMINDER'].includes(item.notification_type)
+              ? item.notification_type
+              : 'SYSTEM') as NotificationItem['type'],
+            timestamp: item.created_at || new Date().toISOString(),
+            read: false,
+            actionSlug: item.data?.slug || item.data?.tour_slug || undefined,
+          }, ...previous.filter(existing => existing.id !== item.id)]);
+        });
+      }
+    };
+
+    connect();
+    return () => {
+      mounted = false;
+      realtimeSocketRef.current?.disconnect();
+      realtimeSocketRef.current = null;
+      notificationSocket?.close();
+    };
+  }, [visitorReady, user?.id]);
+
+  React.useEffect(() => {
+    const socket = realtimeSocketRef.current;
+    if (socket?.connected) {
+      socket.emit('page_view', { path: currentScreen, page: currentScreen });
+    }
+  }, [currentScreen]);
 
   useEffect(() => {
     const processUrl = async (url: string | null | undefined) => {
@@ -257,12 +340,14 @@ function AppInner() {
   const unreadCount = notifications.filter(n => !n.read).length;
   const markAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    markAllNotificationsReadApi().catch(() => {});
   };
 
   const handleSelectNotification = (item: NotificationItem) => {
     setNotifications(prev =>
       prev.map(n => (n.id === item.id ? { ...n, read: true } : n))
     );
+    markNotificationRead(item.id).catch(() => {});
     if (item.actionSlug) {
       setSelectedTourSlug(item.actionSlug);
       navigateTo('tour_detail');
@@ -323,7 +408,7 @@ function AppInner() {
     isLoggedInRef.current = true;
     setIsLoggedIn(true);
     setUserPhone(phone);
-    await loadEnquiries();
+    await Promise.all([loadEnquiries(), loadNotifications()]);
     try { const result = await fetchMe(); setUser(result.data || null); } catch { setUser(null); }
     trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
     fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});

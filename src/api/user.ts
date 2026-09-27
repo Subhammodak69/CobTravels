@@ -6,6 +6,8 @@ import {
   Invoice,
   UserStats,
   NotificationPreferences,
+  NotificationList,
+  NotificationRecord,
   CustomerTour,
   CustomerTourDetail,
   CustomerTourListResult,
@@ -264,6 +266,25 @@ export async function updateNotificationPreferences(
     }
   );
   return (response.data || prefs) as NotificationPreferences;
+}
+
+export async function fetchNotifications(limit = 50): Promise<NotificationList> {
+  const response = await authenticated<ApiEnvelope<NotificationList>>(
+    `/api/v1/notifications?limit=${limit}`
+  );
+  return response.data || { items: [], unread_count: 0 };
+}
+
+export async function markNotificationRead(id: string): Promise<NotificationRecord | null> {
+  const response = await authenticated<ApiEnvelope<NotificationRecord>>(
+    `/api/v1/notifications/${encodeURIComponent(id)}/read`,
+    { method: 'PATCH' }
+  );
+  return response.data || null;
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await authenticated('/api/v1/notifications/read-all', { method: 'POST' });
 }
 
 export async function fetchInvoices(): Promise<Invoice[]> {
