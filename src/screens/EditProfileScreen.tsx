@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { AuthUser, updateMe, uploadFileApi } from '../api/tourApi';
-import { COLORS, useColors } from '../theme/theme';
+import { useColors } from '../theme/theme';
 import { NavScreen } from '../types';
 import { showApiError } from '../utils/toast';
 import { useAppDialog } from '../components/AppDialog';
@@ -91,7 +91,7 @@ export const EditProfileScreen: React.FC<{
         message: 'Your profile picture has been cropped and uploaded successfully. Click "Save changes" to apply it to your account.',
         variant: 'success',
       });
-    } catch (err: any) {
+    } catch {
       // If server upload fails (e.g. mock environment), fallback to using the selected/cropped image directly
       setProfilePic(croppedUri);
       await showDialog({
@@ -171,6 +171,7 @@ export const EditProfileScreen: React.FC<{
 
       <View>
         <Text style={styles.title}>Edit profile</Text>
+        <Text style={styles.subtitle}>Update your personal and contact information.</Text>
 
         {/* Profile Avatar with + Icon */}
         <View style={styles.avatarSection}>
@@ -280,6 +281,11 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     fontSize: 22,
     fontWeight: '900',
     color: COLORS.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginBottom: 8,
   },
   avatarSection: {

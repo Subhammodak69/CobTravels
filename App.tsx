@@ -19,7 +19,6 @@ import { createNotificationSocket, createVisitorSocket } from './src/realtime/so
 import { Header } from './src/components/Header';
 import { BottomNav } from './src/components/BottomNav';
 import { DrawerMenu } from './src/components/DrawerMenu';
-import { EnquiryModal } from './src/components/EnquiryModal';
 
 // Screens
 import { SplashScreen } from './src/screens/SplashScreen';
@@ -39,6 +38,9 @@ import { DocumentViewerScreen } from './src/screens/DocumentViewerScreen';
 import { WishlistScreen } from './src/screens/WishlistScreen';
 import { ReferralsScreen } from './src/screens/ReferralsScreen';
 import { MyTripsScreen, MyEnquiriesScreen, BillsInvoicesScreen } from './src/screens/Tripsinvoicesenquiries';
+import { EditEnquiryScreen } from './src/screens/EditEnquiryScreen';
+import { EnquiryDetailsScreen } from './src/screens/EnquiryDetailsScreen';
+import { BookingDetailsScreen } from './src/screens/BookingDetailsScreen';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { decodeReferral } from './src/utils/referral';
@@ -75,7 +77,7 @@ function AppInner() {
       }
       return screen;
     });
-  }, []);
+  }, [setRootScreen]);
 
   const finishSplash = React.useCallback(() => {
     if (!authResolvedRef.current) return;
@@ -120,6 +122,10 @@ function AppInner() {
     tourSlug?: string;
     tourTitle?: string;
     variantName?: string;
+    variantId?: string;
+    packageId?: string;
+    destinationId?: string;
+    destinationName?: string;
     travelDate?: string;
   } | null>(null);
 
@@ -187,14 +193,10 @@ function AppInner() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const realtimeSocketRef = React.useRef<any>(null);
 
-  // Modals & Drawers
+  // Drawers and full-screen detail flows
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [enquiryModalVisible, setEnquiryModalVisible] = useState(false);
-  const [enquiryModalTour, setEnquiryModalTour] = useState<import('./src/types').TourPackageSummary | null>(null);
-  const [enquiryModalPackageId, setEnquiryModalPackageId] = useState('');
-  const [enquiryModalVariantId, setEnquiryModalVariantId] = useState('');
-  const [enquiryModalDestinationId, setEnquiryModalDestinationId] = useState('');
-  const [enquiryModalTravelDate, setEnquiryModalTravelDate] = useState('');
+  const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryData | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<import('./src/api/tourApi').CustomerTour | null>(null);
 
   // Load tour packages from API
   const loadTours = useCallback(async () => {
@@ -379,32 +381,43 @@ function AppInner() {
     destinationId: string;
     travelDate: string;
   }) => {
-    // Find the tour summary to pass to the modal
     const matchedTour = tours.find(t => t.slug === details.tourSlug) || null;
-    setEnquiryModalTour(matchedTour);
-    // Pass actual UUID (matchedTour.id) so the modal can send it; also keep slug available via tour.slug for /select/{slug}
-    setEnquiryModalPackageId(matchedTour?.id || details.tourSlug);
-    setEnquiryModalVariantId(details.variantId || details.variantName);
-    setEnquiryModalDestinationId((matchedTour as any)?.destination_id || details.destinationId || '');
-    setEnquiryModalTravelDate(details.travelDate || '');
-    setEnquiryModalVisible(true);
+    setPrefilledEnquiry({
+      tourSlug: details.tourSlug,
+      tourTitle: details.tourTitle,
+      variantName: details.variantName,
+      variantId: details.variantId,
+      packageId: matchedTour?.id || details.tourSlug,
+      destinationId: (matchedTour as any)?.destination_id || details.destinationId || '',
+      destinationName: matchedTour?.destination || matchedTour?.title || details.tourTitle,
+      travelDate: details.travelDate || '',
+    });
+    navigateTo('enquiry');
     trackVisitorEvent('enquiry_started', currentScreenRef.current, details);
   };
 
   const handleOpenEnquiryForTour = (tour: import('./src/types').TourPackageSummary) => {
-    setEnquiryModalTour(tour);
-    setEnquiryModalPackageId(tour.id);
-    setEnquiryModalVariantId('');
-    setEnquiryModalDestinationId((tour as any).destination_id || '');
-    setEnquiryModalTravelDate('');
-    setEnquiryModalVisible(true);
+    setPrefilledEnquiry({
+      tourSlug: tour.slug,
+      tourTitle: tour.title,
+      packageId: tour.id,
+      destinationId: (tour as any).destination_id || '',
+      destinationName: (tour as any).destination || tour.title,
+      travelDate: '',
+    });
+    navigateTo('enquiry');
     trackVisitorEvent('enquiry_started', currentScreenRef.current, { tour_slug: tour.slug, tour_title: tour.title });
   };
 
   const handleEnquirySubmitted = (enq: EnquiryData) => {
     setEnquiries(prev => [enq, ...prev]);
+    setPrefilledEnquiry(null);
     trackVisitorEvent('enquiry_submitted', 'enquiry', { tour_slug: enq.tourSlug, travel_date: enq.travelDate });
   };
+
+  const openEnquiryDetails = (enquiry: EnquiryData) => { setSelectedEnquiry(enquiry); navigateTo('enquiry_details'); };
+  const openEnquiryEditor = (enquiry: EnquiryData) => { setSelectedEnquiry(enquiry); navigateTo('edit_enquiry'); };
+  const openBookingDetails = (booking: import('./src/api/tourApi').CustomerTour) => { setSelectedBooking(booking); navigateTo('booking_details'); };
 
   const handleLoginSuccess = async (phone: string) => {
     await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
@@ -435,7 +448,7 @@ function AppInner() {
     setRootScreen('auth');
   };
 
-  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'document_viewer', 'wishlist', 'referrals', 'notifications'];
+  const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'edit_enquiry', 'enquiry_details', 'bills_invoices', 'booking_details', 'documents', 'document_viewer', 'wishlist', 'referrals', 'notifications'];
   const navigateWithAuth = (screen: NavScreen) => {
     if (protectedScreens.includes(screen) && !isLoggedIn) { navigateTo('auth'); return; }
     navigateTo(screen);
@@ -464,7 +477,7 @@ function AppInner() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateTo}
             onFilterType={handleFilterTours}
-            onOpenCustomTour={() => navigateTo('enquiry')}
+            onOpenCustomTour={() => { setPrefilledEnquiry(null); navigateTo('enquiry'); }}
             onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
@@ -496,6 +509,7 @@ function AppInner() {
             onStartEnquiry={handleStartEnquiry}
             isSaved={savedTours.includes(selectedTourSlug)}
             onToggleSave={() => toggleSaveTour(selectedTourSlug)}
+            isLoggedIn={isLoggedIn}
           />
         );
 
@@ -505,6 +519,7 @@ function AppInner() {
             onNavigate={navigateTo}
             onEnquirySubmitted={handleEnquirySubmitted}
             user={user}
+            prefilled={prefilledEnquiry}
           />
         );
 
@@ -569,13 +584,22 @@ function AppInner() {
         return <ReferralsScreen />;
 
       case 'my_trips':
-        return <MyTripsScreen />;
+        return <MyTripsScreen onOpenBooking={openBookingDetails} />;
 
       case 'my_enquiries':
-        return <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} />;
+        return <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} onViewEnquiry={openEnquiryDetails} onEditEnquiry={openEnquiryEditor} />;
+
+      case 'edit_enquiry':
+        return selectedEnquiry ? <EditEnquiryScreen enquiry={selectedEnquiry} onSaved={() => { setSelectedEnquiry(null); loadEnquiries(); setRootScreen('my_enquiries'); }} /> : <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} onViewEnquiry={openEnquiryDetails} onEditEnquiry={openEnquiryEditor} />;
+
+      case 'enquiry_details':
+        return selectedEnquiry ? <EnquiryDetailsScreen enquiry={selectedEnquiry} onBack={goBack} onEdit={() => navigateTo('edit_enquiry')} /> : <MyEnquiriesScreen enquiries={enquiries} loading={loadingEnquiries} onRefresh={loadEnquiries} onViewEnquiry={openEnquiryDetails} onEditEnquiry={openEnquiryEditor} />;
 
       case 'bills_invoices':
         return <BillsInvoicesScreen />;
+
+      case 'booking_details':
+        return selectedBooking ? <BookingDetailsScreen tour={selectedBooking} onBack={goBack} /> : <MyTripsScreen onOpenBooking={openBookingDetails} />;
 
       default:
         return (
@@ -586,7 +610,7 @@ function AppInner() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
-            onOpenCustomTour={() => navigateTo('enquiry')}
+            onOpenCustomTour={() => { setPrefilledEnquiry(null); navigateTo('enquiry'); }}
             onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
@@ -595,17 +619,17 @@ function AppInner() {
     }
   };
 
-  const showHeader =
-    currentScreen !== 'splash' &&
-    currentScreen !== 'auth' &&
-    currentScreen !== 'tour_detail' &&
-    currentScreen !== 'document_viewer';
+  const bottomNavigationScreens: NavScreen[] = ['home', 'tours', 'enquiry', 'profile'];
+  const showHeader = bottomNavigationScreens.includes(currentScreen);
 
   const showBottomNav =
     currentScreen !== 'splash' &&
     currentScreen !== 'auth' &&
     currentScreen !== 'tour_detail' &&
-    currentScreen !== 'document_viewer';
+    currentScreen !== 'document_viewer' &&
+    currentScreen !== 'edit_enquiry' &&
+    currentScreen !== 'enquiry_details' &&
+    currentScreen !== 'booking_details';
 
   const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {
     if (currentScreen === 'splash') {
@@ -617,10 +641,10 @@ function AppInner() {
         barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
       };
     }
-    // Screens with top Header (Home, TourList, Enquiry, Profile, Notifications, etc.)
+    // The shared brand header is used only by the bottom-navigation screens.
     if (showHeader) {
       return {
-        bg: colorScheme === 'dark' ? appColors.primaryDark : '#FFFFFF',
+        bg: appColors.bg,
         barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
       };
     }
@@ -686,17 +710,6 @@ function AppInner() {
           />
         )}
 
-        {/* Fixed Tour Enquiry Modal */}
-        <EnquiryModal
-          visible={enquiryModalVisible}
-          onClose={() => { setEnquiryModalVisible(false); setEnquiryModalTour(null); setEnquiryModalDestinationId(''); setEnquiryModalTravelDate(''); }}
-          tour={enquiryModalTour}
-          packageId={enquiryModalPackageId}
-          variantId={enquiryModalVariantId}
-          destinationId={enquiryModalDestinationId}
-          travelDate={enquiryModalTravelDate}
-          user={user}
-        />
       </SafeAreaView>
       <Toast config={toastConfig} />
       </AppDialogProvider>

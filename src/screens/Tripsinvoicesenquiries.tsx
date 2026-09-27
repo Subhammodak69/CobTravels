@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
+import Toast from 'react-native-toast-message';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, useColors } from '../theme/theme';
@@ -28,6 +30,24 @@ const formatDate = (dateStr?: string): string => {
   }
 };
 
+const getPaymentStatus = (trip: CustomerTour): string => {
+  const explicitStatus = trip.payment_status || trip.paymentStatus;
+  if (explicitStatus) {
+    return String(explicitStatus)
+      .replace(/_/g, '-')
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+      .replace(/(^|-)([a-z])/g, (_, separator, letter) => `${separator}${letter.toUpperCase()}`);
+  }
+
+  const total = Number(trip.total_amount || 0);
+  const paid = Number(trip.paid_amount || 0);
+  const due = Number(trip.due_amount || 0);
+  if (paid > 0 && due > 0) return 'Partially-paid';
+  if ((total > 0 || paid > 0) && due <= 0) return 'Paid';
+  return 'Payment pending';
+};
+
 // Small helper for an icon + label + value meta row (used by trips & invoices)
 const MetaRow = ({ iconSet, iconName, label, value, COLORS }: { iconSet: IconSet; iconName: string; label: string; value: string; COLORS: AppColors }) => {
   const styles = makeStyles(COLORS);
@@ -40,7 +60,7 @@ const MetaRow = ({ iconSet, iconName, label, value, COLORS }: { iconSet: IconSet
   );
 };
 
-export const MyTripsScreen = () => {
+export const MyTripsScreen: React.FC<{ onOpenBooking?: (tour: CustomerTour) => void }> = ({onOpenBooking}) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const [trips, setTrips] = useState<CustomerTour[]>([]);
@@ -78,6 +98,7 @@ export const MyTripsScreen = () => {
   }, []);
 
   const openTour = async (tour: CustomerTour) => {
+    if (onOpenBooking) { onOpenBooking(tour); return; }
     setSelectedTour(tour);
     setDetailLoading(true);
     try {
@@ -171,16 +192,27 @@ export const MyTripsScreen = () => {
         <Pressable style={styles.tripCard} onPress={() => openTour(trip)}>
           <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
           <View style={styles.listCardBody}>
-            <View style={styles.tripHeader}>
-              <Text style={styles.tripCode}>{trip.booking_code || 'TRIP-' + String(index + 1)}</Text>
-              <Text style={[styles.status, trip.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]}>{trip.status || 'TENTATIVE'}</Text>
+            <View style={styles.compactTripTop}>
+              <View style={styles.tripIdentity}>
+                <Text style={styles.tripCode} numberOfLines={1}>{trip.booking_code || 'TRIP-' + String(index + 1)}</Text>
+                <Text style={styles.tripDestination} numberOfLines={1}>{trip.destination_name || trip.package?.name || 'Your journey'}</Text>
+              </View>
+              <Text style={[styles.paymentStatus, getPaymentStatus(trip) === 'Paid' ? styles.paymentPaid : getPaymentStatus(trip).includes('Partially') ? styles.paymentPartial : styles.paymentPending]} numberOfLines={1}>
+                {getPaymentStatus(trip)}
+              </Text>
             </View>
-            <Text style={styles.tripDestination} numberOfLines={1}>{trip.destination_name || trip.package?.name || 'Your journey'}</Text>
-            <MetaRow iconSet="feather" iconName="calendar" label="Departure:" value={formatDate(trip.departure_date || undefined)} COLORS={COLORS} />
-            <MetaRow iconSet="feather" iconName="calendar" label="Return:" value={formatDate(trip.return_date || undefined)} COLORS={COLORS} />
-            <MetaRow iconSet="feather" iconName="users" label="Travellers:" value={trip.travellers ? `${trip.travellers.length} person${trip.travellers.length !== 1 ? 's' : ''}` : 'View details'} COLORS={COLORS} />
+            <View style={styles.tripDates}>
+              <View style={styles.tripDateItem}>
+                <Text style={styles.tripDateLabel}>Departure:</Text>
+                <Text style={styles.tripDateValue} numberOfLines={1}>{formatDate(trip.departure_date || undefined)}</Text>
+              </View>
+              <View style={styles.tripDateItem}>
+                <Text style={styles.tripDateLabel}>Return:</Text>
+                <Text style={styles.tripDateValue} numberOfLines={1}>{formatDate(trip.return_date || undefined)}</Text>
+              </View>
+            </View>
           </View>
-          <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
+          <Feather name="chevron-right" size={20} color={COLORS.textSecondary} style={styles.tripChevron} />
         </Pressable>
       )}
     />
@@ -343,7 +375,7 @@ export const BillsInvoicesScreen = () => {
   );
 };
 
-export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: boolean; onRefresh?: () => void }> = ({ enquiries, loading = false, onRefresh }) => {
+export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: boolean; onRefresh?: () => void; onViewEnquiry?: (item: EnquiryData) => void; onEditEnquiry?: (item: EnquiryData) => void }> = ({ enquiries, loading = false, onRefresh, onViewEnquiry, onEditEnquiry }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const [editing, setEditing] = useState<any | null>(null);
@@ -353,6 +385,7 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
   const [saving, setSaving] = useState(false);
 
   const startEdit = (item: any) => {
+    if (onEditEnquiry) { onEditEnquiry(item); return; }
     setEditing(item);
     setForm({
       name: item.enquirer_name || item.fullName || '', phone: item.enquirer_phone || item.mobile || '', email: item.enquirer_email || item.email || '', travel_date: item.travel_date || item.travelDate || '',
@@ -379,6 +412,11 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
     ]);
   };
 
+  const copyReference = (reference: string) => {
+    Clipboard.setString(reference);
+    Toast.show({ type: 'success', text1: 'Reference copied', text2: 'The enquiry reference ID is ready to paste.', position: 'top', topOffset: 12 });
+  };
+
   const fields = [['name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['travel_date', 'Travel date'], ['adult_count', 'Adults'], ['child_count', 'Children'], ['senior_count', 'Seniors'], ['room_count', 'Rooms']] as const;
   const visibleEnquiries = enquiries.filter(item => `${item.tourTitle || ''} ${item.destination || ''} ${item.fullName || ''} ${item.status || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
@@ -401,15 +439,15 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
       </View>}
       renderItem={({ item, index }) => (
         <View style={styles.enquiry}>
-          <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
-          <View style={styles.listCardBody}>
-            <View style={styles.row}><Text style={styles.enquiryTitle} numberOfLines={1}>{item.tourTitle || item.destination || 'Custom tour'}</Text><Text style={[styles.status, item.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]}>{item.status || 'NEW'}</Text></View>
-            <Text style={styles.enquiryCustomer} numberOfLines={1}>{item.fullName || 'Travel enquiry'}</Text>
-            <View style={styles.enquiryMetaRow}><Feather name="calendar" size={12} color={COLORS.textSecondary} /><Text style={styles.meta}>{item.travelDate || 'Travel date not selected'}</Text></View>
-            <View style={styles.enquiryMetaRow}><Feather name="phone" size={12} color={COLORS.textSecondary} /><Text style={styles.meta}>{item.mobile || 'Mobile not provided'}</Text></View>
-            {item.message ? <Text style={styles.meta} numberOfLines={1}>{item.message}</Text> : null}
-            {item.id ? <Text style={styles.ref}>Reference: {item.id}</Text> : null}
-          </View>
+          <Pressable style={styles.enquiryBodyPress} onPress={() => onViewEnquiry?.(item)}>
+            <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
+            <View style={styles.listCardBody}>
+              <View style={styles.row}><Text style={styles.enquiryTitle} numberOfLines={1} ellipsizeMode="tail">{item.tourTitle || item.destination || 'Custom tour'}</Text><Text style={[styles.status, item.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]} numberOfLines={1}>{item.status || 'NEW'}</Text></View>
+              <View style={styles.enquiryMetaRow}><Feather name="calendar" size={12} color={COLORS.textSecondary} /><Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{item.travelDate || 'Travel date not selected'}</Text></View>
+              {item.message ? <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{item.message}</Text> : null}
+              {item.id ? <View style={styles.referenceRow}><Text style={styles.ref} numberOfLines={1} ellipsizeMode="middle">Reference: {item.id}</Text><Pressable style={styles.copyButton} hitSlop={8} onPress={() => copyReference(item.id as string)}><Feather name="copy" size={14} color={COLORS.primary} /></Pressable></View> : null}
+            </View>
+          </Pressable>
           {item.id ? <OverflowButton colors={COLORS} onPress={() => setActionItem(item)} /> : null}
         </View>
       )}
@@ -420,6 +458,7 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
         title={actionItem?.tourTitle || 'Enquiry actions'}
         onClose={() => setActionItem(null)}
         actions={[
+          { label: 'View full enquiry', icon: 'file-text', onPress: () => actionItem && (onViewEnquiry ? onViewEnquiry(actionItem) : undefined) },
           { label: 'Edit enquiry', icon: 'edit-2', onPress: () => actionItem && startEdit(actionItem) },
           { label: 'Delete enquiry', icon: 'trash-2', destructive: true, onPress: () => actionItem && removeEnquiry(actionItem) },
         ]}
@@ -450,13 +489,23 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   emptyIconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '800', color: COLORS.text, marginTop: 8 },
 
-  listIndex: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 1 },
-  listIndexText: { color: COLORS.primary, fontSize: 13, fontWeight: '900' },
+  listIndex: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  listIndexText: { color: COLORS.primary, fontSize: 11, fontWeight: '900' },
   listCardBody: { flex: 1, minWidth: 0 },
-  tripCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 13, marginBottom: 11 },
-  tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  tripCode: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  tripDestination: { fontSize: 16, fontWeight: '800', color: COLORS.text, marginBottom: 7 },
+  tripCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 12, marginBottom: 10 },
+  compactTripTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  tripIdentity: { flex: 1, minWidth: 0 },
+  tripCode: { fontSize: 12, fontWeight: '900', color: COLORS.text, textTransform: 'uppercase', letterSpacing: 0.35 },
+  tripDestination: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginTop: 3 },
+  paymentStatus: { maxWidth: 112, fontSize: 10, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 12, overflow: 'hidden' },
+  paymentPartial: { color: COLORS.goldDark, backgroundColor: COLORS.goldLight },
+  paymentPaid: { color: COLORS.success, backgroundColor: COLORS.successLight },
+  paymentPending: { color: COLORS.textSecondary, backgroundColor: COLORS.surface },
+  tripDates: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 2 },
+  tripDateItem: { flex: 1, minWidth: 0 },
+  tripDateLabel: { fontSize: 10, color: COLORS.textSecondary, fontWeight: '700' },
+  tripDateValue: { fontSize: 12, color: COLORS.text, fontWeight: '800', marginTop: 3 },
+  tripChevron: { marginLeft: 8 },
   viewDetailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   viewDetails: { fontSize: 12, color: COLORS.primary, fontWeight: '800' },
 
@@ -505,17 +554,19 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   invoiceDestination: { fontSize: 14, fontWeight: '800', color: COLORS.text, marginBottom: 10 },
   invoiceMeta: { flexDirection: 'column' },
 
-  status: { fontSize: 10, fontWeight: '800', color: COLORS.goldDark, backgroundColor: COLORS.goldLight, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  status: { fontSize: 9, fontWeight: '800', color: COLORS.goldDark, backgroundColor: COLORS.goldLight, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
   statusConfirmed: { backgroundColor: COLORS.successLight, color: COLORS.success },
   statusNew: { backgroundColor: COLORS.goldLight, color: COLORS.goldDark },
 
-  enquiry: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 13, marginBottom: 11 },
+  enquiry: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, padding: 8, marginBottom: 8 },
+  enquiryBodyPress: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'flex-start' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  enquiryTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: COLORS.text },
-  enquiryCustomer: { color: COLORS.text, fontSize: 12, fontWeight: '700', marginTop: 5 },
-  enquiryMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
-  meta: { fontSize: 12, color: COLORS.textSecondary },
-  ref: { fontSize: 10, color: COLORS.textMuted, marginTop: 8 },
+  enquiryTitle: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '800', color: COLORS.text },
+  enquiryMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  meta: { flex: 1, minWidth: 0, fontSize: 11, color: COLORS.textSecondary },
+  referenceRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0, marginTop: 5 },
+  ref: { flex: 1, minWidth: 0, fontSize: 10, color: COLORS.textMuted },
+  copyButton: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
   enquiryActions: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   editAction: { color: COLORS.primary, fontSize: 12, fontWeight: '900' },
   deleteAction: { color: COLORS.danger, fontSize: 12, fontWeight: '900' },

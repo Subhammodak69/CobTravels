@@ -63,6 +63,10 @@ export const ProfileDetailsScreen: React.FC<Props> = ({ user, onRefresh }) => {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}
     >
+      <View style={styles.pageHeading}>
+        <Text style={styles.pageTitle}>Profile details</Text>
+        <Text style={styles.pageSubtitle}>Your personal and emergency contact information.</Text>
+      </View>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           {user?.profile_pic ? (
@@ -127,6 +131,9 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
   StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.bg },
     content: { padding: 16, paddingBottom: 36 },
+    pageHeading: { marginBottom: 16 },
+    pageTitle: { color: COLORS.text, fontSize: 23, fontWeight: '900' },
+    pageSubtitle: { color: COLORS.textSecondary, fontSize: 12, marginTop: 4 },
     profileCard: {
       alignItems: 'center',
       backgroundColor: COLORS.card,

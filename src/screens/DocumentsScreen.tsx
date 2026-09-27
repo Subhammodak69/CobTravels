@@ -1,9 +1,9 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {deleteDocument, fetchDocuments, getDocumentDownloadEndpoint, uploadDocument} from '../api/tourApi';
+import {deleteDocument, fetchDocuments, getDocumentDownloadEndpoint, uploadDocument, uploadFileApi} from '../api/tourApi';
 import {getAccessToken} from '../api/client';
 import {AppColors, useColors} from '../theme/theme';
 import {DocumentDirection, NavScreen, TravelDocument} from '../types';
@@ -11,6 +11,7 @@ import {showApiError, showSuccess} from '../utils/toast';
 import {useAppDialog} from '../components/AppDialog';
 import {DocumentListSkeleton} from '../components/Skeleton';
 import {OverflowButton, OverflowMenu} from '../components/OverflowMenu';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 
 interface Props { onNavigate: (screen: NavScreen) => void; onOpenDocument?: (document: TravelDocument) => void; }
 
@@ -22,13 +23,18 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
   const [activeTab, setActiveTab] = useState<DocumentDirection>('incoming');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [fileUploading, setFileUploading] = useState(false);
   const [, setDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{uri: string; name: string; type?: string} | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [title, setTitle] = useState('');
   const [documentType, setDocumentType] = useState('ID_PROOF');
   const [description, setDescription] = useState('');
   const [query, setQuery] = useState('');
   const [actionDocument, setActionDocument] = useState<TravelDocument | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,16 +48,51 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const chooseAndUpload = async () => {
-    if (!title.trim()) { showApiError(new Error('Add a title first.'), 'A document title is required.'); return; }
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const resetUploadForm = () => {
+    setShowForm(false);
+    setSelectedFile(null);
+    setUploadedFileUrl('');
+    setTitle('');
+    setDocumentType('ID_PROOF');
+    setDescription('');
+  };
+
+  const chooseFile = async () => {
     try {
       const [picked] = await pick({type: [types.allFiles], mode: 'import'});
-      setUploading(true);
-      await uploadDocument({uri: picked.uri, name: picked.name || 'document', type: picked.type || undefined}, documentType.trim() || 'ID_PROOF', title.trim(), description.trim());
-      setShowForm(false); setTitle(''); setDescription('');
-      await load();
+      const file = {uri: picked.uri, name: picked.name || 'document', type: picked.type || undefined};
+      setSelectedFile(file);
+      setTitle(file.name.replace(/\.[^/.]+$/, '') || file.name);
+      setUploadedFileUrl('');
+      setFileUploading(true);
+      const response = await uploadFileApi(file);
+      const fileUrl = response.data?.url;
+      if (!fileUrl) throw new Error('The selected file could not be uploaded.');
+      setUploadedFileUrl(fileUrl);
     } catch (error: any) {
       if (!(isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED)) showApiError(error, 'We could not upload this document.');
+    } finally { setFileUploading(false); }
+  };
+
+  const saveDocument = async () => {
+    if (!selectedFile || !uploadedFileUrl) { showApiError(new Error('Choose a file first.'), 'Select a file before saving.'); return; }
+    if (!title.trim()) { showApiError(new Error('Add a title first.'), 'A document title is required.'); return; }
+    try {
+      setUploading(true);
+      await uploadDocument(selectedFile, documentType.trim() || 'ID_PROOF', title.trim(), description.trim(), uploadedFileUrl);
+      resetUploadForm();
+      await load();
+    } catch (error: any) {
+      showApiError(error, 'We could not save this document.');
     } finally { setUploading(false); }
   };
 
@@ -108,19 +149,47 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
       keyExtractor={document => document.id}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} colors={[colors.primary]} />}
       ListHeaderComponent={<View>
-        <View style={styles.intro}><View style={styles.introIcon}><Ionicons name="folder-open-outline" size={25} color={colors.primary} /></View><View style={styles.introCopy}><View style={styles.titleRow}><Text style={styles.title}>My documents</Text><Text style={styles.countPill}>{documents.length}</Text></View><Text style={styles.subtitle}>Keep travel files together and accessible.</Text></View></View>
-        <View style={styles.tabs}>{(['incoming', 'outgoing'] as DocumentDirection[]).map(tab => <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab)}><Ionicons name={tab === 'incoming' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={17} color={activeTab === tab ? colors.textLight : colors.textSecondary} /><Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab === 'incoming' ? 'Incoming' : 'Outgoing'}</Text></Pressable>)}</View>
+        <View style={styles.intro}><View style={styles.introIcon}><Ionicons name="folder-open-outline" size={25} color={colors.primary} /></View><View style={styles.introCopy}><View style={styles.titleRow}><Text style={styles.title}>My documents</Text><View style={styles.headerActions}><Text style={styles.countPill}>{documents.length}</Text>{activeTab === 'outgoing' ? <Pressable style={styles.headerUploadButton} onPress={() => setShowForm(value => !value)} disabled={uploading}><Ionicons name="cloud-upload-outline" size={15} color={colors.textLight} /><Text style={styles.headerUploadText}>{uploading ? '...' : 'Upload'}</Text></Pressable> : null}</View></View><Text style={styles.subtitle}>Keep travel files together and accessible.</Text></View></View>
+        <View style={styles.tabs}>{(['incoming', 'outgoing'] as DocumentDirection[]).map(tab => <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => { setActiveTab(tab); if (tab !== 'outgoing') setShowForm(false); }}><Ionicons name={tab === 'incoming' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={17} color={activeTab === tab ? colors.textLight : colors.textSecondary} /><Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab === 'incoming' ? 'Incoming' : 'Outgoing'}</Text></Pressable>)}</View>
         <View style={styles.searchBox}><Ionicons name="search-outline" size={17} color={colors.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search documents..." placeholderTextColor={colors.textMuted} style={styles.searchInput} /></View>
-        <Pressable style={styles.uploadButton} onPress={() => setShowForm(value => !value)} disabled={uploading}><Ionicons name="cloud-upload-outline" size={19} color="#fff" /><Text style={styles.uploadText}>{uploading ? 'Uploading...' : 'Upload document'}</Text></Pressable>
-        {showForm && <View style={styles.form}><Text style={styles.formTitle}>New document</Text><TextInput value={title} onChangeText={setTitle} placeholder="Document title" placeholderTextColor={colors.textMuted} style={styles.input} /><TextInput value={documentType} onChangeText={setDocumentType} placeholder="Type, e.g. ID_PROOF" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" /><TextInput value={description} onChangeText={setDescription} placeholder="Description (optional)" placeholderTextColor={colors.textMuted} style={[styles.input, styles.multiline]} multiline /><Pressable style={styles.chooseButton} onPress={chooseAndUpload} disabled={uploading}><Text style={styles.chooseText}>{uploading ? 'Please wait...' : 'Choose file and upload'}</Text></Pressable></View>}
       </View>}
       ListEmptyComponent={loading ? <DocumentListSkeleton /> : <View style={styles.empty}><Ionicons name="document-text-outline" size={34} color={colors.textMuted} /><Text style={styles.emptyTitle}>{query ? 'No matching documents' : `No ${activeTab} documents`}</Text><Text style={styles.emptyText}>{activeTab === 'incoming' ? 'Files shared with you will appear here.' : 'Upload a file to share it with your travel team.'}</Text></View>}
       renderItem={({item: document, index}) => <View style={styles.card}>
+        <Pressable style={styles.cardPressable} onPress={() => onOpenDocument?.(document)}>
         <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
         <View style={styles.cardCopy}><Text style={styles.cardTitle} numberOfLines={1}>{document.title || document.file_name || 'Untitled document'}</Text><Text style={styles.meta}>{document.document_type || 'DOCUMENT'} {document.file_name ? `· ${document.file_name}` : ''}</Text>{document.description ? <Text style={styles.description} numberOfLines={1}>{document.description}</Text> : null}<Text style={styles.date}>{document.uploaded_at ? new Date(document.uploaded_at).toLocaleDateString() : 'Recently uploaded'}</Text></View>
+        </Pressable>
         <OverflowButton colors={colors} onPress={() => setActionDocument(document)} />
       </View>}
     />
+    <Modal visible={showForm && activeTab === 'outgoing'} transparent animationType="slide" onRequestClose={resetUploadForm}>
+      <KeyboardAvoidingView style={[styles.modalBackdrop, keyboardVisible && styles.modalBackdropKeyboard]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={insets.top}>
+        <SafeAreaView edges={keyboardVisible ? ['top'] : ['bottom']} style={[styles.uploadModal, keyboardVisible && styles.uploadModalKeyboard, {paddingBottom: keyboardVisible ? Math.max(8, insets.bottom) : 18}]}>
+          <View style={styles.modalHeader}>
+            <View><Text style={styles.formTitle}>Upload document</Text><Text style={styles.modalSubtitle}>Share a file with your travel team.</Text></View>
+            <Pressable style={styles.closeButton} onPress={resetUploadForm} hitSlop={8}><Ionicons name="close" size={20} color={colors.text} /></Pressable>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <Pressable style={[styles.dropzone, selectedFile && styles.dropzoneSelected]} onPress={chooseFile} disabled={fileUploading || uploading}>
+              {fileUploading ? <ActivityIndicator color={colors.primary} /> : <Ionicons name={selectedFile ? 'checkmark-circle-outline' : 'cloud-upload-outline'} size={34} color={colors.primary} />}
+              <Text style={styles.dropzoneTitle}>{fileUploading ? 'Uploading file...' : selectedFile ? 'File selected' : 'Choose a file to upload'}</Text>
+              <Text style={styles.dropzoneText} numberOfLines={2}>{selectedFile ? selectedFile.name : 'Tap here to browse images, PDFs, or other files'}</Text>
+            </Pressable>
+            {selectedFile ? <>
+              <Text style={styles.inputLabel}>Document name</Text>
+              <TextInput value={title} onChangeText={setTitle} placeholder="Document name" placeholderTextColor={colors.textMuted} style={styles.input} />
+              <Text style={styles.inputLabel}>Document type</Text>
+              <TextInput value={documentType} onChangeText={setDocumentType} placeholder="Type, e.g. ID_PROOF" placeholderTextColor={colors.textMuted} style={styles.input} autoCapitalize="characters" />
+              <Text style={styles.inputLabel}>Description</Text>
+              <TextInput value={description} onChangeText={setDescription} placeholder="Description (optional)" placeholderTextColor={colors.textMuted} style={[styles.input, styles.multiline]} multiline />
+              <Pressable style={[styles.chooseButton, (!uploadedFileUrl || uploading) && styles.disabledButton]} onPress={saveDocument} disabled={!uploadedFileUrl || uploading}>
+                {uploading ? <ActivityIndicator color={colors.textLight} /> : <Text style={styles.chooseText}>Save document</Text>}
+              </Pressable>
+            </> : <Text style={styles.dropzoneHint}>Choose the file first. Its name will be filled automatically.</Text>}
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Modal>
     <OverflowMenu colors={colors} visible={Boolean(actionDocument)} title={actionDocument?.title || 'Document actions'} onClose={() => setActionDocument(null)} actions={[
       {label: 'Preview document', icon: 'eye', onPress: () => actionDocument && onOpenDocument?.(actionDocument)},
       {label: 'Download document', icon: 'download', onPress: () => actionDocument && openDocument(actionDocument)},
@@ -131,10 +200,11 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
 
 const makeStyles = (colors: AppColors) => StyleSheet.create({
   container: {flex: 1, backgroundColor: colors.bg}, content: {padding: 16, paddingBottom: 35},
-  intro: {flexDirection: 'row', alignItems: 'center', marginBottom: 18}, introIcon: {width: 48, height: 48, borderRadius: 14, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 12}, introCopy: {flex: 1}, titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}, title: {fontSize: 22, fontWeight: '900', color: colors.text}, subtitle: {fontSize: 12, color: colors.textSecondary, marginTop: 3}, countPill: {color: colors.primary, backgroundColor: colors.primarySubtle, borderRadius: 15, paddingHorizontal: 10, paddingVertical: 5, fontSize: 13, fontWeight: '900'},
+  intro: {flexDirection: 'row', alignItems: 'center', marginBottom: 14}, introIcon: {width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 9}, introCopy: {flex: 1, minWidth: 0}, titleRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8}, title: {fontSize: 20, fontWeight: '900', color: colors.text, flex: 1}, headerActions: {flexDirection: 'row', alignItems: 'center', gap: 6}, countPill: {color: colors.primary, backgroundColor: colors.primarySubtle, borderRadius: 13, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, fontWeight: '900'}, headerUploadButton: {flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6}, headerUploadText: {color: colors.textLight, fontWeight: '900', fontSize: 10}, subtitle: {fontSize: 11, color: colors.textSecondary, marginTop: 2},
   tabs: {flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 11, padding: 4, marginBottom: 12}, tab: {flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 8}, activeTab: {backgroundColor: colors.primary}, tabText: {fontSize: 13, fontWeight: '800', color: colors.textSecondary}, activeTabText: {color: colors.textLight},
   searchBox: {height: 46, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 11, paddingHorizontal: 13, marginBottom: 12}, searchInput: {flex: 1, color: colors.text, fontSize: 13, paddingVertical: 0, marginLeft: 9},
-  uploadButton: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 13, marginBottom: 12}, uploadText: {color: '#fff', fontWeight: '900', fontSize: 13}, form: {backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, marginBottom: 12}, formTitle: {fontSize: 15, fontWeight: '900', color: colors.text, marginBottom: 9}, input: {borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text, paddingHorizontal: 11, paddingVertical: 10, fontSize: 13, marginBottom: 8, backgroundColor: colors.surface}, multiline: {minHeight: 64, textAlignVertical: 'top'}, chooseButton: {backgroundColor: colors.primary, paddingVertical: 11, borderRadius: 8, alignItems: 'center'}, chooseText: {color: colors.textLight, fontWeight: '800', fontSize: 12},
+  form: {backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, marginBottom: 12}, formTitle: {fontSize: 17, fontWeight: '900', color: colors.text, marginBottom: 3}, modalSubtitle: {fontSize: 11, color: colors.textSecondary}, inputLabel: {fontSize: 11, fontWeight: '800', color: colors.textSecondary, marginBottom: 5}, input: {borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text, paddingHorizontal: 11, paddingVertical: 10, fontSize: 13, marginBottom: 10, backgroundColor: colors.surface}, multiline: {minHeight: 64, textAlignVertical: 'top'}, chooseButton: {backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 4}, disabledButton: {opacity: 0.55}, chooseText: {color: colors.textLight, fontWeight: '800', fontSize: 12},
+  modalBackdrop: {flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.55)'}, modalBackdropKeyboard: {justifyContent: 'flex-start'}, uploadModal: {maxHeight: '88%', backgroundColor: colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18}, uploadModalKeyboard: {flex: 1, maxHeight: '100%', borderTopLeftRadius: 0, borderTopRightRadius: 0}, modalHeader: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16}, closeButton: {width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center'}, dropzone: {minHeight: 150, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 14, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', padding: 18, marginBottom: 16}, dropzoneSelected: {borderColor: colors.success, backgroundColor: colors.successLight}, dropzoneTitle: {fontSize: 14, fontWeight: '900', color: colors.text, marginTop: 9}, dropzoneText: {fontSize: 11, color: colors.textSecondary, textAlign: 'center', marginTop: 5}, dropzoneHint: {fontSize: 11, color: colors.textMuted, textAlign: 'center', paddingVertical: 8},
   empty: {alignItems: 'center', paddingVertical: 45}, emptyTitle: {fontSize: 15, fontWeight: '900', color: colors.text, marginTop: 10}, emptyText: {fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 5},
-  card: {flexDirection: 'row', alignItems: 'flex-start', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: 13, marginBottom: 10}, listIndex: {width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 11}, listIndexText: {color: colors.primary, fontSize: 13, fontWeight: '900'}, cardCopy: {flex: 1, minWidth: 0}, cardTitle: {fontSize: 14, fontWeight: '900', color: colors.text}, meta: {fontSize: 10, color: colors.textSecondary, marginTop: 4}, description: {fontSize: 11, color: colors.textSecondary, marginTop: 5}, date: {fontSize: 10, color: colors.textMuted, marginTop: 5},
+  card: {flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 9, marginBottom: 8}, cardPressable: {flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center'}, listIndex: {width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 8}, listIndexText: {color: colors.primary, fontSize: 11, fontWeight: '900'}, cardCopy: {flex: 1, minWidth: 0}, cardTitle: {fontSize: 13, fontWeight: '900', color: colors.text}, meta: {fontSize: 10, color: colors.textSecondary, marginTop: 3}, description: {fontSize: 10, color: colors.textSecondary, marginTop: 3}, date: {fontSize: 9, color: colors.textMuted, marginTop: 3},
 });

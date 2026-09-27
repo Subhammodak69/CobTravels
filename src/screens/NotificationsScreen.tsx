@@ -37,7 +37,10 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Notifications & Updates</Text>
+        <View>
+          <Text style={styles.headerTitle}>Notifications & Updates</Text>
+          <Text style={styles.headerSubtitle}>Stay up to date with your travel plans.</Text>
+        </View>
         {notifications.some(n => !n.read) && (
           <Pressable onPress={onMarkAllRead}>
             <Text style={styles.markReadText}>Mark all as read</Text>
@@ -105,6 +108,11 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: COLORS.text,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
   markReadText: {
     fontSize: 12,

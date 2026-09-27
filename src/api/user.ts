@@ -154,26 +154,35 @@ export async function fetchDocuments(page = 1, pageSize = 20): Promise<ApiEnvelo
   return authenticated<ApiEnvelope<TravelDocument[]>>(`/api/v1/documents?page=${page}&page_size=${pageSize}`);
 }
 
-export async function uploadDocument(
-  file: { uri: string; name?: string; type?: string },
+export async function createDocumentRecord(
+  fileUrl: string,
+  fileName: string,
   documentType: string,
   title: string,
   description: string
 ): Promise<ApiEnvelope<unknown>> {
-  const upload = await uploadFileApi(file);
-  const uploaded = upload.data;
-  if (!uploaded?.url) throw new Error('The document upload did not return a file URL.');
-
   return authenticated<ApiEnvelope<unknown>>('/api/v1/documents', {
     method: 'POST',
     body: JSON.stringify({
-      file: uploaded.url,
-      file_name: file.name || 'document',
+      file: fileUrl,
+      file_name: fileName || 'document',
       document_type: documentType,
       title,
       description: description || null,
     }),
   });
+}
+
+export async function uploadDocument(
+  file: { uri: string; name?: string; type?: string },
+  documentType: string,
+  title: string,
+  description: string,
+  uploadedFileUrl?: string
+): Promise<ApiEnvelope<unknown>> {
+  const fileUrl = uploadedFileUrl || (await uploadFileApi(file)).data?.url;
+  if (!fileUrl) throw new Error('The document upload did not return a file URL.');
+  return createDocumentRecord(fileUrl, file.name || 'document', documentType, title, description);
 }
 
 export function getDocumentDownloadEndpoint(id: string): string {

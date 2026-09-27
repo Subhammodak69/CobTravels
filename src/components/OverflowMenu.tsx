@@ -16,7 +16,7 @@ export const OverflowButton: React.FC<{ colors: AppColors; onPress: () => void }
     accessibilityLabel="More actions"
     hitSlop={8}
     onPress={onPress}
-    style={({ pressed }) => [styles.overflowButton, { backgroundColor: colors.surface }, pressed && styles.pressed]}
+    style={({ pressed }) => [styles.overflowButton, pressed && styles.pressed]}
   >
     <Feather name="more-vertical" size={20} color={colors.textSecondary} />
   </Pressable>
@@ -58,7 +58,7 @@ export const OverflowMenu: React.FC<OverflowMenuProps> = ({ colors, visible, tit
 );
 
 const styles = StyleSheet.create({
-  overflowButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  overflowButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.65 },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.58)' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, paddingHorizontal: 18, paddingTop: 9, paddingBottom: 28 },

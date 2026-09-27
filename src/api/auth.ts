@@ -39,12 +39,14 @@ export async function requestOtp(
   identifier: string,
   purpose: CustomerOtpPurpose = 'LOGIN'
 ): Promise<ApiEnvelope<OtpRequestData>> {
+  const referralCode = await getStoredReferralCode();
   return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request', {
     method: 'POST',
     body: JSON.stringify({
       identifier,
       purpose,
       visitor_id: await getAuthVisitorId(),
+      referral_code: referralCode || '',
     }),
   });
 }

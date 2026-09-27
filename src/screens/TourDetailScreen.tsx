@@ -11,10 +11,10 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { COLORS, useColors } from '../theme/theme';
+import { useColors } from '../theme/theme';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { TourPackageDetail, TourPackageSummary, SeasonVariant, NavScreen } from '../types';
-import { fetchTourDetail, fetchTourVariant, openWhatsAppChat, submitReviewApi, fetchPackageReviews } from '../api/tourApi';
+import { fetchTourDetail, fetchTourVariant, openWhatsAppChat, submitReviewApi, fetchPackageReviews, fetchReviewEligibility } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
 import { MediaViewer, MediaSelection } from '../components/MediaViewer';
 import { showApiError } from '../utils/toast';
@@ -34,6 +34,7 @@ interface TourDetailScreenProps {
   }) => void;
   isSaved?: boolean;
   onToggleSave?: () => void;
+  isLoggedIn: boolean;
 }
 
 export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
@@ -44,6 +45,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   onStartEnquiry,
   isSaved = false,
   onToggleSave,
+  isLoggedIn,
 }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
@@ -61,6 +63,12 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   const [reviewText, setReviewText] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+  const [reviewEligibility, setReviewEligibility] = useState<{
+    can_review: boolean;
+    has_reviewed: boolean;
+    review?: any;
+  } | null>(null);
+  const [reviewEligibilityLoading, setReviewEligibilityLoading] = useState(false);
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
@@ -87,6 +95,31 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   }, [slug, initialTour]);
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
+
+  useEffect(() => {
+    let active = true;
+    const reviewSlug = tour?.slug || slug;
+
+    if (!isLoggedIn || !reviewSlug) {
+      setReviewEligibility(null);
+      setReviewEligibilityLoading(false);
+      return () => { active = false; };
+    }
+
+    setReviewEligibilityLoading(true);
+    fetchReviewEligibility(reviewSlug)
+      .then(result => {
+        if (active) setReviewEligibility(result);
+      })
+      .catch(() => {
+        if (active) setReviewEligibility(null);
+      })
+      .finally(() => {
+        if (active) setReviewEligibilityLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [isLoggedIn, slug, tour?.slug]);
 
   const activeSeason: SeasonVariant | undefined =
     tour?.seasons?.[selectedSeasonIndex] || tour?.seasons?.[0];
@@ -155,6 +188,10 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   };
 
   const handleReviewSubmit = async () => {
+    if (reviewEligibility && !reviewEligibility.can_review && !reviewEligibility.has_reviewed) {
+      setReviewMessage('You need to complete this journey to write a verified review.');
+      return;
+    }
     if (!reviewText.trim()) { setReviewMessage('Please write a short review first.'); return; }
     setReviewSubmitting(true);
     setReviewMessage('');
@@ -162,6 +199,17 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
       await submitReviewApi({package_id: tour?.id || '', rating: reviewRating, review: reviewText.trim(), review_gallery: []});
       setReviewText('');
       setReviewMessage('Thank you! Your review was submitted for approval.');
+      const reviewSlug = tour?.slug || slug;
+      if (reviewSlug) {
+        const [eligibilityResult, reviewsResult] = await Promise.all([
+          fetchReviewEligibility(reviewSlug),
+          fetchPackageReviews(reviewSlug),
+        ]);
+        setReviewEligibility(eligibilityResult);
+        if (reviewsResult.reviews) {
+          setTour(current => current ? { ...current, reviews: reviewsResult.reviews } : current);
+        }
+      }
     } catch (error) {
       setReviewMessage(error instanceof Error ? error.message : 'Could not submit your review. Please sign in and try again.');
     } finally { setReviewSubmitting(false); }
@@ -489,6 +537,23 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
             </View>
           </View>
 
+          {reviewEligibilityLoading ? (
+            <View style={styles.reviewState}>
+              <ActivityIndicator color={COLORS.primary} size="small" />
+              <Text style={styles.reviewStateText}>Checking review eligibility...</Text>
+            </View>
+          ) : !isLoggedIn ? (
+            <View style={styles.reviewState}>
+              <Text style={styles.reviewStateText}>Sign in to share your verified review.</Text>
+              <Pressable style={styles.reviewSecondaryButton} onPress={() => onNavigate('auth')}>
+                <Text style={styles.reviewSecondaryText}>Sign in</Text>
+              </Pressable>
+            </View>
+          ) : reviewEligibility !== null && !reviewEligibility.can_review && !reviewEligibility.has_reviewed ? (
+            <View style={styles.reviewState}>
+              <Text style={styles.reviewStateText}>You need to complete this journey to write a verified review.</Text>
+            </View>
+          ) : (
           <View style={styles.reviewForm}>
             <Text style={styles.reviewFormTitle}>Share your experience</Text>
             <View style={styles.ratingPicker}>
@@ -508,6 +573,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
               {reviewSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.reviewSubmitText}>Submit review</Text>}
             </Pressable>
           </View>
+          )}
 
           {tour.reviews?.map(rev => (
             <View key={rev.id} style={styles.reviewItem}>
@@ -1064,6 +1130,32 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 4,
+  },
+  reviewState: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 4,
+  },
+  reviewStateText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  reviewSecondaryButton: {
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  reviewSecondaryText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '800',
   },
   reviewFormTitle: {
     fontSize: 13,

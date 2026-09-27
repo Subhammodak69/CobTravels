@@ -19,6 +19,7 @@ interface EnquiryScreenProps {
   onNavigate?: (screen: NavScreen) => void;
   onEnquirySubmitted?: (enquiry: any) => void;
   user?: import('../api/tourApi').AuthUser | null;
+  prefilled?: { tourTitle?: string; packageId?: string; destinationId?: string; destinationName?: string; variantId?: string; travelDate?: string } | null;
 }
 
 type ChipOption = { label: string; value: string };
@@ -71,20 +72,20 @@ const enquiryTypeOptions: ChipOption[] = Object.entries(enums.EnquiryType)
   }));
 
 export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
-  onNavigate,
   onEnquirySubmitted,
   user: initialUser,
+  prefilled,
 }) => {
   const { colors: COLORS, isDark } = useTheme();
   const styles = makeStyles(COLORS, isDark);
   const { showDialog } = useAppDialog();
   const [name, setName] = useState(initialUser?.name || '');
   const [mobile, setMobile] = useState(initialUser?.mobile || '');
-  const [destination, setDestination] = useState('');
-  const [destinationId, setDestinationId] = useState('');
-  const [packageId, setPackageId] = useState('');
+  const [destination, setDestination] = useState(prefilled?.destinationName || prefilled?.tourTitle || '');
+  const [destinationId, setDestinationId] = useState(prefilled?.destinationId || '');
+  const [packageId, setPackageId] = useState(prefilled?.packageId || '');
   const [packages, setPackages] = useState<any[]>([]);
-  const [travelDate, setTravelDate] = useState('');
+  const [travelDate, setTravelDate] = useState(prefilled?.travelDate || '');
   const [travelDuration, setTravelDuration] = useState('');
   const [paxNo, setPaxNo] = useState('4');
   const [noRoom, setNoRoom] = useState('2');
@@ -170,7 +171,7 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         visitor_id,
         customer_id: initialUser?.id || '',
         package_id: packageId,
-        variant_id: '',
+        variant_id: prefilled?.variantId || '',
         destination_id: destinationId,
         message: `Destination: ${destination.trim()}${specialRequirements.trim() ? `\n\n${specialRequirements.trim()}` : ''}`,
         name: name.trim(),
@@ -227,9 +228,9 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
             <Text style={styles.headerIcon}>🎨</Text>
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.pageTitle}>Custom Package Enquiry</Text>
+            <Text style={styles.pageTitle}>{prefilled?.tourTitle ? 'Send your enquiry' : 'Custom Package Enquiry'}</Text>
             <Text style={styles.pageSubtitle}>
-              Tailor-make your holiday with hotels, cabs, meals & custom itinerary
+              {prefilled?.tourTitle ? `Request a quote for ${prefilled.tourTitle}` : 'Tailor-make your holiday with hotels, cabs, meals & custom itinerary'}
             </Text>
           </View>
         </View>
