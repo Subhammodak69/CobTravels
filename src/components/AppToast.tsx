@@ -15,8 +15,21 @@ const ErrorToast = ({text1, text2}: {text1?: string; text2?: string}) => (
   </View>
 );
 
+const SuccessToast = ({text1, text2}: {text1?: string; text2?: string}) => (
+  <View style={[styles.container, styles.successContainer]}>
+    <View style={styles.successIcon}>
+      <Ionicons name="checkmark-circle" size={21} color="#16A34A" />
+    </View>
+    <View style={styles.copy}>
+      <Text style={styles.title} numberOfLines={1}>{text1 || 'Success'}</Text>
+      {!!text2 && <Text style={styles.message} numberOfLines={2}>{text2}</Text>}
+    </View>
+  </View>
+);
+
 export const toastConfig: ToastConfig = {
   error: props => <ErrorToast text1={props.text1} text2={props.text2} />,
+  success: props => <SuccessToast text1={props.text1} text2={props.text2} />,
 };
 
 const styles = StyleSheet.create({
@@ -36,7 +49,9 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 6},
     elevation: 6,
   },
+  successContainer: {borderLeftColor: '#16A34A'},
   icon: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center'},
+  successIcon: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center'},
   copy: {flex: 1, marginLeft: 10},
   title: {color: '#172033', fontSize: 14, fontWeight: '800'},
   message: {color: '#64748B', fontSize: 12, lineHeight: 17, marginTop: 2},

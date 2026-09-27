@@ -1,11 +1,13 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
-import {errorCodes, isErrorWithCode, pick, types} from '@react-native-documents/picker';
+import {Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
+import RNBlobUtil from 'react-native-blob-util';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {deleteDocument, downloadDocument, fetchDocuments, uploadDocument} from '../api/tourApi';
+import {deleteDocument, downloadDocument, fetchDocuments, getDocumentDownloadUrl, uploadDocument} from '../api/tourApi';
+import {getAccessToken} from '../api/client';
 import {AppColors, useColors} from '../theme/theme';
 import {DocumentDirection, NavScreen, TravelDocument} from '../types';
-import {showApiError} from '../utils/toast';
+import {showApiError, showSuccess} from '../utils/toast';
 import {useAppDialog} from '../components/AppDialog';
 import {DocumentListSkeleton} from '../components/Skeleton';
 
@@ -53,10 +55,40 @@ export const DocumentsScreen: React.FC<Props> = () => {
   const openDocument = async (document: TravelDocument) => {
     try {
       const response = await downloadDocument(document.id);
-      const url = response.data?.download_url || document.file_url;
+      const downloadUrl = response.data?.download_url || document.file_url;
+      const url = downloadUrl ? getDocumentDownloadUrl(downloadUrl) : '';
       if (!url) throw new Error('No download link was returned.');
-      await Linking.openURL(url);
-    } catch (error) { showApiError(error, 'We could not open this document.'); }
+      const token = await getAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
+      const fileName = (response.data?.file_name || document.file_name || 'document')
+        .replace(/[<>:"/\\|?*]/g, '_')
+        .trim() || 'document';
+      const mimeType = document.mime_type || 'application/octet-stream';
+
+      if (Platform.OS === 'android') {
+        await RNBlobUtil.config({
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            mediaScannable: true,
+            title: fileName,
+            description: 'Downloading travel document',
+            mime: mimeType,
+            path: `${RNBlobUtil.fs.dirs.DownloadDir}/${fileName}`,
+          },
+        }).fetch('GET', url, {Authorization: `Bearer ${token}`, Accept: '*/*'});
+      } else {
+        const extension = fileName.includes('.') ? fileName.split('.').pop() : undefined;
+        const result = await RNBlobUtil.config({fileCache: true, ...(extension ? {appendExt: extension} : {})})
+          .fetch('GET', url, {Authorization: `Bearer ${token}`, Accept: '*/*'});
+        const path = result.path();
+        const sourceUri = path.startsWith('file://') ? path : `file://${path}`;
+        const saved = await saveDocuments({sourceUris: [sourceUri], fileName, mimeType, copy: true});
+        if (saved[0]?.error) throw new Error(saved[0].error);
+        await RNBlobUtil.fs.unlink(path).catch(() => undefined);
+      }
+      showSuccess('The document was saved to your device.');
+    } catch (error) { showApiError(error, 'We could not download this document.'); }
   };
 
   const removeDocument = async (document: TravelDocument) => {
@@ -68,7 +100,14 @@ export const DocumentsScreen: React.FC<Props> = () => {
     finally { setDeleting(null); }
   };
 
-  const visibleDocuments = documents.filter(document => document.type === activeTab);
+  const getDocumentDirection = (document: TravelDocument): DocumentDirection => {
+    if (document.type) return document.type;
+    const legacyDirection = (document as TravelDocument & {direction?: string}).direction;
+    if (legacyDirection) return legacyDirection.toLowerCase() === 'outgoing' ? 'outgoing' : 'incoming';
+    return document.uploaded_by?.toUpperCase() === 'CUSTOMER' ? 'outgoing' : 'incoming';
+  };
+
+  const visibleDocuments = documents.filter(document => getDocumentDirection(document) === activeTab);
   return <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} colors={[colors.primary]} />}>
     <View style={styles.intro}><View style={styles.introIcon}><Ionicons name="folder-open-outline" size={25} color={colors.primary} /></View><View style={styles.introCopy}><Text style={styles.title}>My documents</Text><Text style={styles.subtitle}>Keep travel files together and accessible.</Text></View></View>
     <View style={styles.tabs}>{(['incoming', 'outgoing'] as DocumentDirection[]).map(tab => <Pressable key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab)}><Ionicons name={tab === 'incoming' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'} size={17} color={activeTab === tab ? colors.textLight : colors.textSecondary} /><Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab === 'incoming' ? 'Incoming' : 'Outgoing'}</Text></Pressable>)}</View>

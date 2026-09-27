@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { request, authenticated } from './client';
+import { BASE_API, request, authenticated } from './client';
 import { uploadFileApi } from './tours';
 import {
   ApiEnvelope,
@@ -182,6 +182,10 @@ export async function downloadDocument(
   return authenticated<ApiEnvelope<{ document_id: string; file_name: string; download_url: string }>>(
     `/api/v1/documents/${encodeURIComponent(id)}/download`
   );
+}
+
+export function getDocumentDownloadUrl(downloadUrl: string): string {
+  return downloadUrl.startsWith('http') ? downloadUrl : `${BASE_API}${downloadUrl}`;
 }
 
 export async function deleteDocument(id: string): Promise<ApiEnvelope<unknown>> {
