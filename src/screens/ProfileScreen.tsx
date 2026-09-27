@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Pressable,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -57,11 +58,12 @@ export const ProfileScreen: React.FC<Props> = ({
   onNavigate,
   onLogout,
 }) => {
-  const { colors: COLORS, isDark } = useTheme();
-  const styles = makeStyles(COLORS, isDark);
+  const { colors: COLORS } = useTheme();
+  const styles = makeStyles(COLORS);
   const { showDialog } = useAppDialog();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Dynamic counts for badge indicators
   const [tripsCount, setTripsCount] = useState<number | null>(null);
@@ -75,9 +77,8 @@ export const ProfileScreen: React.FC<Props> = ({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!isLoggedIn) return;
-    const loadData = async () => {
       try {
         setStatsLoading(true);
         const [statsData, tripsData, docsData, refData, invData] = await Promise.allSettled([
@@ -105,9 +106,10 @@ export const ProfileScreen: React.FC<Props> = ({
       } finally {
         setStatsLoading(false);
       }
-    };
-    loadData();
   }, [isLoggedIn]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+  const handleRefresh = async () => { setRefreshing(true); try { await loadData(); } finally { setRefreshing(false); } };
 
   const identifier = user?.mobile || userPhone;
 
@@ -174,7 +176,7 @@ export const ProfileScreen: React.FC<Props> = ({
   const displayName = user?.name || user?.mobile || `+91 ${userPhone}`;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}>
       <View style={styles.header}>
         <View style={styles.avatar}>
           {user?.profile_pic ? (
@@ -372,7 +374,7 @@ const StatCard = ({
   </View>
 );
 
-const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boolean) =>
+const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.bg },
     content: { padding: 16, paddingBottom: 35 },

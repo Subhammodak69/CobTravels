@@ -522,6 +522,7 @@ function AppInner() {
             onMarkAllRead={markAllNotificationsRead}
             onSelectNotification={handleSelectNotification}
             onNavigate={navigateTo}
+            onRefresh={loadNotifications}
           />
         );
 
@@ -539,7 +540,7 @@ function AppInner() {
         );
 
       case 'profile_details':
-        return <ProfileDetailsScreen user={user} onNavigate={navigateWithAuth} />;
+        return <ProfileDetailsScreen user={user} onNavigate={navigateWithAuth} onRefresh={async () => { const result = await fetchMe(); setUser(result.data || null); }} />;
 
       case 'edit_profile':
         return <EditProfileScreen user={user} onSaved={profile => { setUser(profile); setUserPhone(profile.mobile || ''); navigateTo('profile'); }} onNavigate={navigateWithAuth} />;
@@ -562,7 +563,7 @@ function AppInner() {
         ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} />;
 
       case 'wishlist':
-        return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} />;
+        return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} onRefresh={async () => { await Promise.all([loadTours(), loadWishlist()]); }} />;
 
       case 'referrals':
         return <ReferralsScreen />;
@@ -608,7 +609,7 @@ function AppInner() {
 
   const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {
     if (currentScreen === 'splash') {
-      return { bg: '#072421', barStyle: 'light-content' };
+      return { bg: appColors.primaryDark, barStyle: 'light-content' };
     }
     if (currentScreen === 'auth') {
       return {

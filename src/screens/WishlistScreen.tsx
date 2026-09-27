@@ -1,15 +1,17 @@
 import React from 'react';
-import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {TourCard} from '../components/TourCard';
 import {AppColors, useColors} from '../theme/theme';
 import {TourPackageSummary} from '../types';
 
-interface Props {tours: TourPackageSummary[]; savedTours: string[]; onSelectTour: (tour: TourPackageSummary) => void; onToggleSave: (slug: string) => void;}
-export const WishlistScreen: React.FC<Props> = ({tours, savedTours, onSelectTour, onToggleSave}) => {
+interface Props {tours: TourPackageSummary[]; savedTours: string[]; onSelectTour: (tour: TourPackageSummary) => void; onToggleSave: (slug: string) => void; onRefresh?: () => Promise<void> | void;}
+export const WishlistScreen: React.FC<Props> = ({tours, savedTours, onSelectTour, onToggleSave, onRefresh}) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const saved = tours.filter(tour => savedTours.includes(tour.slug));
-  return <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+  const [refreshing, setRefreshing] = React.useState(false);
+  const handleRefresh = async () => { setRefreshing(true); try { await onRefresh?.(); } finally { setRefreshing(false); } };
+  return <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}>
     <Text style={styles.title}>My wishlist</Text><Text style={styles.subtitle}>Packages you are keeping close for later.</Text>
     {saved.length === 0 ? <View style={styles.empty}><Text style={styles.emptyIcon}>♡</Text><Text style={styles.emptyTitle}>Your wishlist is empty</Text><Text style={styles.emptyText}>Tap the heart on any package to save it here.</Text></View> : saved.map(tour => <TourCard key={tour.id} tour={tour} onPress={() => onSelectTour(tour)} isSaved onToggleSave={() => onToggleSave(tour.slug)} />)}
   </ScrollView>;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AppColors, useColors } from '../theme/theme';
@@ -7,6 +7,7 @@ import { EnquiryData } from '../types';
 import { addCustomerTourTraveller, deleteCustomerTourTraveller, deleteEnquiry, fetchCustomerTour, fetchCustomerTours, fetchInvoices, updateCustomerTourTraveller, updateEnquiry, BookingTraveller, BookingTravellerInput, CustomerTour, Invoice } from '../api/tourApi';
 import { TripListSkeleton, InvoiceListSkeleton, EnquiryListSkeleton } from '../components/Skeleton';
 import { CustomDateField } from '../components/CustomDatePicker';
+import { OverflowButton, OverflowMenu } from '../components/OverflowMenu';
 
 type IconSet = 'feather' | 'mci';
 
@@ -153,39 +154,36 @@ export const MyTripsScreen = () => {
   };
 
   return (
-    <ScrollView
+    <>
+    <FlatList
       style={styles.container}
       contentContainerStyle={styles.content}
+      data={trips}
+      keyExtractor={(trip, index) => trip.id || String(index)}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-    >
-      <Text style={styles.pageTitle}>My trips</Text>
-      {loading && trips.length === 0 ? (
-        <TripListSkeleton />
-      ) : trips.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <View style={styles.emptyIconWrap}>
-            <MaterialCommunityIcons name="airplane" size={28} color={COLORS.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>No trips yet</Text>
-          <Text style={styles.message}>Your confirmed and upcoming trips will appear here once a booking is confirmed.</Text>
-        </View>
-      ) : (
-        trips.map((trip, index) => (
-          <Pressable style={styles.tripCard} key={trip.id || String(index)} onPress={() => openTour(trip)}>
+      ListHeaderComponent={<View><View style={styles.pageTitleRow}><Text style={styles.pageTitle}>My trips</Text><Text style={styles.countPill}>{trips.length}</Text></View><Text style={styles.pageSubtitle}>Your confirmed and upcoming journeys</Text></View>}
+      ListEmptyComponent={loading ? <TripListSkeleton /> : <View style={styles.emptyBox}>
+        <View style={styles.emptyIconWrap}><MaterialCommunityIcons name="airplane" size={28} color={COLORS.primary} /></View>
+        <Text style={styles.emptyTitle}>No trips yet</Text>
+        <Text style={styles.message}>Your confirmed and upcoming trips will appear here once a booking is confirmed.</Text>
+      </View>}
+      renderItem={({ item: trip, index }) => (
+        <Pressable style={styles.tripCard} onPress={() => openTour(trip)}>
+          <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
+          <View style={styles.listCardBody}>
             <View style={styles.tripHeader}>
               <Text style={styles.tripCode}>{trip.booking_code || 'TRIP-' + String(index + 1)}</Text>
-              <Text style={[styles.status, trip.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]}>
-                {trip.status || 'TENTATIVE'}
-              </Text>
+              <Text style={[styles.status, trip.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]}>{trip.status || 'TENTATIVE'}</Text>
             </View>
-            <Text style={styles.tripDestination}>{trip.destination_name || trip.package?.name || 'Your journey'}</Text>
+            <Text style={styles.tripDestination} numberOfLines={1}>{trip.destination_name || trip.package?.name || 'Your journey'}</Text>
             <MetaRow iconSet="feather" iconName="calendar" label="Departure:" value={formatDate(trip.departure_date || undefined)} COLORS={COLORS} />
             <MetaRow iconSet="feather" iconName="calendar" label="Return:" value={formatDate(trip.return_date || undefined)} COLORS={COLORS} />
             <MetaRow iconSet="feather" iconName="users" label="Travellers:" value={trip.travellers ? `${trip.travellers.length} person${trip.travellers.length !== 1 ? 's' : ''}` : 'View details'} COLORS={COLORS} />
-            <View style={styles.viewDetailsRow}><Text style={styles.viewDetails}>View booking details</Text><Feather name="arrow-right" size={15} color={COLORS.primary} /></View>
-          </Pressable>
-        ))
+          </View>
+          <Feather name="chevron-right" size={18} color={COLORS.textMuted} />
+        </Pressable>
       )}
+    />
 
       <Modal visible={Boolean(selectedTour)} transparent animationType="slide" onRequestClose={() => setSelectedTour(null)}>
         <View style={styles.modalBackdrop}>
@@ -252,7 +250,7 @@ export const MyTripsScreen = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </ScrollView>
+    </>
   );
 };
 
@@ -262,6 +260,8 @@ export const BillsInvoicesScreen = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   const loadInvoices = async () => {
     try {
@@ -285,42 +285,61 @@ export const BillsInvoicesScreen = () => {
     loadInvoices();
   }, []);
 
+  const visibleInvoices = invoices.filter(invoice => {
+    const haystack = `${invoice.invoice_code || ''} ${invoice.destination || ''} ${invoice.status || ''}`.toLowerCase();
+    return haystack.includes(query.trim().toLowerCase());
+  });
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-    >
-      <Text style={styles.pageTitle}>Bills & invoices</Text>
-      {loading && invoices.length === 0 ? (
-        <InvoiceListSkeleton />
-      ) : invoices.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <View style={styles.emptyIconWrap}>
-            <MaterialCommunityIcons name="currency-inr" size={28} color={COLORS.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>No invoices yet</Text>
+    <>
+      <FlatList
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        data={visibleInvoices}
+        keyExtractor={(invoice, index) => invoice.id || String(index)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        ListHeaderComponent={<View>
+          <View style={styles.pageTitleRow}><Text style={styles.pageTitle}>Bills & invoices</Text><Text style={styles.countPill}>{invoices.length}</Text></View>
+          <Text style={styles.pageSubtitle}>Track payments and booking documents</Text>
+          <View style={styles.searchBox}><Feather name="search" size={17} color={COLORS.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search invoices..." placeholderTextColor={COLORS.textMuted} style={styles.searchInput} /></View>
+        </View>}
+        ListEmptyComponent={loading ? <InvoiceListSkeleton /> : <View style={styles.emptyBox}>
+          <View style={styles.emptyIconWrap}><MaterialCommunityIcons name="currency-inr" size={28} color={COLORS.primary} /></View>
+          <Text style={styles.emptyTitle}>{query ? 'No matching invoices' : 'No invoices yet'}</Text>
           <Text style={styles.message}>Your booking bills and invoices will appear here once a booking is confirmed.</Text>
-        </View>
-      ) : (
-        invoices.map((invoice, index) => (
-          <View style={styles.invoiceCard} key={invoice.id || String(index)}>
-            <View style={styles.invoiceHeader}>
-              <Text style={styles.invoiceCode}>{invoice.invoice_code || 'INV-' + String(index + 1)}</Text>
-              <View style={styles.invoiceAmountRow}>
-                <MaterialCommunityIcons name="currency-inr" size={15} color={COLORS.primary} />
-                <Text style={styles.invoiceAmount}>{invoice.amount || 0}</Text>
+        </View>}
+        renderItem={({ item: invoice, index }) => (
+          <View style={styles.invoiceCard}>
+            <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
+            <View style={styles.listCardBody}>
+              <View style={styles.invoiceHeader}>
+                <Text style={styles.invoiceCode} numberOfLines={1}>{invoice.invoice_code || 'INV-' + String(index + 1)}</Text>
+                <Text style={[styles.status, invoice.status?.toUpperCase() === 'PAID' ? styles.statusConfirmed : styles.statusNew]}>{invoice.status || 'PENDING'}</Text>
               </View>
+              <Text style={styles.invoiceDestination} numberOfLines={1}>{invoice.destination || 'Travel booking'}</Text>
+              <View style={styles.invoiceMeta}>
+                <MetaRow iconSet="feather" iconName="calendar" label="Booked:" value={formatDate(invoice.booking_date)} COLORS={COLORS} />
+                <MetaRow iconSet="mci" iconName="airplane" label="Travel:" value={formatDate(invoice.travel_date)} COLORS={COLORS} />
+              </View>
+              <Text style={styles.invoiceAmount}>₹{invoice.amount || 0}</Text>
             </View>
-            <Text style={styles.invoiceDestination}>{invoice.destination || 'Travel booking'}</Text>
-            <View style={styles.invoiceMeta}>
-              <MetaRow iconSet="feather" iconName="calendar" label="Booking date:" value={formatDate(invoice.booking_date)} COLORS={COLORS} />
-              <MetaRow iconSet="mci" iconName="airplane" label="Travel date:" value={formatDate(invoice.travel_date)} COLORS={COLORS} />
-            </View>
+            <OverflowButton colors={COLORS} onPress={() => setSelectedInvoice(invoice)} />
           </View>
-        ))
-      )}
-    </ScrollView>
+        )}
+      />
+      <Modal visible={Boolean(selectedInvoice)} transparent animationType="slide" onRequestClose={() => setSelectedInvoice(null)}>
+        <View style={styles.modalBackdrop}><View style={styles.invoiceDetailModal}>
+          <View style={styles.modalHeader}><View style={{ flex: 1 }}><Text style={styles.modalEyebrow}>PAYMENT DETAILS</Text><Text style={styles.modalTitle}>{selectedInvoice?.invoice_code || 'Invoice'}</Text></View><Pressable onPress={() => setSelectedInvoice(null)} style={styles.closeButton}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View>
+          <Text style={styles.detailDestination}>{selectedInvoice?.destination || 'Travel booking'}</Text>
+          <View style={styles.detailGrid}>
+            <View style={styles.detailItem}><Text style={styles.detailLabel}>Amount</Text><Text style={styles.detailValue}>₹{selectedInvoice?.amount || 0}</Text></View>
+            <View style={styles.detailItem}><Text style={styles.detailLabel}>Status</Text><Text style={styles.detailValue}>{selectedInvoice?.status || 'PENDING'}</Text></View>
+            <View style={styles.detailItem}><Text style={styles.detailLabel}>Booked</Text><Text style={styles.detailValue}>{formatDate(selectedInvoice?.booking_date)}</Text></View>
+            <View style={styles.detailItem}><Text style={styles.detailLabel}>Travel</Text><Text style={styles.detailValue}>{formatDate(selectedInvoice?.travel_date)}</Text></View>
+          </View>
+        </View></View>
+      </Modal>
+    </>
   );
 };
 
@@ -328,6 +347,8 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const [editing, setEditing] = useState<any | null>(null);
+  const [query, setQuery] = useState('');
+  const [actionItem, setActionItem] = useState<EnquiryData | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', email: '', travel_date: '', adult_count: '1', child_count: '0', senior_count: '0', room_count: '0', message: '' });
   const [saving, setSaving] = useState(false);
 
@@ -359,45 +380,56 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
   };
 
   const fields = [['name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['travel_date', 'Travel date'], ['adult_count', 'Adults'], ['child_count', 'Children'], ['senior_count', 'Seniors'], ['room_count', 'Rooms']] as const;
+  const visibleEnquiries = enquiries.filter(item => `${item.tourTitle || ''} ${item.destination || ''} ${item.fullName || ''} ${item.status || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}>
-      <Text style={styles.pageTitle}>My enquiries</Text>
-      {loading && enquiries.length === 0 ? (
-        <EnquiryListSkeleton />
-      ) : enquiries.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <View style={styles.emptyIconWrap}>
-            <Feather name="clipboard" size={26} color={COLORS.primary} />
+    <>
+    <FlatList
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      data={visibleEnquiries}
+      keyExtractor={(item, index) => item.id || String(index)}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+      ListHeaderComponent={<View>
+        <View style={styles.pageTitleRow}><Text style={styles.pageTitle}>My enquiries</Text><Text style={styles.countPill}>{enquiries.length}</Text></View>
+        <Text style={styles.pageSubtitle}>Follow up on your travel requests</Text>
+        <View style={styles.searchBox}><Feather name="search" size={17} color={COLORS.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search enquiries..." placeholderTextColor={COLORS.textMuted} style={styles.searchInput} /></View>
+      </View>}
+      ListEmptyComponent={loading ? <EnquiryListSkeleton /> : <View style={styles.emptyBox}>
+        <View style={styles.emptyIconWrap}><Feather name="clipboard" size={26} color={COLORS.primary} /></View>
+        <Text style={styles.emptyTitle}>{query ? 'No matching enquiries' : 'No enquiries yet'}</Text>
+        <Text style={styles.message}>Your tour enquiries and their latest status will appear here.</Text>
+      </View>}
+      renderItem={({ item, index }) => (
+        <View style={styles.enquiry}>
+          <View style={styles.listIndex}><Text style={styles.listIndexText}>{String(index + 1).padStart(2, '0')}</Text></View>
+          <View style={styles.listCardBody}>
+            <View style={styles.row}><Text style={styles.enquiryTitle} numberOfLines={1}>{item.tourTitle || item.destination || 'Custom tour'}</Text><Text style={[styles.status, item.status === 'CONFIRMED' ? styles.statusConfirmed : styles.statusNew]}>{item.status || 'NEW'}</Text></View>
+            <Text style={styles.enquiryCustomer} numberOfLines={1}>{item.fullName || 'Travel enquiry'}</Text>
+            <View style={styles.enquiryMetaRow}><Feather name="calendar" size={12} color={COLORS.textSecondary} /><Text style={styles.meta}>{item.travelDate || 'Travel date not selected'}</Text></View>
+            <View style={styles.enquiryMetaRow}><Feather name="phone" size={12} color={COLORS.textSecondary} /><Text style={styles.meta}>{item.mobile || 'Mobile not provided'}</Text></View>
+            {item.message ? <Text style={styles.meta} numberOfLines={1}>{item.message}</Text> : null}
+            {item.id ? <Text style={styles.ref}>Reference: {item.id}</Text> : null}
           </View>
-          <Text style={styles.emptyTitle}>No enquiries yet</Text>
-          <Text style={styles.message}>Your tour enquiries and their latest status will appear here.</Text>
+          {item.id ? <OverflowButton colors={COLORS} onPress={() => setActionItem(item)} /> : null}
         </View>
-      ) : (
-        enquiries.map((item, index) => (
-          <View style={styles.enquiry} key={item.id || String(index)}>
-            <View style={styles.row}>
-              <Text style={styles.enquiryTitle}>{item.tourTitle || item.destination || 'Custom tour'}</Text>
-              <Text style={styles.status}>{item.status || 'NEW'}</Text>
-            </View>
-            <View style={styles.enquiryMetaRow}>
-              <Feather name="calendar" size={12} color={COLORS.textSecondary} />
-              <Text style={styles.meta}>Travel date: {item.travelDate || 'Not selected'}</Text>
-            </View>
-            <View style={styles.enquiryMetaRow}>
-              <Feather name="phone" size={12} color={COLORS.textSecondary} />
-              <Text style={styles.meta}>Mobile: {item.mobile || 'Not provided'}</Text>
-            </View>
-            {item.message ? <Text style={styles.meta} numberOfLines={2}>{item.message}</Text> : null}
-            {item.id && <><Text style={styles.ref}>Reference: {item.id}</Text><View style={styles.enquiryActions}><Pressable onPress={() => startEdit(item)}><Text style={styles.editAction}>Edit</Text></Pressable><Pressable onPress={() => removeEnquiry(item)}><Text style={styles.deleteAction}>Delete</Text></Pressable></View></>}
-          </View>
-        ))
       )}
+    />
+      <OverflowMenu
+        colors={COLORS}
+        visible={Boolean(actionItem)}
+        title={actionItem?.tourTitle || 'Enquiry actions'}
+        onClose={() => setActionItem(null)}
+        actions={[
+          { label: 'Edit enquiry', icon: 'edit-2', onPress: () => actionItem && startEdit(actionItem) },
+          { label: 'Delete enquiry', icon: 'trash-2', destructive: true, onPress: () => actionItem && removeEnquiry(actionItem) },
+        ]}
+      />
       <Modal visible={Boolean(editing)} transparent animationType="slide" onRequestClose={() => setEditing(null)}>
         <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
           <View style={styles.enquiryModal}><View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit enquiry</Text><Pressable onPress={() => setEditing(null)}><Feather name="x" size={20} color={COLORS.text} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled">{fields.map(([key, label]) => <View style={styles.field} key={key}><Text style={styles.fieldLabel}>{label}</Text>{key === 'travel_date' ? <CustomDateField value={form.travel_date} onChange={value => setForm(current => ({ ...current, travel_date: value }))} placeholder="Select travel date" title="Select travel date" /> : <TextInput value={form[key]} onChangeText={(value) => setForm(current => ({ ...current, [key]: value }))} style={styles.input} placeholder={label} placeholderTextColor={COLORS.textMuted} />}</View>)}<View style={styles.field}><Text style={styles.fieldLabel}>Message</Text><TextInput value={form.message} onChangeText={(value) => setForm(current => ({ ...current, message: value }))} style={[styles.input, styles.multilineInput]} multiline placeholder="Message" placeholderTextColor={COLORS.textMuted} /></View><Pressable style={styles.saveButton} onPress={saveEdit} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.textLight} /> : <Text style={styles.saveButtonText}>Save changes</Text>}</Pressable></ScrollView></View>
         </KeyboardAvoidingView>
       </Modal>
-    </ScrollView>
+    </>
   );
 };
 
@@ -407,21 +439,30 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', padding: 30 },
   icon: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   title: { fontSize: 23, fontWeight: '900', color: COLORS.text },
-  pageTitle: { fontSize: 23, fontWeight: '900', color: COLORS.text, marginBottom: 16 },
+  pageTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  pageTitle: { fontSize: 23, fontWeight: '900', color: COLORS.text },
+  pageSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 15 },
+  countPill: { minWidth: 38, textAlign: 'center', color: COLORS.primary, backgroundColor: COLORS.primarySubtle, borderRadius: 15, paddingHorizontal: 10, paddingVertical: 6, fontSize: 14, fontWeight: '900' },
+  searchBox: { height: 46, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, borderRadius: 11, paddingHorizontal: 13, marginBottom: 14 },
+  searchInput: { flex: 1, color: COLORS.text, fontSize: 13, paddingVertical: 0, marginLeft: 9 },
   message: { fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8 },
   emptyBox: { backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 22, alignItems: 'center', marginTop: 20 },
   emptyIconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '800', color: COLORS.text, marginTop: 8 },
 
-  tripCard: { backgroundColor: COLORS.card, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, padding: 15, marginBottom: 12 },
+  listIndex: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 1 },
+  listIndexText: { color: COLORS.primary, fontSize: 13, fontWeight: '900' },
+  listCardBody: { flex: 1, minWidth: 0 },
+  tripCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 13, marginBottom: 11 },
   tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   tripCode: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
-  tripDestination: { fontSize: 16, fontWeight: '800', color: COLORS.text, marginBottom: 10 },
+  tripDestination: { fontSize: 16, fontWeight: '800', color: COLORS.text, marginBottom: 7 },
   viewDetailsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   viewDetails: { fontSize: 12, color: COLORS.primary, fontWeight: '800' },
 
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(2, 12, 18, 0.58)', justifyContent: 'flex-end' },
   detailModal: { maxHeight: '88%', backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18 },
+  invoiceDetailModal: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18 },
   travellerModal: { maxHeight: '92%', backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 16, marginTop: 16, marginBottom: 0, padding: 18 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   modalEyebrow: { color: COLORS.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
@@ -456,7 +497,7 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   metaLabel: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '600' },
   metaValue: { fontSize: 12, fontWeight: '800', color: COLORS.text, marginLeft: -2 },
 
-  invoiceCard: { backgroundColor: COLORS.card, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, padding: 15, marginBottom: 12 },
+  invoiceCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 13, marginBottom: 11 },
   invoiceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   invoiceCode: { fontSize: 11, fontWeight: '800', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
   invoiceAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -468,9 +509,10 @@ const makeStyles = (COLORS: AppColors) => StyleSheet.create({
   statusConfirmed: { backgroundColor: COLORS.successLight, color: COLORS.success },
   statusNew: { backgroundColor: COLORS.goldLight, color: COLORS.goldDark },
 
-  enquiry: { backgroundColor: COLORS.card, borderRadius: 13, borderWidth: 1, borderColor: COLORS.border, padding: 15, marginBottom: 10 },
+  enquiry: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.card, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, padding: 13, marginBottom: 11 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   enquiryTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: COLORS.text },
+  enquiryCustomer: { color: COLORS.text, fontSize: 12, fontWeight: '700', marginTop: 5 },
   enquiryMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7 },
   meta: { fontSize: 12, color: COLORS.textSecondary },
   ref: { fontSize: 10, color: COLORS.textMuted, marginTop: 8 },

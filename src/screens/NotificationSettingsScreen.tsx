@@ -1,5 +1,5 @@
-import React, { useState, useEffect, ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback, ReactNode } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { AppColors, useColors } from '../theme/theme';
@@ -22,28 +22,26 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const loadPreferences = useCallback(async () => {
     if (!isLoggedIn) {
       setLoading(false);
       return;
     }
 
-    const loadPreferences = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchNotificationPreferences();
-        setPrefs(data);
-      } catch (error) {
-        showApiError('Failed to load notification preferences');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPreferences();
+    try {
+      setLoading(true);
+      const data = await fetchNotificationPreferences();
+      setPrefs(data);
+    } catch (error) {
+      showApiError('Failed to load notification preferences');
+      console.error(error);
+    } finally { setLoading(false); }
   }, [isLoggedIn]);
+
+  useEffect(() => { loadPreferences(); }, [loadPreferences]);
+  const handleRefresh = async () => { setRefreshing(true); try { await loadPreferences(); } finally { setRefreshing(false); } };
 
   const handleToggle = async (key: keyof NotificationPreferences) => {
     const oldPrefs = { ...prefs };
@@ -82,7 +80,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ isLoggedIn }) => {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}>
       <Text style={styles.title}>Notification Preferences</Text>
       <Text style={styles.subtitle}>Choose how we contact you with travel updates</Text>
 

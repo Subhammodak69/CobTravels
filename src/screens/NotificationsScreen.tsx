@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { COLORS, useColors } from '../theme/theme';
+import React, {useState} from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from 'react-native';
+import { useColors } from '../theme/theme';
 import { NotificationItem, NavScreen } from '../types';
 
 interface NotificationsScreenProps {
@@ -8,15 +8,19 @@ interface NotificationsScreenProps {
   onMarkAllRead: () => void;
   onSelectNotification: (item: NotificationItem) => void;
   onNavigate: (screen: NavScreen) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   notifications,
   onMarkAllRead,
   onSelectNotification,
+  onRefresh,
 }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => { setRefreshing(true); try { await onRefresh?.(); } finally { setRefreshing(false); } };
   const getIcon = (type: string) => {
     switch (type) {
       case 'OFFER':
@@ -45,6 +49,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         data={notifications}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}
         renderItem={({ item }) => (
           <Pressable
             onPress={() => onSelectNotification(item)}

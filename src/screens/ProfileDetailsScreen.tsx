@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { AuthUser } from '../api/tourApi';
 import { useTheme } from '../theme/theme';
@@ -8,6 +8,7 @@ import { NavScreen } from '../types';
 interface Props {
   user: AuthUser | null;
   onNavigate: (screen: NavScreen) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 const formatDate = (value?: string) => {
@@ -47,9 +48,11 @@ const DetailRow = ({
   </View>
 );
 
-export const ProfileDetailsScreen: React.FC<Props> = ({ user }) => {
+export const ProfileDetailsScreen: React.FC<Props> = ({ user, onRefresh }) => {
   const { colors: COLORS, isDark } = useTheme();
   const styles = makeStyles(COLORS, isDark);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const handleRefresh = async () => { setRefreshing(true); try { await onRefresh?.(); } finally { setRefreshing(false); } };
   const displayName = user?.name || 'Traveller';
   const accountStatus = user?.is_active === false ? 'Inactive' : 'Active';
 
@@ -58,6 +61,7 @@ export const ProfileDetailsScreen: React.FC<Props> = ({ user }) => {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}
     >
       <View style={styles.profileCard}>
         <View style={styles.avatar}>

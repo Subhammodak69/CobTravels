@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
+import {Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View} from 'react-native';
 import {fetchReferralCode, fetchReferrals} from '../api/tourApi';
 import {WEB_APP_URL} from '../api/client';
 import {AppColors, useColors} from '../theme/theme';
@@ -12,9 +12,26 @@ export const ReferralsScreen: React.FC = () => {
   const [shareLink, setShareLink] = useState('');
   const [referrals, setReferrals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { (async () => { try { const [codeResponse, referralResponse] = await Promise.all([fetchReferralCode(), fetchReferrals()]); const code = codeResponse.data?.referral_code; if (code) setShareLink(`${WEB_APP_URL}/invite?r=${encodeURIComponent(encodeReferral(code))}`); setReferrals(Array.isArray(referralResponse.data) ? referralResponse.data : []); } finally { setLoading(false); } })(); }, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const [codeResponse, referralResponse] = await Promise.all([fetchReferralCode(), fetchReferrals()]);
+      const code = codeResponse.data?.referral_code;
+      if (code) setShareLink(`${WEB_APP_URL}/invite?r=${encodeURIComponent(encodeReferral(code))}`);
+      setReferrals(Array.isArray(referralResponse.data) ? referralResponse.data : []);
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+  const handleRefresh = async () => { setRefreshing(true); try { await load(); } finally { setRefreshing(false); } };
   const share = () => { if (shareLink) Share.share({message: `Join me on Coochbehar Travels and plan your next journey: ${shareLink}`}); };
-  return <ScrollView style={styles.container} contentContainerStyle={styles.content}><Text style={styles.title}>Refer & earn</Text><Text style={styles.subtitle}>Invite someone to discover their next journey.</Text><View style={styles.hero}><Text style={styles.heroIcon}>↗</Text><Text style={styles.heroTitle}>Your invite is ready</Text><Text style={styles.heroText}>Share a private invite link. Your referral details stay hidden.</Text><Pressable style={styles.shareButton} onPress={share} disabled={!shareLink || loading}><Text style={styles.shareText}>{loading ? 'Loading...' : 'Share invite link'}</Text></Pressable></View><Text style={styles.sectionTitle}>Referral activity</Text>{loading ? <ReferralListSkeleton count={3} /> : referrals.length === 0 ? <Text style={styles.empty}>No referral activity yet.</Text> : referrals.map(item => <View style={styles.row} key={item.id}><View style={styles.dot} /><View style={styles.copy}><Text style={styles.name}>{item.referred_customer?.name || 'New traveler'}</Text><Text style={styles.meta}>{item.status || 'PENDING'} · {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}</Text></View><Text style={styles.reward}>{item.reward_amount || ''}</Text></View>)}</ScrollView>;
+  return <ScrollView style={styles.container} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />}>
+    <Text style={styles.title}>Refer & earn</Text>
+    <Text style={styles.subtitle}>Invite someone to discover their next journey.</Text>
+    <View style={styles.hero}><Text style={styles.heroIcon}>↗</Text><Text style={styles.heroTitle}>Your invite is ready</Text><Text style={styles.heroText}>Share a private invite link. Your referral details stay hidden.</Text><Pressable style={styles.shareButton} onPress={share} disabled={!shareLink || loading}><Text style={styles.shareText}>{loading ? 'Loading...' : 'Share invite link'}</Text></Pressable></View>
+    <Text style={styles.sectionTitle}>Referral activity</Text>
+    {loading ? <ReferralListSkeleton count={3} /> : referrals.length === 0 ? <Text style={styles.empty}>No referral activity yet.</Text> : referrals.map(item => <View style={styles.row} key={item.id}><View style={styles.dot} /><View style={styles.copy}><Text style={styles.name}>{item.referred_customer?.name || 'New traveler'}</Text><Text style={styles.meta}>{item.status || 'PENDING'} · {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'Recently'}</Text></View><Text style={styles.reward}>{item.reward_amount || ''}</Text></View>)}
+  </ScrollView>;
 };
-const makeStyles = (COLORS: AppColors) => StyleSheet.create({container:{flex:1,backgroundColor:COLORS.bg},content:{padding:16,paddingBottom:35},title:{fontSize:23,fontWeight:'900',color:COLORS.text},subtitle:{fontSize:12,color:COLORS.textSecondary,marginTop:4,marginBottom:16},hero:{backgroundColor:COLORS.primaryDark,borderRadius:15,padding:20,marginBottom:22},heroIcon:{fontSize:30,color:COLORS.gold},heroTitle:{fontSize:18,fontWeight:'900',color:'#fff',marginTop:9},heroText:{fontSize:12,color:'#D6E5E2',lineHeight:18,marginTop:5},shareButton:{backgroundColor:COLORS.goldDark,borderRadius:9,alignItems:'center',paddingVertical:12,marginTop:17},shareText:{color:'#fff',fontWeight:'900',fontSize:12},sectionTitle:{fontSize:12,fontWeight:'900',color:COLORS.textMuted,textTransform:'uppercase',letterSpacing:1,marginBottom:9},empty:{fontSize:13,color:COLORS.textSecondary,paddingVertical:25},row:{flexDirection:'row',alignItems:'center',backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:11,padding:13,marginBottom:8},dot:{width:10,height:10,borderRadius:5,backgroundColor:COLORS.gold,marginRight:12},copy:{flex:1},name:{fontSize:13,fontWeight:'800',color:COLORS.text},meta:{fontSize:10,color:COLORS.textMuted,marginTop:4},reward:{fontSize:12,fontWeight:'800',color:COLORS.success}});
 
+const makeStyles = (COLORS: AppColors) => StyleSheet.create({container:{flex:1,backgroundColor:COLORS.bg},content:{padding:16,paddingBottom:35},title:{fontSize:23,fontWeight:'900',color:COLORS.text},subtitle:{fontSize:12,color:COLORS.textSecondary,marginTop:4,marginBottom:16},hero:{backgroundColor:COLORS.primaryDark,borderRadius:15,padding:20,marginBottom:22},heroIcon:{fontSize:30,color:COLORS.gold},heroTitle:{fontSize:18,fontWeight:'900',color:COLORS.textLight,marginTop:9},heroText:{fontSize:12,color:COLORS.textSecondary,lineHeight:18,marginTop:5},shareButton:{backgroundColor:COLORS.goldDark,borderRadius:9,alignItems:'center',paddingVertical:12,marginTop:17},shareText:{color:COLORS.textLight,fontWeight:'900',fontSize:12},sectionTitle:{fontSize:12,fontWeight:'900',color:COLORS.textMuted,textTransform:'uppercase',letterSpacing:1,marginBottom:9},empty:{fontSize:13,color:COLORS.textSecondary,paddingVertical:25},row:{flexDirection:'row',alignItems:'center',backgroundColor:COLORS.card,borderWidth:1,borderColor:COLORS.border,borderRadius:11,padding:13,marginBottom:8},dot:{width:10,height:10,borderRadius:5,backgroundColor:COLORS.gold,marginRight:12},copy:{flex:1},name:{fontSize:13,fontWeight:'800',color:COLORS.text},meta:{fontSize:10,color:COLORS.textMuted,marginTop:4},reward:{fontSize:12,fontWeight:'800',color:COLORS.success}});

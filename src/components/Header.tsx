@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { COLORS, useColors, useTheme } from '../theme/theme';
+import { useColors, useTheme } from '../theme/theme';
 
 interface HeaderProps {
   title?: string;
@@ -26,8 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const COLORS = useColors();
   const { isDark } = useTheme();
-  const styles = makeStyles(COLORS, isDark);
-  const iconColor = isDark ? '#FFFFFF' : COLORS.text;
+  const styles = makeStyles(COLORS);
+  const iconColor = COLORS.text;
 
   return (
     <View style={styles.headerContainer}>
@@ -93,12 +93,12 @@ export const Header: React.FC<HeaderProps> = ({
   );
 };
 
-const makeStyles = (COLORS: ReturnType<typeof useColors>, isDark: boolean) => StyleSheet.create({
+const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   headerSpacer: {
     width: 38,
   },
   headerContainer: {
-    backgroundColor: isDark ? COLORS.primaryDark : '#FFFFFF',
+    backgroundColor: COLORS.bg,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
@@ -106,7 +106,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>, isDark: boolean) => St
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : COLORS.border,
+    borderBottomColor: COLORS.border,
   },
   leftSection: {
     width: 40,
@@ -116,13 +116,13 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>, isDark: boolean) => St
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : COLORS.surface,
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   pressed: {
     opacity: 0.7,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : COLORS.border,
+    backgroundColor: COLORS.border,
   },
   titleSection: {
     flex: 1,
@@ -145,7 +145,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>, isDark: boolean) => St
     borderColor:COLORS.border,
   },
   brandText: {
-    color: isDark ? '#FFFFFF' : COLORS.text,
+    color: COLORS.text,
     fontWeight: '800',
     fontSize: 14,
     letterSpacing: 1.5,

@@ -57,9 +57,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           (tab.key === 'tours' && currentScreen === 'tour_detail');
 
         const iconName = isActive ? tab.iconActive : tab.iconInactive;
-        const iconColor = isActive
-          ? (isDark ? '#FFFFFF' : COLORS.primary)
-          : (isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted);
+        const iconColor = isActive ? COLORS.primary : COLORS.textMuted;
 
         return (
           <Pressable
@@ -95,9 +93,9 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
   StyleSheet.create({
     container: {
       flexDirection: 'row',
-      backgroundColor: isDark ? '#072421' : '#FFFFFF',
+      backgroundColor: COLORS.card,
       borderTopWidth: 1,
-      borderTopColor: isDark ? 'rgba(255, 255, 255, 0.1)' : COLORS.border,
+      borderTopColor: COLORS.border,
       paddingBottom: 18,
       paddingTop:2,
       paddingHorizontal: 8,
@@ -121,7 +119,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       borderRadius: 16,
     },
     activeIconWrapper: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : COLORS.primarySubtle,
+      backgroundColor: COLORS.primarySubtle,
     },
     tabLabel: {
       fontSize: 11,
@@ -129,11 +127,11 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontWeight: '600',
     },
     tabLabelActive: {
-      color: isDark ? '#FFFFFF' : COLORS.primary,
+      color: COLORS.primary,
       fontWeight: '800',
     },
     tabLabelInactive: {
-      color: isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted,
+      color: COLORS.textMuted,
     },
 
   });
