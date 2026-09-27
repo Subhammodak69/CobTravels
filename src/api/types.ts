@@ -26,7 +26,8 @@ export interface AuthUser {
   emergency_contact_mobile: string;
   profile_pic: string;
   source: string;
-  is_imported: boolean;
+  is_active: boolean;
+  is_imported?: boolean;
   customer_code: string;
   created_at: string;
   updated_at: string;

@@ -37,8 +37,7 @@ function extractTokens(data: any): { access?: string; refresh?: string } {
 
 export async function requestOtp(
   identifier: string,
-  purpose: CustomerOtpPurpose = 'LOGIN',
-  referralCode?: string
+  purpose: CustomerOtpPurpose = 'LOGIN'
 ): Promise<ApiEnvelope<OtpRequestData>> {
   return request<ApiEnvelope<OtpRequestData>>('/api/v1/auth/otp/request', {
     method: 'POST',
@@ -46,7 +45,6 @@ export async function requestOtp(
       identifier,
       purpose,
       visitor_id: await getAuthVisitorId(),
-      ...(referralCode ? { referral_code: referralCode } : {}),
     }),
   });
 }
@@ -66,7 +64,7 @@ export async function verifyOtp(
       name,
       purpose,
       visitor_id: await getAuthVisitorId(),
-      ...(referralCode ? { referral_code: referralCode } : {}),
+      referral_code: referralCode || '',
     }),
   });
   const t = extractTokens(r);
@@ -86,7 +84,7 @@ export async function googleAuth(
     body: JSON.stringify({
       id_token: idToken,
       visitor_id: await getAuthVisitorId(),
-      ...(referralCode ? { referral_code: referralCode } : {}),
+      referral_code: referralCode || '',
     }),
   });
   const t = extractTokens(r);
@@ -117,7 +115,7 @@ export async function logoutAllSessions(): Promise<ApiEnvelope<any>> {
 }
 
 export async function fetchMe(): Promise<ApiEnvelope<AuthUser>> {
-  return authenticated<ApiEnvelope<AuthUser>>('/api/v1/account/me');
+  return authenticated<ApiEnvelope<AuthUser>>('/api/v1/auth/me');
 }
 
 export async function updateMe(payload: Partial<AuthUser>): Promise<ApiEnvelope<AuthUser>> {
@@ -127,10 +125,26 @@ export async function updateMe(payload: Partial<AuthUser>): Promise<ApiEnvelope<
   });
 }
 
-export async function deleteAccount(payload: { identifier: string; otp: string }): Promise<ApiEnvelope<null>> {
+export async function deleteAccount(payload: {
+  identifier: string;
+  otp: string;
+  name?: string;
+  purpose?: CustomerOtpPurpose;
+  visitor_id?: string;
+  referral_code?: string;
+}): Promise<ApiEnvelope<null>> {
+  const { identifier, otp, name = '', purpose = 'LOGIN', visitor_id, referral_code = '' } = payload;
+  const visitorId = visitor_id || await getAuthVisitorId();
   return authenticated<ApiEnvelope<null>>('/api/v1/account/me', {
     method: 'DELETE',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      identifier,
+      otp,
+      name,
+      purpose,
+      ...(visitorId ? { visitor_id: visitorId } : {}),
+      referral_code,
+    }),
   });
 }
 

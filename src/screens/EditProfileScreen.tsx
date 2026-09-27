@@ -117,13 +117,14 @@ export const EditProfileScreen: React.FC<{
     try {
       const response = await updateMe({
         name: name.trim(),
+        mobile: user?.mobile || '',
         email: email.trim(),
         address: address.trim(),
         emergency_contact_name: emergencyName.trim(),
         emergency_contact_mobile: emergencyMobile.trim(),
         profile_pic: profilePic,
         source: 'WEBSITE',
-        is_imported: user?.is_imported ?? true,
+        is_active: user?.is_active ?? true,
       });
       if (response.data) {
         onSaved(response.data);

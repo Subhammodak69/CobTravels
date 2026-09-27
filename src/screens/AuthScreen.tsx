@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { useTheme } from '../theme/theme';
-import { NavScreen } from '../types';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { OtpRequestData, getStoredReferralCode, googleAuth, requestOtp, verifyOtp } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
@@ -23,11 +22,9 @@ const GOOGLE_CLIENT_ID_WEB = '61755144915-pj9o538ffi7dldtemnrlhj36pvenb3n9.apps.
 
 interface Props {
   onLoginSuccess: (identifier: string) => void;
-  onSkip: () => void;
-  onNavigate: (screen: NavScreen) => void;
 }
 
-export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
+export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const { colors: COLORS, isDark } = useTheme();
   const styles = makeStyles(COLORS, isDark);
   const { showDialog } = useAppDialog();
@@ -81,7 +78,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
     }
     setLoading(true);
     try {
-      const response = await requestOtp(value, mode, (await getStoredReferralCode()) || undefined);
+      const response = await requestOtp(value, mode);
       const otpData = response.data as OtpRequestData | undefined;
       setOtpSent(true);
       setOtp('');
@@ -337,31 +334,6 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, onSkip }) => {
           </Pressable>
         </View>
 
-        {/* Bottom Actions: Continue as Guest and Back button placed below the form */}
-        <View style={styles.bottomActions}>
-          <Pressable
-            onPress={onSkip}
-            style={({ pressed }) => [
-              styles.guestActionBtn,
-              pressed && styles.guestActionBtnPressed,
-            ]}
-            hitSlop={6}
-          >
-            <Text style={styles.guestActionIcon}>👋</Text>
-            <Text style={styles.guestActionText}>Continue as Guest</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onSkip}
-            style={({ pressed }) => [
-              styles.backActionBtn,
-              pressed && styles.backActionBtnPressed,
-            ]}
-            hitSlop={6}
-          >
-            <Text style={styles.backActionText}>← Go Back to Home</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -607,48 +579,5 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       color: isDark ? COLORS.gold : COLORS.primary,
       fontWeight: '800',
       textDecorationLine: 'underline',
-    },
-    bottomActions: {
-      width: '100%',
-      alignItems: 'center',
-      marginTop: 28,
-      gap: 12,
-    },
-    guestActionBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '100%',
-      paddingVertical: 13,
-      paddingHorizontal: 16,
-      borderRadius: 14,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : COLORS.surface,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : COLORS.border,
-    },
-    guestActionBtnPressed: {
-      opacity: 0.75,
-      transform: [{ scale: 0.99 }],
-    },
-    guestActionIcon: {
-      fontSize: 15,
-      marginRight: 8,
-    },
-    guestActionText: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: isDark ? COLORS.gold : COLORS.primary,
-    },
-    backActionBtn: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-    },
-    backActionBtnPressed: {
-      opacity: 0.65,
-    },
-    backActionText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted,
     },
   });

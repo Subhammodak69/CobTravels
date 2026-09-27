@@ -50,9 +50,21 @@ function AppInner() {
   const visitorSessionRef = React.useRef<string | null>(null);
   const visitorBootstrapRef = React.useRef(false);
   const identifiedCustomerRef = React.useRef<string | null>(null);
+  const isLoggedInRef = React.useRef(false);
+  const authResolvedRef = React.useRef(false);
   const [visitorReady, setVisitorReady] = useState(false);
 
+  const setRootScreen = React.useCallback((screen: NavScreen) => {
+    screenHistory.current = [screen];
+    currentScreenRef.current = screen;
+    setCurrentScreen(screen);
+  }, []);
+
   const navigateTo = React.useCallback((screen: NavScreen) => {
+    if (!isLoggedInRef.current && screen !== 'auth' && screen !== 'splash') {
+      setRootScreen('auth');
+      return;
+    }
     setCurrentScreen(previous => {
       if (previous !== screen) {
         screenHistory.current = [...screenHistory.current, screen];
@@ -62,10 +74,9 @@ function AppInner() {
   }, []);
 
   const finishSplash = React.useCallback(() => {
-    screenHistory.current = ['home'];
-    currentScreenRef.current = 'home';
-    setCurrentScreen('home');
-  }, []);
+    if (!authResolvedRef.current) return;
+    setRootScreen(isLoggedInRef.current ? 'home' : 'auth');
+  }, [setRootScreen]);
 
   const goBack = React.useCallback(() => {
     if (screenHistory.current.length <= 1) return false;
@@ -179,25 +190,32 @@ function AppInner() {
           const result = await fetchMe();
           const profile = result.data || null;
           customerId = profile?.id || '';
+          isLoggedInRef.current = Boolean(profile);
           setUser(profile);
           setIsLoggedIn(Boolean(profile));
           if (profile) await loadWishlist();
           setUserPhone(profile?.mobile || '');
           if (profile && mounted) {
             // A returning member should never be stopped at the guest splash screen.
-            screenHistory.current = ['home'];
-            currentScreenRef.current = 'home';
-            setCurrentScreen('home');
+            setRootScreen('home');
           }
-        } catch { setIsLoggedIn(false); setUser(null); }
+        } catch {
+          isLoggedInRef.current = false;
+          setIsLoggedIn(false);
+          setUser(null);
+        }
         await loadEnquiries();
       }
       if (customerId) identifiedCustomerRef.current = customerId;
       await identifyVisitor(customerId);
-      if (mounted) setVisitorReady(true);
+      if (mounted) {
+        authResolvedRef.current = true;
+        if (currentScreenRef.current === 'splash') finishSplash();
+        setVisitorReady(true);
+      }
     })();
     return () => { mounted = false; };
-  }, [loadTours, loadEnquiries, loadWishlist]);
+  }, [finishSplash, loadTours, loadEnquiries, loadWishlist, setRootScreen]);
 
   useEffect(() => {
     const processUrl = async (url: string | null | undefined) => {
@@ -291,6 +309,7 @@ function AppInner() {
 
   const handleLoginSuccess = async (phone: string) => {
     await AsyncStorage.removeItem(REFERRAL_CODE_KEY);
+    isLoggedInRef.current = true;
     setIsLoggedIn(true);
     setUserPhone(phone);
     await loadEnquiries();
@@ -306,13 +325,15 @@ function AppInner() {
       const { GoogleSignin } = require('@react-native-google-signin/google-signin');
       await GoogleSignin.signOut();
     } catch {}
+    isLoggedInRef.current = false;
     setIsLoggedIn(false);
     setUserPhone('');
     setUser(null);
     setSavedTours([]);
     setEnquiries([]);
     identifiedCustomerRef.current = null;
-    navigateTo('home');
+    setDrawerVisible(false);
+    setRootScreen('auth');
   };
 
   const protectedScreens: NavScreen[] = ['profile', 'profile_details', 'edit_profile', 'sessions', 'my_trips', 'my_enquiries', 'bills_invoices', 'documents', 'wishlist', 'referrals', 'notifications'];
@@ -386,8 +407,6 @@ function AppInner() {
         return (
           <AuthScreen
             onLoginSuccess={handleLoginSuccess}
-            onSkip={() => navigateTo('home')}
-            onNavigate={navigateTo}
           />
         );
 

@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
   ActivityIndicator,
+  Image,
   Modal,
   KeyboardAvoidingView,
   Platform,
@@ -176,7 +177,16 @@ export const ProfileScreen: React.FC<Props> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.avatar}>
-          <Feather name="user" size={28} color={COLORS.primary} />
+          {user?.profile_pic ? (
+            <Image
+              source={{ uri: user.profile_pic }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+              accessibilityLabel="Profile picture"
+            />
+          ) : (
+            <Feather name="user" size={28} color={COLORS.primary} />
+          )}
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{displayName}</Text>
@@ -383,6 +393,11 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 13,
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     headerCopy: { flex: 1, minWidth: 0 },
     name: { fontSize: 18, fontWeight: '900', color: COLORS.text },
