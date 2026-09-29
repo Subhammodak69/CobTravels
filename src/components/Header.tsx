@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
           <Image
-            source={require('../assets/gantabya-logo-transparent.png')}
+            source={require('../assets/gantabya-transparent.png')}
             style={styles.headerLogo}
             resizeMode="contain"
           />

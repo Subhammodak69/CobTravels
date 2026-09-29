@@ -273,7 +273,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         <View style={styles.heroSection}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/gantabya-logo-transparent.png')}
+              source={require('../assets/gantabya-transparent.png')}
               style={styles.brandLogo}
               resizeMode="contain"
             />
@@ -441,28 +441,28 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       height: 250,
       top: 18,
       left: -72,
-      backgroundColor: isDark ? 'rgba(39, 126, 255, 0.2)' : 'rgba(43, 191, 211, 0.38)',
+      backgroundColor: isDark ? 'rgba(26, 181, 190, 0.22)' : 'rgba(43, 191, 211, 0.38)',
     },
     bubbleTwo: {
       width: 210,
       height: 210,
       top: 74,
       right: -92,
-      backgroundColor: isDark ? 'rgba(198, 91, 255, 0.18)' : 'rgba(255, 153, 190, 0.32)',
+      backgroundColor: isDark ? 'rgba(137, 92, 236, 0.22)' : 'rgba(255, 153, 190, 0.32)',
     },
     bubbleThree: {
       width: 150,
       height: 150,
       top: 320,
       left: -64,
-      backgroundColor: isDark ? 'rgba(255, 190, 56, 0.15)' : 'rgba(255, 204, 92, 0.34)',
+      backgroundColor: isDark ? 'rgba(242, 140, 65, 0.18)' : 'rgba(255, 204, 92, 0.34)',
     },
     bubbleFour: {
       width: 260,
       height: 260,
       bottom: -142,
       right: -100,
-      backgroundColor: isDark ? 'rgba(64, 188, 255, 0.16)' : 'rgba(139, 149, 255, 0.28)',
+      backgroundColor: isDark ? 'rgba(41, 153, 210, 0.18)' : 'rgba(139, 149, 255, 0.28)',
     },
     scrollContent: {
       paddingHorizontal: 24,
@@ -587,13 +587,13 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontWeight: '800',
     },
     submitBtn: {
-      backgroundColor: isDark ? COLORS.gold : '#16BEC5',
+      backgroundColor: isDark ? '#26C6C9' : '#16BEC5',
       borderRadius: 13,
       paddingVertical: 14,
       alignItems: 'center',
       marginTop: 8,
       elevation: 3,
-      shadowColor: isDark ? COLORS.gold : '#16BEC5',
+      shadowColor: isDark ? '#26C6C9' : '#16BEC5',
       shadowOpacity: 0.3,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
@@ -606,7 +606,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       transform: [{ scale: 0.99 }],
     },
     submitBtnText: {
-      color: isDark ? COLORS.primaryDark : '#FFFFFF',
+      color: isDark ? '#062B31' : '#FFFFFF',
       fontSize: 14,
       fontWeight: '900',
       letterSpacing: 0.2,
