@@ -128,7 +128,13 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     setReviewEligibilityLoading(true);
     fetchReviewEligibility(reviewSlug)
       .then(result => {
-        if (active) setReviewEligibility(result);
+        if (active) {
+          setReviewEligibility(result);
+          if (result?.has_reviewed && result?.review) {
+            setReviewRating(result.review.rating || 5);
+            setReviewText(result.review.review || '');
+          }
+        }
       })
       .catch(() => {
         if (active) setReviewEligibility(null);
@@ -207,8 +213,8 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   };
 
   const handleReviewSubmit = async () => {
-    if (reviewEligibility && !reviewEligibility.can_review && !reviewEligibility.has_reviewed) {
-      setReviewMessage('You need to complete this journey to write a verified review.');
+    if (!reviewEligibility?.can_review) {
+      setReviewMessage(reviewEligibility?.has_reviewed ? 'You have already submitted a review for this journey.' : 'You need to complete this journey to write a verified review.');
       return;
     }
     if (!reviewText.trim()) { setReviewMessage('Please write a short review first.'); return; }
@@ -606,9 +612,29 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
                 <Text style={styles.reviewSecondaryText}>Sign in</Text>
               </Pressable>
             </View>
-          ) : reviewEligibility !== null && !reviewEligibility.can_review && !reviewEligibility.has_reviewed ? (
+          ) : reviewEligibility?.has_reviewed ? (
+            <View style={styles.reviewState}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Text style={{ fontSize: 16 }}>✅</Text>
+                <Text style={[styles.reviewStateText, { fontWeight: '700', color: COLORS.success }]}>
+                  You have reviewed this tour
+                </Text>
+              </View>
+              {reviewEligibility.review?.review ? (
+                <Text style={[styles.reviewBody, { marginTop: 4, fontStyle: 'italic' }]}>
+                  “{reviewEligibility.review.review}”
+                </Text>
+              ) : null}
+              <Text style={[styles.reviewStateText, { marginTop: 4, fontSize: 12 }]}>
+                Thank you for sharing your verified experience!
+              </Text>
+            </View>
+          ) : !reviewEligibility?.can_review ? (
             <View style={styles.reviewState}>
               <Text style={styles.reviewStateText}>You need to complete this journey to write a verified review.</Text>
+              <Text style={[styles.reviewStateText, { fontSize: 11, color: COLORS.textMuted, marginTop: 4 }]}>
+                Reviews can be submitted once your tour package booking has been completed.
+              </Text>
             </View>
           ) : (
           <View style={styles.reviewForm}>
@@ -1086,6 +1112,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   seasonChip: {
     padding: 12,
     borderRadius: 10,
+    maxWidth: 200,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
