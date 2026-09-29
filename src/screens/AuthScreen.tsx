@@ -273,7 +273,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         <View style={styles.heroSection}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/gantabya-auth-header.png')}
+              source={require('../assets/gantabya-logo-transparent.png')}
               style={styles.brandLogo}
               resizeMode="contain"
             />

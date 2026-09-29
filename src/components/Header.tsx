@@ -53,7 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
           <Image
-            source={require('../assets/gantabya-logo.jpg')}
+            source={require('../assets/gantabya-logo-transparent.png')}
             style={styles.headerLogo}
             resizeMode="contain"
           />
@@ -138,10 +138,7 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   headerLogo: {
     width: 40,
     height: 40,
-    borderRadius: 50,
     marginRight: 10,
-    borderWidth:1,
-    borderColor:COLORS.border,
   },
   brandText: {
     color: COLORS.text,

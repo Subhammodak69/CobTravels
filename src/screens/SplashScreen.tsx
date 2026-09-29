@@ -53,12 +53,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           },
         ]}
       >
-        {/* Official Logo Badge */}
+        {/* Match the transparent logo lockup used on the auth screen. */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/gantabya-logo.jpg')}
-              style={styles.logoImage}
+              source={require('../assets/gantabya-logo-transparent.png')}
+              style={styles.brandLogo}
               resizeMode="contain"
             />
           </View>
@@ -143,25 +143,20 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFFFFF',
-    padding: 6,
+    width: 208,
+    height: 194,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    padding: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.gold,
+    marginBottom: 2,
+    overflow: 'visible',
   },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 45,
+  brandLogo: {
+    width: 208,
+    height: 194,
+    borderRadius: 0,
   },
   brandTitle: {
     fontSize: 32,
