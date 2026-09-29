@@ -659,7 +659,7 @@ function AppInner() {
     }
     if (currentScreen === 'auth') {
       return {
-        bg: colorScheme === 'dark' ? appColors.primaryDark : '#FFFFFF',
+        bg: colorScheme === 'dark' ? appColors.primaryDark : '#EAFBFB',
         barStyle: colorScheme === 'dark' ? 'light-content' : 'dark-content',
       };
     }

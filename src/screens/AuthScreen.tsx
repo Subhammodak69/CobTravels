@@ -4,6 +4,7 @@ import {
   Animated,
   Image,
   Easing,
+  StatusBar,
   View,
   Pressable,
   ScrollView,
@@ -12,6 +13,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useTheme } from '../theme/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { OtpRequestData, getStoredReferralCode, googleAuth, requestOtp, verifyOtp } from '../api/tourApi';
 import { showApiError } from '../utils/toast';
@@ -27,6 +29,7 @@ interface Props {
 export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const { colors: COLORS, isDark } = useTheme();
   const styles = makeStyles(COLORS, isDark);
+  const insets = useSafeAreaInsets();
   const { showDialog } = useAppDialog();
   const [mode, setMode] = useState<AuthMode>('LOGIN');
   const bubbleOne = useRef(new Animated.Value(0)).current;
@@ -86,6 +89,14 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
     return () => animations.forEach(animation => animation.stop());
   }, [bubbleFour, bubbleOne, bubbleThree, bubbleTwo]);
 
+  useEffect(() => {
+    const statusBar = StatusBar as typeof StatusBar & {
+      setBackgroundColor?: (color: string, animated?: boolean) => void;
+    };
+    statusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+    statusBar.setBackgroundColor?.(isDark ? COLORS.primaryDark : '#EAFBFB', true);
+  }, [COLORS.primaryDark, isDark]);
+
   const changeMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setOtpSent(false);
@@ -96,11 +107,10 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const sendOtp = async () => {
     const value = identifier.trim();
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    const looksLikeMobile = value.replace(/\D/g, '').length >= 10;
-    if (!looksLikeEmail && !looksLikeMobile) {
+    if (!looksLikeEmail) {
       await showDialog({
-        title: 'Invalid Identifier',
-        message: 'Please enter a valid 10-digit mobile number or email address.',
+        title: 'Invalid Email',
+        message: 'Please enter a valid email address.',
         variant: 'warning',
       });
       return;
@@ -197,6 +207,9 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
 
   return (
     <View style={styles.container}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+      />
       {/* Soft multicolored bubbles animate behind the working form. */}
       <View pointerEvents="none" style={styles.bubbleBackdrop}>
         <Animated.View
@@ -252,7 +265,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         />
       </View>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -260,7 +273,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         <View style={styles.heroSection}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/gantabya-logo.jpg')}
+              source={require('../assets/gantabya-auth-header.png')}
               style={styles.brandLogo}
               resizeMode="contain"
             />
@@ -278,25 +291,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
           </Text>
         </View>
 
-        {/* Tab switchers: Sign In / Sign Up */}
-        <View style={styles.tabContainer}>
-          {(['LOGIN', 'SIGNUP'] as AuthMode[]).map(tabKey => {
-            const isActive = mode === tabKey;
-            return (
-              <Pressable
-                key={tabKey}
-                style={[styles.tabBtn, isActive && styles.activeTabBtn]}
-                onPress={() => changeMode(tabKey)}
-              >
-                <Text style={[styles.tabBtnText, isActive && styles.activeTabBtnText]}>
-                  {tabKey === 'LOGIN' ? 'Sign In' : 'Sign Up'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Card Form */}
+        {/* Functional form: intentionally kept outside a card for a cleaner production layout. */}
         <View style={styles.card}>
           {hasReferral && (
             <View style={styles.referralNotice} accessibilityRole="text">
@@ -320,14 +315,12 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
           )}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              {mode === 'SIGNUP' ? 'MOBILE OR EMAIL *' : 'MOBILE NUMBER OR EMAIL *'}
-            </Text>
+            <Text style={styles.label}>EMAIL ADDRESS *</Text>
             <TextInput
               style={[styles.input, otpSent && styles.inputDisabled]}
               value={identifier}
               onChangeText={setIdentifier}
-              placeholder="e.g. 9876543210 or name@example.com"
+              placeholder="name@example.com"
               placeholderTextColor={COLORS.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -446,7 +439,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     bubbleOne: {
       width: 250,
       height: 250,
-      top: -110,
+      top: 18,
       left: -72,
       backgroundColor: isDark ? 'rgba(39, 126, 255, 0.2)' : 'rgba(43, 191, 211, 0.38)',
     },
@@ -472,102 +465,64 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       backgroundColor: isDark ? 'rgba(64, 188, 255, 0.16)' : 'rgba(139, 149, 255, 0.28)',
     },
     scrollContent: {
-      paddingHorizontal: 20,
-      paddingTop: 28,
-      paddingBottom: 40,
-      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 38,
+      paddingBottom: 36,
+      alignItems: 'stretch',
     },
     heroSection: {
       alignItems: 'center',
-      marginBottom: 18,
+      marginBottom: 26,
       maxWidth: 350,
+      alignSelf: 'center',
     },
     logoCircle: {
-      width: 118,
-      height: 118,
+      width: 208,
+      height: 194,
       borderRadius: 0,
       backgroundColor: 'transparent',
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 0,
-      marginBottom: 6,
+      marginBottom: 2,
       overflow: 'visible',
     },
     brandLogo: {
-      width: 118,
-      height: 118,
-      borderRadius: 59,
+      width: 208,
+      height: 194,
+      borderRadius: 0,
     },
     brandTitle: {
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: '900',
       color: isDark ? COLORS.gold : '#0E8D98',
       letterSpacing: 2,
-      marginBottom: 7,
+      marginBottom: 9,
     },
     title: {
-      fontSize: 24,
+      fontSize: 26,
       fontWeight: '900',
       color: isDark ? '#FFFFFF' : COLORS.text,
       letterSpacing: -0.4,
-      lineHeight: 30,
+      lineHeight: 32,
       textAlign: 'center',
     },
     subtitle: {
-      fontSize: 13,
+      fontSize: 14,
       color: isDark ? 'rgba(255, 255, 255, 0.72)' : COLORS.textSecondary,
       textAlign: 'center',
-      lineHeight: 18,
-      marginTop: 7,
-      maxWidth: 320,
-    },
-    tabContainer: {
-      flexDirection: 'row',
-      width: '100%',
-      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.72)',
-      borderRadius: 16,
-      padding: 5,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D5F0F1',
-    },
-    tabBtn: {
-      flex: 1,
-      paddingVertical: 11,
-      alignItems: 'center',
-      borderRadius: 12,
-    },
-    activeTabBtn: {
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.16)' : '#FFFFFF',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#C4EAEC',
-      elevation: isDark ? 0 : 2,
-      shadowColor: '#000',
-      shadowOpacity: isDark ? 0 : 0.06,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 2 },
-    },
-    tabBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted,
-    },
-    activeTabBtnText: {
-      color: isDark ? '#FFFFFF' : '#0E9DA5',
-      fontWeight: '900',
+      lineHeight: 20,
+      marginTop: 8,
+      maxWidth: 340,
     },
     card: {
       width: '100%',
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FFFFFF',
-      borderRadius: 24,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#D9F0F1',
-      elevation: isDark ? 6 : 3,
-      shadowColor: '#000',
-      shadowOpacity: isDark ? 0.25 : 0.08,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 7 },
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      padding: 0,
+      borderWidth: 0,
+      elevation: 0,
+      shadowOpacity: 0,
     },
     inputGroup: {
       marginBottom: 14,
