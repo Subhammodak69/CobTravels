@@ -41,6 +41,7 @@ export function createNotificationSocket(
 
   const url = `${BASE_API.replace(/^http/, 'ws')}/api/v1/notifications/ws?token=${encodeURIComponent(token)}`;
   const socket = new WebSocket(url);
+  socket.onerror = () => {};
   socket.onmessage = event => {
     try {
       onMessage(JSON.parse(event.data));

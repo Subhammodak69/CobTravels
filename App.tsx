@@ -12,7 +12,7 @@ import {
   NavScreen,
   TravelDocument,
 } from './src/types';
-import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
+import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, getTrackedVisitorId, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
 import { createNotificationSocket, createVisitorSocket } from './src/realtime/socket';
 
 // Components
@@ -264,12 +264,28 @@ function AppInner() {
         return;
       }
       realtimeSocketRef.current = visitorSocket;
+      const trackedVid = await getTrackedVisitorId();
       visitorSocket.on('connect', () => {
         visitorSocket.emit('visitor_identify', {
+          visitor_id: trackedVid || undefined,
           customer_id: user?.id || undefined,
           page: currentScreenRef.current,
           current_url: currentScreenRef.current,
         });
+      });
+      visitorSocket.on('notification.created', (item: any) => {
+        if (!item?.id) return;
+        setNotifications(previous => [{
+          id: item.id,
+          title: item.title,
+          message: item.message,
+          type: (['OFFER', 'TOUR', 'SYSTEM', 'REMINDER'].includes(item.notification_type)
+            ? item.notification_type
+            : 'SYSTEM') as NotificationItem['type'],
+          timestamp: item.created_at || new Date().toISOString(),
+          read: Boolean(item.is_read),
+          actionSlug: item.data?.slug || item.data?.tour_slug || undefined,
+        }, ...previous.filter(existing => existing.id !== item.id)]);
       });
       visitorSocket.on('connect_error', error => {
         console.warn('Realtime connection failed:', error?.message || error);
