@@ -10,6 +10,7 @@ import {
   RefreshControl,
   TextInput,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useColors } from '../theme/theme';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
@@ -36,6 +37,22 @@ interface TourDetailScreenProps {
   onToggleSave?: () => void;
   isLoggedIn: boolean;
 }
+
+const formatDepartureDate = (val?: string) => {
+  if (!val) return 'N/A';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return val;
+    return d.toLocaleDateString('en-IN', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return val;
+  }
+};
 
 export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   slug,
@@ -445,25 +462,63 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Upcoming Departures</Text>
             <Text style={styles.sectionSubtitle}>
-              Tap to select your preferred departure date:
+              Tap any date to check seat availability & details:
             </Text>
 
-            <View style={styles.datesGrid}>
+            <View style={styles.datesList}>
               {activeSeason.dates.map((d, i) => {
-                const isSelected = selectedDate === d.date;
+                const dateVal = d.departure_date || d.date || '';
+                const isSelected = selectedDate === dateVal || selectedDate === d.date;
+                const hasSeats = d.available_seats !== undefined && d.available_seats !== null;
+                const isSoldOut = hasSeats && (d.available_seats as number) <= 0;
+                const isFewSeats = hasSeats && (d.available_seats as number) > 0 && (d.available_seats as number) <= 5;
+
                 return (
                   <Pressable
                     key={d.id || i}
-                    onPress={() => setSelectedDate(d.date)}
+                    onPress={() => {
+                      setSelectedDate(dateVal);
+                      setSelectedDateDetail(d);
+                      setDateModalVisible(true);
+                    }}
                     style={[
-                      styles.dateChip,
-                      isSelected && styles.dateChipSelected,
+                      styles.dateRowCard,
+                      isSelected && styles.dateRowCardSelected,
                     ]}
                   >
-                    <Text style={[styles.dateChipText, isSelected && styles.dateChipTextSelected]}>
-                      📅 {d.date}
-                    </Text>
-                    {isSelected && <Text style={styles.selectedCheck}>✓</Text>}
+                    <View style={styles.dateCardLeft}>
+                      <View style={[styles.dateCalIconBox, isSelected && styles.dateCalIconBoxSelected]}>
+                        <Text style={styles.dateCalEmoji}>📅</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.dateCardTitle, isSelected && styles.dateCardTitleSelected]}>
+                          {dateVal}
+                        </Text>
+                        {Boolean(d.return_date) && (
+                          <Text style={styles.dateCardReturn}>Return: {d.return_date}</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    <View style={styles.dateCardRight}>
+                      {hasSeats ? (
+                        <View style={[
+                          styles.seatStatusBadge,
+                          isSoldOut ? styles.seatBadgeSoldOut : isFewSeats ? styles.seatBadgeFew : styles.seatBadgeAvailable,
+                        ]}>
+                          <Text style={[
+                            styles.seatStatusText,
+                            isSoldOut ? styles.seatTextSoldOut : isFewSeats ? styles.seatTextFew : styles.seatTextAvailable,
+                          ]}>
+                            {isSoldOut ? 'Sold Out' : isFewSeats ? `${d.available_seats} Left` : `${d.available_seats} Seats`}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.checkSeatsBadge}>
+                          <Text style={styles.checkSeatsText}>Check Seats →</Text>
+                        </View>
+                      )}
+                    </View>
                   </Pressable>
                 );
               })}
@@ -643,6 +698,165 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
           onClose={() => setSelectedMedia(null)}
         />
       )}
+      {/* Departure Date Detail Modal matching Web App */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={dateModalVisible && !!selectedDateDetail}
+        onRequestClose={() => setDateModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setDateModalVisible(false)}
+        >
+          <Pressable
+            style={styles.modalSheet}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Top Sheet Handle */}
+            <View style={styles.modalHandle} />
+
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalCalIcon}>
+                <Text style={styles.modalCalIconText}>📅</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalHeaderLabel}>Departure Information</Text>
+                <Text style={styles.modalHeaderTitle} numberOfLines={2}>
+                  {tour?.title || 'Tour Package'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setDateModalVisible(false)}
+                style={styles.modalCloseBtn}
+                hitSlop={12}
+              >
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Date Cards */}
+            {selectedDateDetail && (
+              <>
+                <View style={styles.modalDateRow}>
+                  <View style={styles.modalDateCard}>
+                    <Text style={styles.modalDateLabel}>Departure Date</Text>
+                    <Text style={styles.modalDateValue}>
+                      {formatDepartureDate(selectedDateDetail.departure_date || selectedDateDetail.date)}
+                    </Text>
+                  </View>
+                  <View style={styles.modalDateCard}>
+                    <Text style={styles.modalDateLabel}>Return Date</Text>
+                    <Text style={styles.modalDateValue}>
+                      {formatDepartureDate(selectedDateDetail.return_date)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Seat Availability Card */}
+                {(() => {
+                  const totalSeats = selectedDateDetail.total_seats != null ? Number(selectedDateDetail.total_seats) : null;
+                  const availableSeats = selectedDateDetail.available_seats != null ? Number(selectedDateDetail.available_seats) : null;
+                  const bookedSeats = totalSeats !== null && availableSeats !== null ? Math.max(0, totalSeats - availableSeats) : null;
+                  const occupancyPercent =
+                    totalSeats && totalSeats > 0 && availableSeats !== null
+                      ? Math.min(100, Math.round(((totalSeats - availableSeats) / totalSeats) * 100))
+                      : null;
+                  const isSoldOut = availableSeats !== null && availableSeats <= 0;
+                  const isFewSeats = availableSeats !== null && availableSeats > 0 && availableSeats <= 5;
+
+                  return (
+                    <View style={styles.modalSeatCard}>
+                      <View style={styles.modalSeatHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 16 }}>👥</Text>
+                          <Text style={styles.modalSeatTitle}>Seat Availability</Text>
+                        </View>
+                        <View style={[
+                          styles.seatPill,
+                          isSoldOut ? styles.seatPillSoldOut : isFewSeats ? styles.seatPillFew : styles.seatPillOk,
+                        ]}>
+                          <Text style={[
+                            styles.seatPillText,
+                            isSoldOut ? styles.seatPillTextSoldOut : isFewSeats ? styles.seatPillTextFew : styles.seatPillOk,
+                          ]}>
+                            {isSoldOut ? 'Sold Out' : isFewSeats ? 'Few Seats Left' : 'Available'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.modalSeatCountRow}>
+                        <View style={styles.modalSeatCountCard}>
+                          <Text style={styles.modalSeatCountLabel}>Available Seats</Text>
+                          <Text style={[
+                            styles.modalSeatCountValue,
+                            isSoldOut ? { color: COLORS.danger } : isFewSeats ? { color: COLORS.warning } : { color: COLORS.success },
+                          ]}>
+                            {availableSeats !== null ? availableSeats : 'Open'}
+                          </Text>
+                        </View>
+                        <View style={styles.modalSeatCountCard}>
+                          <Text style={styles.modalSeatCountLabel}>Total Seats</Text>
+                          <Text style={[styles.modalSeatCountValue, { color: COLORS.text }]}>
+                            {totalSeats !== null ? totalSeats : '20+'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {occupancyPercent !== null && bookedSeats !== null && (
+                        <View style={{ marginTop: 12 }}>
+                          <View style={styles.progressLabelRow}>
+                            <Text style={styles.progressLabel}>{bookedSeats} booked</Text>
+                            <Text style={styles.progressLabel}>{occupancyPercent}% filled</Text>
+                          </View>
+                          <View style={styles.progressTrack}>
+                            <View style={[
+                              styles.progressFill,
+                              {
+                                width: (occupancyPercent + '%'),
+                                backgroundColor: occupancyPercent >= 90 ? COLORS.danger : occupancyPercent >= 60 ? COLORS.warning : COLORS.primary,
+                              }
+                            ]} />
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* Modal Action Buttons */}
+                <View style={styles.modalActions}>
+                  <Pressable
+                    style={styles.modalCloseAction}
+                    onPress={() => setDateModalVisible(false)}
+                  >
+                    <Text style={styles.modalCloseActionText}>Close</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.modalEnquireAction}
+                    onPress={() => {
+                      const chosenDate = selectedDateDetail.departure_date || selectedDateDetail.date || '';
+                      setSelectedDate(chosenDate);
+                      setDateModalVisible(false);
+                      onStartEnquiry({
+                        tourSlug: tour?.slug || slug,
+                        tourTitle: tour?.title || '',
+                        variantName: activeSeason?.name || '',
+                        variantId: activeSeason?.id || '',
+                        destinationId: (tour as any)?.destination_id || '',
+                        travelDate: chosenDate,
+                      });
+                    }}
+                  >
+                    <Text style={styles.modalEnquireActionText}>Book / Enquire Date →</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1335,5 +1549,330 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
+  },
+  // ── Departure Dates List & Modal Styles ──
+  datesList: {
+    gap: 8,
+    marginTop: 4,
+  },
+  dateRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dateRowCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySubtle,
+  },
+  dateCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  dateCalIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  dateCalIconBoxSelected: {
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.primary,
+  },
+  dateCalEmoji: {
+    fontSize: 16,
+  },
+  dateCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  dateCardTitleSelected: {
+    color: COLORS.primary,
+    fontWeight: '800',
+  },
+  dateCardReturn: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  dateCardRight: {
+    marginLeft: 8,
+  },
+  seatStatusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  seatBadgeSoldOut: {
+    backgroundColor: '#FEE2E2',
+  },
+  seatBadgeFew: {
+    backgroundColor: '#FEF3C7',
+  },
+  seatBadgeAvailable: {
+    backgroundColor: '#D1FAE5',
+  },
+  seatStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  seatTextSoldOut: {
+    color: '#DC2626',
+  },
+  seatTextFew: {
+    color: '#B45309',
+  },
+  seatTextAvailable: {
+    color: '#059669',
+  },
+  checkSeatsBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  checkSeatsText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 15, 26, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 20,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.border,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalCalIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCalIconText: {
+    fontSize: 22,
+  },
+  modalHeaderLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  modalHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+  },
+  modalDateRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  modalDateCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+  },
+  modalDateLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  modalDateValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+    lineHeight: 17,
+  },
+  modalSeatCard: {
+    backgroundColor: COLORS.primarySubtle,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    marginBottom: 16,
+  },
+  modalSeatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalSeatTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  seatPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  seatPillSoldOut: {
+    backgroundColor: '#FEE2E2',
+  },
+  seatPillFew: {
+    backgroundColor: '#FEF3C7',
+  },
+  seatPillOk: {
+    backgroundColor: '#D1FAE5',
+  },
+  seatPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  seatPillTextSoldOut: {
+    color: '#DC2626',
+  },
+  seatPillTextFew: {
+    color: '#B45309',
+  },
+  seatPillTextOk: {
+    color: '#059669',
+  },
+  modalSeatCountRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalSeatCountCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  modalSeatCountLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  modalSeatCountValue: {
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  progressLabel: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  progressTrack: {
+    height: 7,
+    backgroundColor: COLORS.border,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalCloseAction: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+  },
+  modalCloseActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  modalEnquireAction: {
+    flex: 1.6,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalEnquireActionText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
