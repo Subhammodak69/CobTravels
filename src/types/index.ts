@@ -11,6 +11,10 @@ export interface Highlight {
 export interface DepartureDate {
   id: string;
   date: string;
+  departure_date?: string;
+  return_date?: string;
+  total_seats?: number;
+  available_seats?: number;
 }
 
 export interface GalleryPhoto {

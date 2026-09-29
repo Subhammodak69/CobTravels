@@ -58,6 +58,8 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     '1': true,
   });
   const [selectedMedia, setSelectedMedia] = useState<MediaSelection | null>(null);
+  const [selectedDateDetail, setSelectedDateDetail] = useState<any | null>(null);
+  const [dateModalVisible, setDateModalVisible] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState<number>(0);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewText, setReviewText] = useState('');

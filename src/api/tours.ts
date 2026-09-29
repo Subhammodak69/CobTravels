@@ -47,7 +47,11 @@ function formatVariant(v: any, i = 0): SeasonVariant {
     highlights: v.highlights || [],
     dates: (v.departure_dates || v.dates || []).map((x: any) => ({
       id: String(x.id || ''),
-      date: x.date || x.departure_date || '',
+      date: x.departure_date || x.date || '',
+      departure_date: x.departure_date || x.date || '',
+      return_date: x.return_date || '',
+      total_seats: x.total_seats != null ? Number(x.total_seats) : undefined,
+      available_seats: x.available_seats != null ? Number(x.available_seats) : undefined,
     })),
     gallery: (v.gallery || []).map((x: any) => ({
       id: String(x.id || ''),
