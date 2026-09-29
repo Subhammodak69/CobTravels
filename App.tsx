@@ -693,7 +693,7 @@ function AppInner() {
 
         {showHeader && (
           <Header
-            title="COOCHBEHAR TRAVEL"
+            title="GANTABYA"
             showBack={currentScreen !== 'home'}
             onBack={goBack}
             onOpenMenu={() => setDrawerVisible(v => !v)}

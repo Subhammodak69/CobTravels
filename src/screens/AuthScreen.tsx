@@ -167,12 +167,12 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
         <View style={styles.heroSection}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/logo.jpg')}
+              source={require('../assets/gantabya-logo.jpg')}
               style={styles.brandLogo}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.brandTitle}>COOCHBEHAR TRAVELS</Text>
+          <Text style={styles.brandTitle}>GANTABYA</Text>
           <Text style={styles.title}>
             {mode === 'LOGIN' ? 'Welcome Back' : 'Create Account'}
           </Text>

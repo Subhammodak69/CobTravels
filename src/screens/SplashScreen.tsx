@@ -57,13 +57,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
             <Image
-              source={require('../assets/logo.jpg')}
+              source={require('../assets/gantabya-logo.jpg')}
               style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.brandTitle}>COOCHBEHAR</Text>
-          <Text style={styles.brandSubtitle}>TRAVELS</Text>
+          <Text style={styles.brandTitle}>GANTABYA</Text>
+          <Text style={styles.brandSubtitle}>TRAVEL</Text>
           <View style={styles.goldLine} />
           <Text style={styles.tagline}>Explore the World with Us</Text>
         </View>

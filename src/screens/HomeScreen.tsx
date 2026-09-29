@@ -192,7 +192,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               style={styles.customWhatsappBtn}
               onPress={() =>
                 openWhatsAppChat(
-                  'Hello Coochbehar Travel, I am interested in planning a customized group trip!'
+                  'Hello Gantabya, I am interested in planning a customized group trip!'
                 )
               }
             >
@@ -260,7 +260,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ))}
       </View>
 
-      {/* Why Choose Coochbehar Travel */}
+      {/* Why Choose Gantabya */}
       <View style={styles.whySection}>
         <Text style={styles.whyEyebrow}>WHY CHOOSE US</Text>
         <Text style={styles.whyTitle}>Travel with Confidence</Text>
@@ -316,7 +316,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.reviewCard}>
             <Text style={styles.reviewStars}>★★★★★</Text>
             <Text style={styles.reviewQuote}>
-              “One of our best family trips. Coochbehar Travels provided delicious meals and 4-star stays throughout.”
+              “One of our best family trips. Gantabya provided delicious meals and 4-star stays throughout.”
             </Text>
             <Text style={styles.reviewerName}>Rahul Verma · Cooch Behar</Text>
           </View>

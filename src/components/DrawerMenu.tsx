@@ -216,7 +216,7 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
             onPress={() => {
               onClose();
               openWhatsAppChat(
-                'Hello Coochbehar Travel, I would like to inquire about your holiday tour packages!'
+                'Hello Gantabya, I would like to inquire about your holiday tour packages!'
               );
             }}
           >

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useColors, useTheme } from '../theme/theme';
+import { useColors } from '../theme/theme';
 
 interface HeaderProps {
   title?: string;
@@ -15,7 +15,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  title = 'COOCHBEHAR TRAVEL',
+  title = 'GANTABYA',
   showBack = false,
   onBack,
   onOpenMenu,
@@ -25,7 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   rightAction,
 }) => {
   const COLORS = useColors();
-  const { isDark } = useTheme();
   const styles = makeStyles(COLORS);
   const iconColor = COLORS.text;
 
@@ -54,9 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
       <View style={styles.titleSection}>
         <View style={styles.brandRow}>
           <Image
-            source={isDark ? require('../assets/logo_dark.jpg') :  require('../assets/logo.jpg')}
+            source={require('../assets/gantabya-logo.jpg')}
             style={styles.headerLogo}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </View>
         <View>

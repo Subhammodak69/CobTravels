@@ -187,7 +187,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
     try {
       await Share.share({
         title: tour.title,
-        message: `Check out ${tour.title} with Coochbehar Travels starting from ₹${activeSeason?.price?.toLocaleString('en-IN') || tour.seasons[0]?.price}!\nDetails: https://coochbehar-travels.onrender.com/api/v1/tour-packages/${tour.slug}`,
+        message: `Check out ${tour.title} with Gantabya starting from ₹${activeSeason?.price?.toLocaleString('en-IN') || tour.seasons[0]?.price}!\nDetails: https://coochbehar-travels.onrender.com/api/v1/tour-packages/${tour.slug}`,
       });
     } catch {
       // share canceled
@@ -196,7 +196,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
 
   const handleWhatsAppInquiry = () => {
     if (!tour || !activeSeason) return;
-    const msg = `Hello Coochbehar Travel, I am interested in:\n- Tour: ${tour.title} (${tour.tour_code})\n- Season / Package: ${activeSeason.name}\n- Preferred Date: ${selectedDate || 'Upcoming departure'}\n- Duration: ${activeSeason.duration}\n- Quoted Price: ₹${activeSeason.price?.toLocaleString('en-IN')}\n\nPlease share booking details and seat availability!`;
+    const msg = `Hello Gantabya, I am interested in:\n- Tour: ${tour.title} (${tour.tour_code})\n- Season / Package: ${activeSeason.name}\n- Preferred Date: ${selectedDate || 'Upcoming departure'}\n- Duration: ${activeSeason.duration}\n- Quoted Price: ₹${activeSeason.price?.toLocaleString('en-IN')}\n\nPlease share booking details and seat availability!`;
     openWhatsAppChat(msg);
   };
 
