@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
+  Easing,
   View,
   Pressable,
   ScrollView,
@@ -27,6 +29,10 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
   const styles = makeStyles(COLORS, isDark);
   const { showDialog } = useAppDialog();
   const [mode, setMode] = useState<AuthMode>('LOGIN');
+  const bubbleOne = useRef(new Animated.Value(0)).current;
+  const bubbleTwo = useRef(new Animated.Value(0)).current;
+  const bubbleThree = useRef(new Animated.Value(0)).current;
+  const bubbleFour = useRef(new Animated.Value(0)).current;
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
@@ -46,6 +52,39 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
     const timer = setInterval(() => setExpiresIn(value => value - 1), 1000);
     return () => clearInterval(timer);
   }, [otpSent, expiresIn]);
+
+  useEffect(() => {
+    const animateBubble = (value: Animated.Value, duration: number, delay: number) => {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(value, {
+            toValue: 1,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: 0,
+            duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      loop.start();
+      return loop;
+    };
+
+    const animations = [
+      animateBubble(bubbleOne, 6200, 0),
+      animateBubble(bubbleTwo, 7100, 700),
+      animateBubble(bubbleThree, 5600, 1100),
+      animateBubble(bubbleFour, 7600, 400),
+    ];
+
+    return () => animations.forEach(animation => animation.stop());
+  }, [bubbleFour, bubbleOne, bubbleThree, bubbleTwo]);
 
   const changeMode = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -158,6 +197,60 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
 
   return (
     <View style={styles.container}>
+      {/* Soft multicolored bubbles animate behind the working form. */}
+      <View pointerEvents="none" style={styles.bubbleBackdrop}>
+        <Animated.View
+          style={[
+            styles.bubble,
+            styles.bubbleOne,
+            {
+              transform: [
+                { translateY: bubbleOne.interpolate({ inputRange: [0, 1], outputRange: [0, 22] }) },
+                { translateX: bubbleOne.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) },
+                { scale: bubbleOne.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            styles.bubbleTwo,
+            {
+              transform: [
+                { translateY: bubbleTwo.interpolate({ inputRange: [0, 1], outputRange: [0, -28] }) },
+                { translateX: bubbleTwo.interpolate({ inputRange: [0, 1], outputRange: [0, -18] }) },
+                { scale: bubbleTwo.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] }) },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            styles.bubbleThree,
+            {
+              transform: [
+                { translateY: bubbleThree.interpolate({ inputRange: [0, 1], outputRange: [0, -20] }) },
+                { translateX: bubbleThree.interpolate({ inputRange: [0, 1], outputRange: [0, 22] }) },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.bubble,
+            styles.bubbleFour,
+            {
+              transform: [
+                { translateY: bubbleFour.interpolate({ inputRange: [0, 1], outputRange: [0, -24] }) },
+                { translateX: bubbleFour.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) },
+                { scale: bubbleFour.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) },
+              ],
+            },
+          ]}
+        />
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -174,12 +267,14 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess }) => {
           </View>
           <Text style={styles.brandTitle}>GANTABYA</Text>
           <Text style={styles.title}>
-            {mode === 'LOGIN' ? 'Welcome Back' : 'Create Account'}
+            {mode === 'LOGIN'
+              ? 'Log in to stay on top of your journeys.'
+              : 'Create your account and simplify travel.'}
           </Text>
           <Text style={styles.subtitle}>
             {mode === 'LOGIN'
-              ? 'Sign in to track your tour enquiries, booking status, and travel itineraries.'
-              : 'Join with your phone or email to customize trips and get personalized offers.'}
+              ? 'Manage bookings, tour enquiries, and travel plans from one place.'
+              : 'Join Gantabya to plan trips, save favourites, and get personalized offers.'}
           </Text>
         </View>
 
@@ -338,81 +433,114 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: isDark ? COLORS.primaryDark : '#FFFFFF',
+      backgroundColor: isDark ? COLORS.primaryDark : '#EAFBFB',
+    },
+    bubbleBackdrop: {
+      ...StyleSheet.absoluteFill,
+      overflow: 'hidden',
+    },
+    bubble: {
+      position: 'absolute',
+      borderRadius: 999,
+    },
+    bubbleOne: {
+      width: 250,
+      height: 250,
+      top: -110,
+      left: -72,
+      backgroundColor: isDark ? 'rgba(39, 126, 255, 0.2)' : 'rgba(43, 191, 211, 0.38)',
+    },
+    bubbleTwo: {
+      width: 210,
+      height: 210,
+      top: 74,
+      right: -92,
+      backgroundColor: isDark ? 'rgba(198, 91, 255, 0.18)' : 'rgba(255, 153, 190, 0.32)',
+    },
+    bubbleThree: {
+      width: 150,
+      height: 150,
+      top: 320,
+      left: -64,
+      backgroundColor: isDark ? 'rgba(255, 190, 56, 0.15)' : 'rgba(255, 204, 92, 0.34)',
+    },
+    bubbleFour: {
+      width: 260,
+      height: 260,
+      bottom: -142,
+      right: -100,
+      backgroundColor: isDark ? 'rgba(64, 188, 255, 0.16)' : 'rgba(139, 149, 255, 0.28)',
     },
     scrollContent: {
       paddingHorizontal: 20,
-      paddingTop: 36,
-      paddingBottom: 48,
+      paddingTop: 28,
+      paddingBottom: 40,
       alignItems: 'center',
     },
     heroSection: {
       alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: 18,
+      maxWidth: 350,
     },
     logoCircle: {
-      width: 76,
-      height: 76,
-      borderRadius: 38,
-      backgroundColor: '#FFFFFF',
+      width: 118,
+      height: 118,
+      borderRadius: 0,
+      backgroundColor: 'transparent',
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 2,
-      borderColor: isDark ? COLORS.gold : COLORS.primary,
-      marginBottom: 12,
-      elevation: 4,
-      shadowColor: '#000000',
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 3 },
-      overflow: 'hidden',
+      borderWidth: 0,
+      marginBottom: 6,
+      overflow: 'visible',
     },
     brandLogo: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
+      width: 118,
+      height: 118,
+      borderRadius: 59,
     },
     brandTitle: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '900',
-      color: isDark ? COLORS.gold : COLORS.goldDark,
-      letterSpacing: 1.8,
-      marginBottom: 4,
+      color: isDark ? COLORS.gold : '#0E8D98',
+      letterSpacing: 2,
+      marginBottom: 7,
     },
     title: {
-      fontSize: 26,
+      fontSize: 24,
       fontWeight: '900',
       color: isDark ? '#FFFFFF' : COLORS.text,
-      letterSpacing: -0.3,
+      letterSpacing: -0.4,
+      lineHeight: 30,
+      textAlign: 'center',
     },
     subtitle: {
       fontSize: 13,
       color: isDark ? 'rgba(255, 255, 255, 0.72)' : COLORS.textSecondary,
       textAlign: 'center',
-      lineHeight: 19,
-      marginTop: 6,
+      lineHeight: 18,
+      marginTop: 7,
       maxWidth: 320,
     },
     tabContainer: {
       flexDirection: 'row',
       width: '100%',
-      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : COLORS.surface,
-      borderRadius: 14,
-      padding: 4,
-      marginBottom: 16,
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.72)',
+      borderRadius: 16,
+      padding: 5,
+      marginBottom: 12,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : COLORS.border,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#D5F0F1',
     },
     tabBtn: {
       flex: 1,
-      paddingVertical: 10,
+      paddingVertical: 11,
       alignItems: 'center',
-      borderRadius: 10,
+      borderRadius: 12,
     },
     activeTabBtn: {
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.16)' : '#FFFFFF',
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : COLORS.border,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : '#C4EAEC',
       elevation: isDark ? 0 : 2,
       shadowColor: '#000',
       shadowOpacity: isDark ? 0 : 0.06,
@@ -420,45 +548,45 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       shadowOffset: { width: 0, height: 2 },
     },
     tabBtnText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '700',
       color: isDark ? 'rgba(255, 255, 255, 0.55)' : COLORS.textMuted,
     },
     activeTabBtnText: {
-      color: isDark ? '#FFFFFF' : COLORS.primary,
+      color: isDark ? '#FFFFFF' : '#0E9DA5',
       fontWeight: '900',
     },
     card: {
       width: '100%',
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FFFFFF',
-      borderRadius: 20,
+      borderRadius: 24,
       padding: 20,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : COLORS.border,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#D9F0F1',
       elevation: isDark ? 6 : 3,
       shadowColor: '#000',
-      shadowOpacity: isDark ? 0.25 : 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.25 : 0.08,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 7 },
     },
     inputGroup: {
       marginBottom: 14,
     },
     label: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '800',
       color: isDark ? 'rgba(255, 255, 255, 0.85)' : COLORS.textSecondary,
-      letterSpacing: 0.6,
-      marginBottom: 6,
+      letterSpacing: 0.8,
+      marginBottom: 7,
     },
     input: {
-      height: 50,
+      height: 52,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : COLORS.border,
-      borderRadius: 12,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.18)' : '#DCEFF0',
+      borderRadius: 13,
       paddingHorizontal: 14,
       color: isDark ? '#FFFFFF' : COLORS.text,
-      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.22)' : COLORS.surface,
+      backgroundColor: isDark ? 'rgba(0, 0, 0, 0.22)' : '#F7FCFC',
       fontSize: 14,
     },
     inputDisabled: {
@@ -504,13 +632,13 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontWeight: '800',
     },
     submitBtn: {
-      backgroundColor: isDark ? COLORS.gold : COLORS.primary,
-      borderRadius: 12,
+      backgroundColor: isDark ? COLORS.gold : '#16BEC5',
+      borderRadius: 13,
       paddingVertical: 14,
       alignItems: 'center',
       marginTop: 8,
       elevation: 3,
-      shadowColor: isDark ? COLORS.gold : COLORS.primary,
+      shadowColor: isDark ? COLORS.gold : '#16BEC5',
       shadowOpacity: 0.3,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
@@ -526,16 +654,16 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       color: isDark ? COLORS.primaryDark : '#FFFFFF',
       fontSize: 14,
       fontWeight: '900',
-      letterSpacing: 0.3,
+      letterSpacing: 0.2,
     },
     googleBtn: {
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : COLORS.borderDark,
-      borderRadius: 12,
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.25)' : '#D7E8E9',
+      borderRadius: 13,
       paddingVertical: 13,
       alignItems: 'center',
       marginTop: 10,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FFFFFF',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#FAFEFE',
     },
     googleBtnText: {
       color: isDark ? '#FFFFFF' : COLORS.text,
@@ -562,7 +690,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 20,
+      marginTop: 18,
       flexWrap: 'wrap',
     },
     footerText: {
@@ -571,7 +699,7 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     },
     footerLinkText: {
       fontSize: 13,
-      color: isDark ? COLORS.gold : COLORS.primary,
+      color: isDark ? COLORS.gold : '#0E9DA5',
       fontWeight: '800',
       textDecorationLine: 'underline',
     },

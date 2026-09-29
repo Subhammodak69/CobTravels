@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path -Parent $PSScriptRoot
-$sourcePath = Join-Path $root 'branding\gantabya-mark-exact.jpg'
+$sourcePath = Join-Path $root 'branding\gantabya-exact.jpg'
 
 function Resize-Png([string]$source, [string]$destination, [int]$size) {
   $src = [System.Drawing.Image]::FromFile($source)
