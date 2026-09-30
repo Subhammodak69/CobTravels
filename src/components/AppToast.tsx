@@ -10,7 +10,7 @@ const ErrorToast = ({text1, text2}: {text1?: string; text2?: string}) => (
     </View>
     <View style={styles.copy}>
       <Text style={styles.title} numberOfLines={1}>{text1 || 'Something went wrong'}</Text>
-      {!!text2 && <Text style={styles.message} numberOfLines={2}>{text2}</Text>}
+      {!!text2 && <Text style={styles.message} numberOfLines={1}>{text2}</Text>}
     </View>
   </View>
 );
@@ -22,7 +22,7 @@ const SuccessToast = ({text1, text2}: {text1?: string; text2?: string}) => (
     </View>
     <View style={styles.copy}>
       <Text style={styles.title} numberOfLines={1}>{text1 || 'Success'}</Text>
-      {!!text2 && <Text style={styles.message} numberOfLines={2}>{text2}</Text>}
+      {!!text2 && <Text style={styles.message} numberOfLines={1}>{text2}</Text>}
     </View>
   </View>
 );
@@ -34,25 +34,27 @@ export const toastConfig: ToastConfig = {
 
 const styles = StyleSheet.create({
   container: {
-    width: '92%',
-    minHeight: 64,
+    width: '88%',
+    maxWidth: 360,
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 13,
     backgroundColor: '#FFFFFF',
-    borderLeftWidth: 4,
+    borderLeftWidth: 3,
     borderLeftColor: '#DC2626',
     shadowColor: '#0F172A',
-    shadowOpacity: 0.14,
-    shadowRadius: 14,
-    shadowOffset: {width: 0, height: 6},
-    elevation: 6,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
   },
   successContainer: {borderLeftColor: '#16A34A'},
-  icon: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center'},
-  successIcon: {width: 36, height: 36, borderRadius: 18, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center'},
-  copy: {flex: 1, marginLeft: 10},
-  title: {color: '#172033', fontSize: 14, fontWeight: '800'},
-  message: {color: '#64748B', fontSize: 12, lineHeight: 17, marginTop: 2},
+  icon: {width: 28, height: 28, borderRadius: 14, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center'},
+  successIcon: {width: 28, height: 28, borderRadius: 14, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center'},
+  copy: {flex: 1, marginLeft: 8},
+  title: {color: '#172033', fontSize: 12.5, lineHeight: 16, fontWeight: '800'},
+  message: {color: '#64748B', fontSize: 10.5, lineHeight: 14, marginTop: 1},
 });

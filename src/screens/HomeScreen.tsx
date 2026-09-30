@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const featuredTours = tours.filter(t => t.is_featured);
   const domesticTours = tours.filter(t => t.type === 'DOMESTIC');
   const internationalTours = tours.filter(t => t.type === 'INTERNATIONAL');
+  const destinations = useMemo(() => {
+    const grouped = new Map<string, {name: string; image?: string; count: number; tour: TourPackageSummary}>();
+
+    tours.forEach(tour => {
+      const name = String(tour.destination || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      const current = grouped.get(key);
+      grouped.set(key, {
+        name: current?.name || name,
+        image: current?.image || tour.cover_image,
+        count: (current?.count || 0) + 1,
+        tour: current?.tour || tour,
+      });
+    });
+
+    return Array.from(grouped.values())
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 6);
+  }, [tours]);
 
   return (
     <ScrollView
@@ -142,6 +162,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </Pressable>
         </ScrollView>
       </View>
+
+      {/* Destinations derived from the live tour catalog */}
+      {destinations.length > 0 && (
+        <View style={styles.destinationSection}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionEyebrow}>TOP PLACES TO VISIT</Text>
+              <Text style={styles.sectionTitle}>Trending Destinations</Text>
+            </View>
+            <Pressable onPress={() => onNavigate('tours')}>
+              <Text style={styles.viewAllText}>Browse All →</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.destinationScroll}
+          >
+            {destinations.map(destination => (
+              <Pressable
+                key={destination.name}
+                style={styles.destinationCard}
+                onPress={() => onSelectTour(destination.tour)}
+              >
+                {destination.image ? (
+                  <Image source={{uri: destination.image}} style={styles.destinationImage} />
+                ) : (
+                  <View style={[styles.destinationImage, styles.destinationImageFallback]} />
+                )}
+                <View style={styles.destinationOverlay} />
+                <View style={styles.destinationContent}>
+                  <Text style={styles.destinationCount}>
+                    {destination.count} {destination.count === 1 ? 'PACKAGE' : 'PACKAGES'}
+                  </Text>
+                  <Text style={styles.destinationName} numberOfLines={1}>{destination.name}</Text>
+                  <Text style={styles.destinationExplore}>Explore →</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Featured Tours Section */}
       <View style={styles.section}>
@@ -395,6 +458,67 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       backgroundColor: COLORS.card,
       borderBottomWidth: 1,
       borderBottomColor: COLORS.border,
+    },
+    destinationSection: {
+      padding: 16,
+      paddingBottom: 6,
+    },
+    destinationScroll: {
+      gap: 12,
+      paddingRight: 16,
+    },
+    destinationCard: {
+      width: 190,
+      height: 142,
+      overflow: 'hidden',
+      borderRadius: 16,
+      backgroundColor: COLORS.primaryDark,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOpacity: 0.12,
+      shadowRadius: 6,
+      shadowOffset: {width: 0, height: 3},
+    },
+    destinationImage: {
+      ...StyleSheet.absoluteFill,
+      width: '100%',
+      height: '100%',
+    },
+    destinationImageFallback: {
+      backgroundColor: COLORS.primaryDark,
+    },
+    destinationOverlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(6, 20, 38, 0.48)',
+    },
+    destinationContent: {
+      position: 'absolute',
+      left: 12,
+      right: 12,
+      bottom: 11,
+    },
+    destinationCount: {
+      alignSelf: 'flex-start',
+      color: '#FFFFFF',
+      backgroundColor: COLORS.goldDark,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+      borderRadius: 4,
+      fontSize: 9,
+      fontWeight: '900',
+      letterSpacing: 0.4,
+    },
+    destinationName: {
+      color: '#FFFFFF',
+      fontSize: 17,
+      fontWeight: '900',
+      marginTop: 5,
+    },
+    destinationExplore: {
+      color: 'rgba(255, 255, 255, 0.82)',
+      fontSize: 11,
+      fontWeight: '700',
+      marginTop: 3,
     },
     categoryPills: {
       gap: 12,

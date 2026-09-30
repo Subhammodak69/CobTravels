@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppState, BackHandler, KeyboardAvoidingView, Linking, Platform, StatusBar, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import { COLORS, ThemeProvider, useColors, useAppColorScheme } from './src/theme/theme';
@@ -50,6 +50,7 @@ import { AppDialogProvider } from './src/components/AppDialog';
 function AppInner() {
   const appColors = useColors();
   const colorScheme = useAppColorScheme();
+  const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
   const screenHistory = React.useRef<NavScreen[]>(['splash']);
   const currentScreenRef = React.useRef<NavScreen>('splash');
@@ -203,7 +204,7 @@ function AppInner() {
   // Load tour packages from API
   const loadTours = useCallback(async () => {
     setLoadingTours(true);
-    try { setTours(await fetchTourPackages()); }
+    try { setTours(await fetchTourPackages(1, 100)); }
     catch (error) { setTours([]); showApiError(error, 'We could not load the tours.'); }
     setLoadingTours(false);
   }, []);
@@ -733,7 +734,7 @@ function AppInner() {
         )}
 
       </SafeAreaView>
-      <Toast config={toastConfig} />
+      <Toast config={toastConfig} topOffset={insets.top + 8} />
       </AppDialogProvider>
     </>
   );

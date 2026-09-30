@@ -401,7 +401,7 @@ export const MyEnquiriesScreen: React.FC<{ enquiries: EnquiryData[]; loading?: b
 
   const copyReference = (reference: string) => {
     Clipboard.setString(reference);
-    Toast.show({ type: 'success', text1: 'Reference copied', text2: 'The enquiry reference ID is ready to paste.', position: 'top', topOffset: 12 });
+    Toast.show({ type: 'success', text1: 'Reference copied', text2: 'The enquiry reference ID is ready to paste.', position: 'top' });
   };
 
   const fields = [['name', 'Full name'], ['phone', 'Phone'], ['email', 'Email'], ['travel_date', 'Travel date'], ['adult_count', 'Adults'], ['child_count', 'Children'], ['senior_count', 'Seniors'], ['room_count', 'Rooms']] as const;

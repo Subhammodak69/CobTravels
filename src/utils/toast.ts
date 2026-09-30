@@ -6,7 +6,6 @@ export function showSuccess(message: string) {
     text1: 'Download complete',
     text2: message,
     position: 'top',
-    topOffset: 12,
     visibilityTime: 3000,
   });
 }
@@ -18,7 +17,6 @@ export function showApiError(error: unknown, fallback = 'Please try again in a m
     text1: 'Unable to complete request',
     text2: message,
     position: 'top',
-    topOffset: 12,
     visibilityTime: 3600,
   });
 }
