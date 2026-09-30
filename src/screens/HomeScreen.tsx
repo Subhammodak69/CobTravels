@@ -21,6 +21,7 @@ interface HomeScreenProps {
   onSelectTour: (tour: TourPackageSummary) => void;
   onNavigate: (screen: NavScreen) => void;
   onFilterType: (type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED') => void;
+  onFilterSpecialOffers: () => void;
   onOpenCustomTour: () => void;
   onEnquireTour?: (tour: TourPackageSummary) => void;
   savedTours: string[];
@@ -34,6 +35,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectTour,
   onNavigate,
   onFilterType,
+  onFilterSpecialOffers,
   onOpenCustomTour,
   onEnquireTour,
   savedTours,
@@ -151,10 +153,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           <Pressable
             style={[styles.categoryCard, styles.catOffers]}
-            onPress={() => {
-              onFilterType('FEATURED');
-              onNavigate('tours');
-            }}
+            onPress={onFilterSpecialOffers}
           >
             <Text style={styles.categoryIcon}>🏷️</Text>
             <Text style={styles.categoryTitle}>Special Offers</Text>

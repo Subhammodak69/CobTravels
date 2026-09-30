@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { COLORS, useColors } from '../theme/theme';
+import { useColors } from '../theme/theme';
 import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
 import { TourListSkeleton } from '../components/Skeleton';
+import { fetchTourPackages } from '../api/tourApi';
 
 interface TourListScreenProps {
   tours: TourPackageSummary[];
@@ -19,7 +20,7 @@ interface TourListScreenProps {
   onRefresh: () => void;
   onSelectTour: (tour: TourPackageSummary) => void;
   onNavigate: (screen: NavScreen) => void;
-  initialFilter?: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED';
+  initialFilter?: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED' | 'SPECIAL_OFFER';
   savedTours: string[];
   onToggleSave: (slug: string) => void;
   onEnquireTour?: (tour: TourPackageSummary) => void;
@@ -38,13 +39,51 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
 }) => {
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
-  const [filterType, setFilterType] = useState<'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'>(initialFilter);
+  const [filterType, setFilterType] = useState<'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED' | 'SPECIAL_OFFER'>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recommended' | 'price_asc' | 'price_desc' | 'duration'>('recommended');
   const [layoutMode, setLayoutMode] = useState<'vertical' | 'horizontal'>('vertical');
+  const [specialOfferTours, setSpecialOfferTours] = useState<TourPackageSummary[] | null>(null);
+  const [specialOfferLoading, setSpecialOfferLoading] = useState(false);
+
+  const loadSpecialOffers = useCallback(async () => {
+    setSpecialOfferLoading(true);
+    try {
+      const items = await fetchTourPackages(1, 100, 'created_at', 'desc', {badge: 'SPECIAL_OFFER'});
+      setSpecialOfferTours(items);
+    } catch {
+      setSpecialOfferTours([]);
+    } finally {
+      setSpecialOfferLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setFilterType(initialFilter);
+    if (initialFilter === 'SPECIAL_OFFER') {
+      loadSpecialOffers();
+    } else {
+      setSpecialOfferTours(null);
+    }
+  }, [initialFilter, loadSpecialOffers]);
+
+  const changeFilter = (filter: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED' | 'SPECIAL_OFFER') => {
+    setFilterType(filter);
+    if (filter === 'SPECIAL_OFFER') {
+      loadSpecialOffers();
+    } else {
+      setSpecialOfferTours(null);
+    }
+  };
+
+  const sourceTours = useMemo(
+    () => (filterType === 'SPECIAL_OFFER' ? (specialOfferTours || []) : tours),
+    [filterType, specialOfferTours, tours],
+  );
+  const listLoading = loading || (filterType === 'SPECIAL_OFFER' && specialOfferLoading);
 
   const filteredTours = useMemo(() => {
-    let result = [...tours];
+    let result = [...sourceTours];
 
     // Filter by type
     if (filterType === 'DOMESTIC') {
@@ -77,7 +116,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
     }
 
     return result;
-  }, [tours, filterType, searchQuery, sortBy]);
+  }, [sourceTours, filterType, searchQuery, sortBy]);
 
   return (
     <View style={styles.container}>
@@ -101,10 +140,10 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
 
         {/* Filter Pills */}
         <View style={styles.filterPillsRow}>
-          {(['ALL', 'DOMESTIC', 'INTERNATIONAL', 'FEATURED'] as const).map(tab => (
+          {(['ALL', 'DOMESTIC', 'INTERNATIONAL', 'FEATURED', 'SPECIAL_OFFER'] as const).map(tab => (
             <Pressable
               key={tab}
-              onPress={() => setFilterType(tab)}
+              onPress={() => changeFilter(tab)}
               style={[
                 styles.filterPill,
                 filterType === tab && styles.filterPillActive,
@@ -122,7 +161,9 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
                   ? '🇮🇳 Domestic'
                   : tab === 'INTERNATIONAL'
                   ? '✈️ International'
-                  : '🌟 Featured'}
+                  : tab === 'FEATURED'
+                  ? '🌟 Featured'
+                  : '🏷️ Offers'}
               </Text>
             </Pressable>
           ))}
@@ -169,11 +210,11 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
 
       {/* Tour List Content */}
       <FlatList
-        data={loading && tours.length === 0 ? [] : filteredTours}
+        data={listLoading && sourceTours.length === 0 ? [] : filteredTours}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[COLORS.primary]} />
+          <RefreshControl refreshing={listLoading} onRefresh={filterType === 'SPECIAL_OFFER' ? loadSpecialOffers : onRefresh} colors={[COLORS.primary]} />
         }
         renderItem={({ item }) => (
           <TourCard
@@ -185,7 +226,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
             onToggleSave={() => onToggleSave(item.slug)}
           />
         )}
-        ListEmptyComponent={loading ? <TourListSkeleton /> : (
+        ListEmptyComponent={listLoading ? <TourListSkeleton /> : (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>🔍</Text>
             <Text style={styles.emptyTitle}>No Matching Tours Found</Text>
@@ -195,7 +236,7 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
             <Pressable
               style={styles.resetBtn}
               onPress={() => {
-                setFilterType('ALL');
+                changeFilter('ALL');
                 setSearchQuery('');
                 setSortBy('recommended');
               }}

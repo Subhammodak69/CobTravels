@@ -117,7 +117,7 @@ function AppInner() {
   const [selectedTourSlug, setSelectedTourSlug] = useState<string>('kashmir-paradise-tour');
   const [selectedTourSummary, setSelectedTourSummary] = useState<TourPackageSummary | null>(null);
   const [initialTourFilter, setInitialTourFilter] = useState<
-    'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
+    'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED' | 'SPECIAL_OFFER'
   >('ALL');
 
   const [prefilledEnquiry, setPrefilledEnquiry] = useState<{
@@ -392,6 +392,11 @@ function AppInner() {
     navigateTo('tours');
   };
 
+  const handleFilterSpecialOffers = () => {
+    setInitialTourFilter('SPECIAL_OFFER');
+    navigateTo('tours');
+  };
+
   const handleStartEnquiry = (details: {
     tourSlug: string;
     tourTitle: string;
@@ -497,6 +502,7 @@ function AppInner() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateTo}
             onFilterType={handleFilterTours}
+            onFilterSpecialOffers={handleFilterSpecialOffers}
             onOpenCustomTour={() => { setPrefilledEnquiry(null); navigateTo('enquiry'); }}
             onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}
@@ -632,6 +638,7 @@ function AppInner() {
             onSelectTour={handleSelectTour}
             onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
+            onFilterSpecialOffers={handleFilterSpecialOffers}
             onOpenCustomTour={() => { setPrefilledEnquiry(null); navigateTo('enquiry'); }}
             onEnquireTour={handleOpenEnquiryForTour}
             savedTours={savedTours}

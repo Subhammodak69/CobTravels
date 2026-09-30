@@ -103,6 +103,7 @@ export async function fetchTourPackages(
     type?: string;
     season?: string;
     is_featured?: boolean;
+    badge?: string;
     min_price?: number;
     max_price?: number;
     search?: string;
