@@ -1,5 +1,5 @@
 import { Linking } from 'react-native';
-import { request, authenticated, getAccessToken, BASE_API } from './client';
+import { request, authenticated, getAccessToken, BASE_API, WEB_APP_URL } from './client';
 import {
   ApiEnvelope,
   UploadedFileData,
@@ -12,6 +12,10 @@ import {
 } from '../types';
 
 export const OFFICIAL_WHATSAPP = '919832000000';
+
+export function getTourWebUrl(slug: string): string {
+  return `${WEB_APP_URL}/journey/${encodeURIComponent(slug)}`;
+}
 
 function formatVariant(v: any, i = 0): SeasonVariant {
   const realId = v.variant_id || v.id;

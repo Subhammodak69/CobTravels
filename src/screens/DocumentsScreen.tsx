@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Alert, FlatList, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -31,6 +31,7 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
   const [title, setTitle] = useState('');
   const [documentType, setDocumentType] = useState('ID_PROOF');
   const [description, setDescription] = useState('');
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [actionDocument, setActionDocument] = useState<TravelDocument | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -64,6 +65,7 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
     setTitle('');
     setDocumentType('ID_PROOF');
     setDescription('');
+    setPreviewVisible(false);
   };
 
   const chooseFile = async () => {
@@ -140,6 +142,7 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
   };
 
   const visibleDocuments = documents.filter(document => getDocumentDirection(document) === activeTab && `${document.title || ''} ${document.file_name || ''} ${document.document_type || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const selectedFileIsImage = Boolean(selectedFile && (selectedFile.type?.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(selectedFile.name)));
 
   return <>
     <FlatList
@@ -176,6 +179,11 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
               <Text style={styles.dropzoneText} numberOfLines={2}>{selectedFile ? selectedFile.name : 'Tap here to browse images, PDFs, or other files'}</Text>
             </Pressable>
             {selectedFile ? <>
+              <Pressable style={styles.uploadPreview} onPress={() => setPreviewVisible(true)}>
+                {selectedFileIsImage ? <Image source={{uri: selectedFile.uri}} style={styles.uploadPreviewImage} resizeMode="cover" /> : <View style={styles.uploadPreviewFile}><Ionicons name="document-text-outline" size={30} color={colors.primary} /></View>}
+                <View style={styles.uploadPreviewCopy}><Text style={styles.uploadPreviewTitle} numberOfLines={1}>{selectedFile.name}</Text><Text style={styles.uploadPreviewHint}>{uploadedFileUrl ? 'Tap to preview' : 'Uploading preview…'}</Text></View>
+                <Ionicons name="expand-outline" size={18} color={colors.textMuted} />
+              </Pressable>
               <Text style={styles.inputLabel}>Document name</Text>
               <TextInput value={title} onChangeText={setTitle} placeholder="Document name" placeholderTextColor={colors.textMuted} style={styles.input} />
               <Text style={styles.inputLabel}>Document type</Text>
@@ -189,6 +197,15 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
+    </Modal>
+    <Modal visible={previewVisible && Boolean(selectedFile)} transparent animationType="fade" onRequestClose={() => setPreviewVisible(false)}>
+      <View style={styles.previewBackdrop}>
+        <View style={styles.previewModal}>
+          <View style={styles.previewHeader}><Text style={styles.previewTitle}>Document preview</Text><Pressable style={styles.closeButton} onPress={() => setPreviewVisible(false)}><Ionicons name="close" size={20} color={colors.text} /></Pressable></View>
+          {selectedFileIsImage && selectedFile ? <Image source={{uri: selectedFile.uri}} style={styles.previewImage} resizeMode="contain" /> : <View style={styles.previewFileState}><Ionicons name="document-text-outline" size={60} color={colors.primary} /><Text style={styles.previewFileName} numberOfLines={2}>{selectedFile?.name}</Text><Text style={styles.previewFileHint}>This file will be saved to your travel documents after submission.</Text></View>}
+          <Pressable style={styles.previewDoneButton} onPress={() => setPreviewVisible(false)}><Text style={styles.previewDoneText}>Done</Text></Pressable>
+        </View>
+      </View>
     </Modal>
     <OverflowMenu colors={colors} visible={Boolean(actionDocument)} title={actionDocument?.title || 'Document actions'} onClose={() => setActionDocument(null)} actions={[
       {label: 'Preview document', icon: 'eye', onPress: () => actionDocument && onOpenDocument?.(actionDocument)},
@@ -204,7 +221,7 @@ const makeStyles = (colors: AppColors) => StyleSheet.create({
   tabs: {flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 11, padding: 4, marginBottom: 12}, tab: {flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 8}, activeTab: {backgroundColor: colors.primary}, tabText: {fontSize: 13, fontWeight: '800', color: colors.textSecondary}, activeTabText: {color: colors.textLight},
   searchBox: {height: 46, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 11, paddingHorizontal: 13, marginBottom: 12}, searchInput: {flex: 1, color: colors.text, fontSize: 13, paddingVertical: 0, marginLeft: 9},
   form: {backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 13, marginBottom: 12}, formTitle: {fontSize: 17, fontWeight: '900', color: colors.text, marginBottom: 3}, modalSubtitle: {fontSize: 11, color: colors.textSecondary}, inputLabel: {fontSize: 11, fontWeight: '800', color: colors.textSecondary, marginBottom: 5}, input: {borderWidth: 1, borderColor: colors.border, borderRadius: 8, color: colors.text, paddingHorizontal: 11, paddingVertical: 10, fontSize: 13, marginBottom: 10, backgroundColor: colors.surface}, multiline: {minHeight: 64, textAlignVertical: 'top'}, chooseButton: {backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 4}, disabledButton: {opacity: 0.55}, chooseText: {color: colors.textLight, fontWeight: '800', fontSize: 12},
-  modalBackdrop: {flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.55)'}, modalBackdropKeyboard: {justifyContent: 'flex-start'}, uploadModal: {maxHeight: '88%', backgroundColor: colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18}, uploadModalKeyboard: {flex: 1, maxHeight: '100%', borderTopLeftRadius: 0, borderTopRightRadius: 0}, modalHeader: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16}, closeButton: {width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center'}, dropzone: {minHeight: 150, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 14, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', padding: 18, marginBottom: 16}, dropzoneSelected: {borderColor: colors.success, backgroundColor: colors.successLight}, dropzoneTitle: {fontSize: 14, fontWeight: '900', color: colors.text, marginTop: 9}, dropzoneText: {fontSize: 11, color: colors.textSecondary, textAlign: 'center', marginTop: 5}, dropzoneHint: {fontSize: 11, color: colors.textMuted, textAlign: 'center', paddingVertical: 8},
+  modalBackdrop: {flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.55)'}, modalBackdropKeyboard: {justifyContent: 'flex-start'}, uploadModal: {maxHeight: '88%', backgroundColor: colors.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18}, uploadModalKeyboard: {flex: 1, maxHeight: '100%', borderTopLeftRadius: 0, borderTopRightRadius: 0}, modalHeader: {flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16}, closeButton: {width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center'}, uploadPreview: {flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 9, marginBottom: 14, backgroundColor: colors.surface}, uploadPreviewImage: {width: 58, height: 58, borderRadius: 8, backgroundColor: colors.border}, uploadPreviewFile: {width: 58, height: 58, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primarySubtle}, uploadPreviewCopy: {flex: 1, minWidth: 0}, uploadPreviewTitle: {fontSize: 12, fontWeight: '900', color: colors.text}, uploadPreviewHint: {fontSize: 10, color: colors.textSecondary, marginTop: 3}, previewBackdrop: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0, 0, 0, 0.72)'}, previewModal: {width: '100%', maxHeight: '88%', borderRadius: 18, padding: 16, backgroundColor: colors.card}, previewHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}, previewTitle: {fontSize: 17, fontWeight: '900', color: colors.text}, previewImage: {width: '100%', height: 420, borderRadius: 12, backgroundColor: colors.surface}, previewFileState: {height: 260, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: colors.surface, borderRadius: 12}, previewFileName: {fontSize: 15, fontWeight: '900', color: colors.text, textAlign: 'center', marginTop: 14}, previewFileHint: {fontSize: 12, color: colors.textSecondary, textAlign: 'center', lineHeight: 18, marginTop: 7}, previewDoneButton: {height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 10, marginTop: 14, backgroundColor: colors.primary}, previewDoneText: {color: colors.textLight, fontSize: 13, fontWeight: '900'}, dropzone: {minHeight: 150, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 14, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', padding: 18, marginBottom: 16}, dropzoneSelected: {borderColor: colors.success, backgroundColor: colors.successLight}, dropzoneTitle: {fontSize: 14, fontWeight: '900', color: colors.text, marginTop: 9}, dropzoneText: {fontSize: 11, color: colors.textSecondary, textAlign: 'center', marginTop: 5}, dropzoneHint: {fontSize: 11, color: colors.textMuted, textAlign: 'center', paddingVertical: 8},
   empty: {alignItems: 'center', paddingVertical: 45}, emptyTitle: {fontSize: 15, fontWeight: '900', color: colors.text, marginTop: 10}, emptyText: {fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: 5},
   card: {flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 9, marginBottom: 8}, cardPressable: {flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center'}, listIndex: {width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primarySubtle, alignItems: 'center', justifyContent: 'center', marginRight: 8}, listIndexText: {color: colors.primary, fontSize: 11, fontWeight: '900'}, cardCopy: {flex: 1, minWidth: 0}, cardTitle: {fontSize: 13, fontWeight: '900', color: colors.text}, meta: {fontSize: 10, color: colors.textSecondary, marginTop: 3}, description: {fontSize: 10, color: colors.textSecondary, marginTop: 3}, date: {fontSize: 9, color: colors.textMuted, marginTop: 3},
 });

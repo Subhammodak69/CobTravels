@@ -54,6 +54,7 @@ function AppInner() {
   const [currentScreen, setCurrentScreen] = useState<NavScreen>('splash');
   const screenHistory = React.useRef<NavScreen[]>(['splash']);
   const currentScreenRef = React.useRef<NavScreen>('splash');
+  const pendingTourSlugRef = React.useRef<string | null>(null);
   const visitorSessionRef = React.useRef<string | null>(null);
   const visitorBootstrapRef = React.useRef(false);
   const identifiedCustomerRef = React.useRef<string | null>(null);
@@ -83,6 +84,13 @@ function AppInner() {
 
   const finishSplash = React.useCallback(() => {
     if (!authResolvedRef.current) return;
+    if (pendingTourSlugRef.current) {
+      setSelectedTourSlug(pendingTourSlugRef.current);
+      setSelectedTourSummary(null);
+      pendingTourSlugRef.current = null;
+      setRootScreen('tour_detail');
+      return;
+    }
     setRootScreen(isLoggedInRef.current ? 'home' : 'auth');
   }, [setRootScreen]);
 
@@ -331,6 +339,25 @@ function AppInner() {
   useEffect(() => {
     const processUrl = async (url: string | null | undefined) => {
       if (!url) return;
+      try {
+        const parsed = new URL(url);
+        const path = parsed.protocol === 'cobtravels:'
+          ? `${parsed.hostname}${parsed.pathname}`
+          : parsed.pathname;
+        const journeyMatch = path.match(/(?:^|\/)journey\/([^/]+)/);
+        if (journeyMatch?.[1]) {
+          const journeySlug = decodeURIComponent(journeyMatch[1]);
+          pendingTourSlugRef.current = journeySlug;
+          if (authResolvedRef.current) {
+            setSelectedTourSlug(journeySlug);
+            setSelectedTourSummary(null);
+            pendingTourSlugRef.current = null;
+            setRootScreen('tour_detail');
+          }
+        }
+      } catch {
+        // Invalid deep links should not interrupt normal app startup.
+      }
       const encoded = url.match(/[?&]r=([^&]+)/)?.[1];
       if (!encoded) return;
       try {
@@ -344,7 +371,7 @@ function AppInner() {
     Linking.getInitialURL().then(processUrl).catch(() => {});
     const subscription = Linking.addEventListener('url', event => { processUrl(event.url); });
     return () => subscription.remove();
-  }, []);
+  }, [setRootScreen]);
 
   // Wishlist toggle
   const toggleSaveTour = (slug: string) => {

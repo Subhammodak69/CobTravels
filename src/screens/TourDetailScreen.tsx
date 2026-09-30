@@ -15,7 +15,7 @@ import {
 import { useColors } from '../theme/theme';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { TourPackageDetail, TourPackageSummary, SeasonVariant, NavScreen } from '../types';
-import { fetchTourDetail, fetchTourVariant, openWhatsAppChat, submitReviewApi, fetchPackageReviews, fetchReviewEligibility } from '../api/tourApi';
+import { fetchTourDetail, fetchTourVariant, getTourWebUrl, openWhatsAppChat, submitReviewApi, fetchPackageReviews, fetchReviewEligibility } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
 import { MediaViewer, MediaSelection } from '../components/MediaViewer';
 import { showApiError } from '../utils/toast';
@@ -185,9 +185,11 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   const handleShare = async () => {
     if (!tour) return;
     try {
+      const shareUrl = getTourWebUrl(tour.slug);
       await Share.share({
         title: tour.title,
-        message: `Check out ${tour.title} with Gantabya starting from ₹${activeSeason?.price?.toLocaleString('en-IN') || tour.seasons[0]?.price}!\nDetails: https://coochbehar-travels.onrender.com/api/v1/tour-packages/${tour.slug}`,
+        message: `Check out ${tour.title} with Gantabya!\n${shareUrl}`,
+        url: shareUrl,
       });
     } catch {
       // share canceled
