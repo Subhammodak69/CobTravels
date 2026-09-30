@@ -46,6 +46,7 @@ import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { decodeReferral } from './src/utils/referral';
 import { AppDialogProvider } from './src/components/AppDialog';
+import { getInitialSharedFile, SharedFile, subscribeToSharedFiles } from './src/native/shareIntent';
 
 function AppInner() {
   const appColors = useColors();
@@ -55,6 +56,7 @@ function AppInner() {
   const screenHistory = React.useRef<NavScreen[]>(['splash']);
   const currentScreenRef = React.useRef<NavScreen>('splash');
   const pendingTourSlugRef = React.useRef<string | null>(null);
+  const pendingSharedFileRef = React.useRef<SharedFile | null>(null);
   const visitorSessionRef = React.useRef<string | null>(null);
   const visitorBootstrapRef = React.useRef(false);
   const identifiedCustomerRef = React.useRef<string | null>(null);
@@ -62,6 +64,7 @@ function AppInner() {
   const authResolvedRef = React.useRef(false);
   const [visitorReady, setVisitorReady] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<TravelDocument | null>(null);
+  const [sharedFile, setSharedFile] = useState<SharedFile | null>(null);
 
   const setRootScreen = React.useCallback((screen: NavScreen) => {
     screenHistory.current = [screen];
@@ -82,8 +85,26 @@ function AppInner() {
     });
   }, [setRootScreen]);
 
+  const openSharedFile = React.useCallback((file: SharedFile) => {
+    pendingSharedFileRef.current = file;
+    if (!authResolvedRef.current) return;
+    if (!isLoggedInRef.current) {
+      setRootScreen('auth');
+      return;
+    }
+    setSharedFile(file);
+    pendingSharedFileRef.current = null;
+    setRootScreen('documents');
+  }, [setRootScreen]);
+
   const finishSplash = React.useCallback(() => {
     if (!authResolvedRef.current) return;
+    if (pendingSharedFileRef.current && isLoggedInRef.current) {
+      setSharedFile(pendingSharedFileRef.current);
+      pendingSharedFileRef.current = null;
+      setRootScreen('documents');
+      return;
+    }
     if (pendingTourSlugRef.current) {
       setSelectedTourSlug(pendingTourSlugRef.current);
       setSelectedTourSummary(null);
@@ -105,6 +126,18 @@ function AppInner() {
     const subscription = BackHandler.addEventListener('hardwareBackPress', goBack);
     return () => subscription.remove();
   }, [goBack]);
+
+  React.useEffect(() => {
+    let mounted = true;
+    getInitialSharedFile().then(file => {
+      if (mounted && file) openSharedFile(file);
+    }).catch(() => undefined);
+    const subscription = subscribeToSharedFiles(file => openSharedFile(file));
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, [openSharedFile]);
 
   React.useEffect(() => { currentScreenRef.current = currentScreen; if (visitorSessionRef.current) { heartbeatVisitorSession(currentScreen, 1); trackVisitorEvent('screen_view', currentScreen, { screen: currentScreen }); } }, [currentScreen]);
   React.useEffect(() => {
@@ -480,7 +513,13 @@ function AppInner() {
     try { const result = await fetchMe(); setUser(result.data || null); } catch { setUser(null); }
     trackVisitorEvent('login_success', 'auth', { identifier_type: 'mobile' });
     fetchMe().then(result => { const customerId = result.data?.id || ''; if (customerId && identifiedCustomerRef.current !== customerId) { identifiedCustomerRef.current = customerId; identifyVisitor(customerId); } }).catch(() => {});
-    navigateTo('profile');
+    if (pendingSharedFileRef.current) {
+      setSharedFile(pendingSharedFileRef.current);
+      pendingSharedFileRef.current = null;
+      setRootScreen('documents');
+    } else {
+      navigateTo('profile');
+    }
   };
 
   const handleLogout = async () => {
@@ -619,7 +658,7 @@ function AppInner() {
         return <NotificationSettingsScreen isLoggedIn={isLoggedIn} />;
 
       case 'documents':
-        return <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} />;
+        return <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={() => setSharedFile(null)} />;
 
       case 'document_viewer':
         return selectedDocument ? (
@@ -627,7 +666,7 @@ function AppInner() {
             document={selectedDocument}
             onBack={() => { setSelectedDocument(null); goBack(); }}
           />
-        ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} />;
+        ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={() => setSharedFile(null)} />;
 
       case 'wishlist':
         return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} onRefresh={async () => { await Promise.all([loadTours(), loadWishlist()]); }} />;

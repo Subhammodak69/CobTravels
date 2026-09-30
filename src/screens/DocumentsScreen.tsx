@@ -12,10 +12,11 @@ import {useAppDialog} from '../components/AppDialog';
 import {DocumentListSkeleton} from '../components/Skeleton';
 import {OverflowButton, OverflowMenu} from '../components/OverflowMenu';
 import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {SharedFile} from '../native/shareIntent';
 
-interface Props { onNavigate: (screen: NavScreen) => void; onOpenDocument?: (document: TravelDocument) => void; }
+interface Props { onNavigate: (screen: NavScreen) => void; onOpenDocument?: (document: TravelDocument) => void; sharedFile?: SharedFile | null; onSharedFileConsumed?: () => void; }
 
-export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
+export const DocumentsScreen: React.FC<Props> = ({onOpenDocument, sharedFile, onSharedFileConsumed}) => {
   const colors = useColors();
   const styles = makeStyles(colors);
   const {showDialog} = useAppDialog();
@@ -68,22 +69,37 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument}) => {
     setPreviewVisible(false);
   };
 
-  const chooseFile = async () => {
+  const uploadSelectedFile = useCallback(async (file: SharedFile) => {
+    setSelectedFile(file);
+    setTitle(file.name.replace(/\.[^/.]+$/, '') || file.name);
+    setUploadedFileUrl('');
+    setFileUploading(true);
     try {
-      const [picked] = await pick({type: [types.allFiles], mode: 'import'});
-      const file = {uri: picked.uri, name: picked.name || 'document', type: picked.type || undefined};
-      setSelectedFile(file);
-      setTitle(file.name.replace(/\.[^/.]+$/, '') || file.name);
-      setUploadedFileUrl('');
-      setFileUploading(true);
       const response = await uploadFileApi(file);
       const fileUrl = response.data?.url;
       if (!fileUrl) throw new Error('The selected file could not be uploaded.');
       setUploadedFileUrl(fileUrl);
     } catch (error: any) {
-      if (!(isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED)) showApiError(error, 'We could not upload this document.');
+      showApiError(error, 'We could not upload this document.');
     } finally { setFileUploading(false); }
+  }, []);
+
+  const chooseFile = async () => {
+    try {
+      const [picked] = await pick({type: [types.allFiles], mode: 'import'});
+      const file = {uri: picked.uri, name: picked.name || 'document', type: picked.type || undefined};
+      await uploadSelectedFile(file);
+    } catch (error: any) {
+      if (!(isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED)) showApiError(error, 'We could not upload this document.');
+    }
   };
+
+  useEffect(() => {
+    if (!sharedFile) return;
+    setActiveTab('outgoing');
+    setShowForm(true);
+    uploadSelectedFile(sharedFile).finally(() => onSharedFileConsumed?.());
+  }, [onSharedFileConsumed, sharedFile, uploadSelectedFile]);
 
   const saveDocument = async () => {
     if (!selectedFile || !uploadedFileUrl) { showApiError(new Error('Choose a file first.'), 'Select a file before saving.'); return; }
