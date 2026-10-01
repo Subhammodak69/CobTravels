@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, Alert, FlatList, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import {errorCodes, isErrorWithCode, pick, saveDocuments, types} from '@react-native-documents/picker';
 import RNBlobUtil from 'react-native-blob-util';
@@ -36,6 +36,8 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument, sharedFile, on
   const [query, setQuery] = useState('');
   const [actionDocument, setActionDocument] = useState<TravelDocument | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const uploadControllerRef = useRef<AbortController | null>(null);
+  const processedSharedFileRef = useRef<SharedFile | null>(null);
   const insets = useSafeAreaInsets();
 
   const load = useCallback(async () => {
@@ -59,7 +61,10 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument, sharedFile, on
     };
   }, []);
 
-  const resetUploadForm = () => {
+  const resetUploadForm = useCallback(() => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setFileUploading(false);
     setShowForm(false);
     setSelectedFile(null);
     setUploadedFileUrl('');
@@ -67,21 +72,31 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument, sharedFile, on
     setDocumentType('ID_PROOF');
     setDescription('');
     setPreviewVisible(false);
-  };
+    onSharedFileConsumed?.();
+  }, [onSharedFileConsumed]);
 
   const uploadSelectedFile = useCallback(async (file: SharedFile) => {
+    uploadControllerRef.current?.abort();
+    const controller = new AbortController();
+    uploadControllerRef.current = controller;
     setSelectedFile(file);
     setTitle(file.name.replace(/\.[^/.]+$/, '') || file.name);
     setUploadedFileUrl('');
     setFileUploading(true);
     try {
-      const response = await uploadFileApi(file);
+      const response = await uploadFileApi(file, controller.signal);
+      if (controller.signal.aborted) return;
       const fileUrl = response.data?.url;
       if (!fileUrl) throw new Error('The selected file could not be uploaded.');
       setUploadedFileUrl(fileUrl);
     } catch (error: any) {
-      showApiError(error, 'We could not upload this document.');
-    } finally { setFileUploading(false); }
+      if (!controller.signal.aborted) showApiError(error, 'We could not upload this document.');
+    } finally {
+      if (uploadControllerRef.current === controller) {
+        uploadControllerRef.current = null;
+        setFileUploading(false);
+      }
+    }
   }, []);
 
   const chooseFile = async () => {
@@ -95,11 +110,18 @@ export const DocumentsScreen: React.FC<Props> = ({onOpenDocument, sharedFile, on
   };
 
   useEffect(() => {
-    if (!sharedFile) return;
+    if (!sharedFile || processedSharedFileRef.current === sharedFile) return;
+    processedSharedFileRef.current = sharedFile;
     setActiveTab('outgoing');
     setShowForm(true);
-    uploadSelectedFile(sharedFile).finally(() => onSharedFileConsumed?.());
+    onSharedFileConsumed?.();
+    uploadSelectedFile(sharedFile);
   }, [onSharedFileConsumed, sharedFile, uploadSelectedFile]);
+
+  useEffect(() => () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+  }, []);
 
   const saveDocument = async () => {
     if (!selectedFile || !uploadedFileUrl) { showApiError(new Error('Choose a file first.'), 'Select a file before saving.'); return; }

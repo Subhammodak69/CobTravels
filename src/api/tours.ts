@@ -284,7 +284,8 @@ export async function deleteReviewApi(reviewId: string): Promise<ApiEnvelope<unk
 }
 
 export async function uploadFileApi(
-  file: { uri: string; name?: string; type?: string } | FormData | any
+  file: { uri: string; name?: string; type?: string } | FormData | any,
+  signal?: AbortSignal
 ): Promise<ApiEnvelope<UploadedFileData>> {
   const token = await getAccessToken();
   let body: any;
@@ -325,6 +326,7 @@ export async function uploadFileApi(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body,
+    signal,
   });
 
   const resBody = await res.json().catch(() => ({}));

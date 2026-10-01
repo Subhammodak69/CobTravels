@@ -65,6 +65,10 @@ function AppInner() {
   const [visitorReady, setVisitorReady] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<TravelDocument | null>(null);
   const [sharedFile, setSharedFile] = useState<SharedFile | null>(null);
+  const clearSharedFile = React.useCallback(() => {
+    pendingSharedFileRef.current = null;
+    setSharedFile(null);
+  }, []);
 
   const setRootScreen = React.useCallback((screen: NavScreen) => {
     screenHistory.current = [screen];
@@ -116,6 +120,8 @@ function AppInner() {
   }, [setRootScreen]);
 
   const goBack = React.useCallback(() => {
+    pendingSharedFileRef.current = null;
+    setSharedFile(null);
     if (screenHistory.current.length <= 1) return false;
     screenHistory.current = screenHistory.current.slice(0, -1);
     setCurrentScreen(screenHistory.current[screenHistory.current.length - 1]);
@@ -271,7 +277,7 @@ function AppInner() {
             await Promise.all([loadWishlist(), loadNotifications()]);
           }
           setUserPhone(profile?.mobile || '');
-          if (profile && mounted) {
+          if (profile && mounted && !pendingSharedFileRef.current) {
             // A returning member should never be stopped at the guest splash screen.
             setRootScreen('home');
           }
@@ -286,7 +292,7 @@ function AppInner() {
       await identifyVisitor(customerId);
       if (mounted) {
         authResolvedRef.current = true;
-        if (currentScreenRef.current === 'splash') finishSplash();
+        if (currentScreenRef.current === 'splash' || pendingSharedFileRef.current) finishSplash();
         setVisitorReady(true);
       }
     })();
@@ -658,7 +664,7 @@ function AppInner() {
         return <NotificationSettingsScreen isLoggedIn={isLoggedIn} />;
 
       case 'documents':
-        return <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={() => setSharedFile(null)} />;
+        return <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={clearSharedFile} />;
 
       case 'document_viewer':
         return selectedDocument ? (
@@ -666,7 +672,7 @@ function AppInner() {
             document={selectedDocument}
             onBack={() => { setSelectedDocument(null); goBack(); }}
           />
-        ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={() => setSharedFile(null)} />;
+        ) : <DocumentsScreen onNavigate={navigateWithAuth} onOpenDocument={openDocumentViewer} sharedFile={sharedFile} onSharedFileConsumed={clearSharedFile} />;
 
       case 'wishlist':
         return <WishlistScreen tours={tours} savedTours={savedTours} onSelectTour={handleSelectTour} onToggleSave={toggleSaveTour} onRefresh={async () => { await Promise.all([loadTours(), loadWishlist()]); }} />;
