@@ -173,6 +173,8 @@ export type NavScreen =
   | 'splash'
   | 'home'
   | 'tours'
+  | 'destinations'
+  | 'destination_detail'
   | 'tour_detail'
   | 'enquiry'
   | 'auth'

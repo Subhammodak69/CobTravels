@@ -141,6 +141,28 @@ export async function fetchDestinations(
   return Array.isArray(response.data) ? response.data : [];
 }
 
+export async function fetchAllDestinations(pageSize = 100): Promise<DestinationRecord[]> {
+  const destinations: DestinationRecord[] = [];
+  let page = 1;
+
+  while (true) {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    const response = await request<ApiEnvelope<DestinationRecord[]>>(
+      `/api/v1/destinations?${params.toString()}`
+    );
+    const items = Array.isArray(response.data) ? response.data : [];
+    if (!items.length) break;
+    destinations.push(...items);
+
+    const pagination = response.pagination as { current_page?: number; total_pages?: number; has_next?: boolean } | undefined;
+    const totalPages = Number(pagination?.total_pages || 0);
+    if (totalPages ? page >= totalPages : pagination?.has_next === false || items.length < pageSize) break;
+    page += 1;
+  }
+
+  return destinations;
+}
+
 export async function fetchTourPackageVariants(
   tourIdOrSlug: string,
   page = 1,

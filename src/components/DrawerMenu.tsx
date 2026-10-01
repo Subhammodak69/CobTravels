@@ -126,6 +126,12 @@ export const DrawerMenu: React.FC<DrawerMenuProps> = ({
         >
           <Text style={styles.sectionHeader}>EXPLORE DESTINATIONS</Text>
 
+          <Pressable style={styles.menuItem} onPress={() => handleNav('destinations')}>
+            <Text style={styles.menuIcon}>🗺️</Text>
+            <Text style={styles.menuLabel}>All Destinations</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </Pressable>
+
           <Pressable
             style={styles.menuItem}
             onPress={() => handleFilter('ALL')}

@@ -21,6 +21,7 @@ interface HomeScreenProps {
   loading: boolean;
   onRefresh: () => void;
   onSelectTour: (tour: TourPackageSummary) => void;
+  onSelectDestination: (destination: DestinationRecord) => void;
   onNavigate: (screen: NavScreen) => void;
   onFilterType: (type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED') => void;
   onFilterSpecialOffers: () => void;
@@ -36,6 +37,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   loading,
   onRefresh,
   onSelectTour,
+  onSelectDestination,
   onNavigate,
   onFilterType,
   onFilterSpecialOffers,
@@ -153,7 +155,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.sectionEyebrow}>TOP PLACES TO VISIT</Text>
               <Text style={styles.sectionTitle}>Trending Destinations</Text>
             </View>
-            <Pressable onPress={() => onNavigate('tours')}>
+            <Pressable onPress={() => onNavigate('destinations')}>
               <Text style={styles.viewAllText}>Browse All →</Text>
             </Pressable>
           </View>
@@ -167,13 +169,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Pressable
                 key={destination.id}
                 style={styles.destinationCard}
-                onPress={() => {
-                  const matchingTour = tours.find(tour =>
-                    tour.destination.trim().toLowerCase() === destination.name.trim().toLowerCase()
-                  );
-                  if (matchingTour) onSelectTour(matchingTour);
-                  else onNavigate('tours');
-                }}
+                onPress={() => onSelectDestination(destination)}
               >
                 {destination.image_url ? (
                   <Image source={{uri: destination.image_url}} style={styles.destinationImage} />

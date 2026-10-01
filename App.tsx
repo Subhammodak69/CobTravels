@@ -12,7 +12,8 @@ import {
   NavScreen,
   TravelDocument,
 } from './src/types';
-import { fetchTourPackages, fetchDestinations, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, getTrackedVisitorId, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
+import { DestinationRecord } from './src/api/types';
+import { fetchTourPackages, fetchAllDestinations, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, getTrackedVisitorId, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
 import { createNotificationSocket, createVisitorSocket } from './src/realtime/socket';
 
 // Components
@@ -23,6 +24,8 @@ import { DrawerMenu } from './src/components/DrawerMenu';
 // Screens
 import { SplashScreen } from './src/screens/SplashScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { DestinationsScreen } from './src/screens/DestinationsScreen';
+import { DestinationDetailsScreen } from './src/screens/DestinationDetailsScreen';
 import { TourListScreen } from './src/screens/TourListScreen';
 import { TourDetailScreen } from './src/screens/TourDetailScreen';
 import { EnquiryScreen } from './src/screens/EnquiryScreen';
@@ -159,7 +162,9 @@ function AppInner() {
     return () => { mounted = false; clearInterval(interval); subscription.remove(); if (visitorSessionRef.current) { endVisitorSession(currentScreenRef.current); visitorSessionRef.current = null; } };
   }, [visitorReady]);
   const [tours, setTours] = useState<TourPackageSummary[]>([]);
-  const [destinations, setDestinations] = useState<import('./src/api/types').DestinationRecord[]>([]);
+  const [destinations, setDestinations] = useState<DestinationRecord[]>([]);
+  const [selectedDestination, setSelectedDestination] = useState<DestinationRecord | null>(null);
+  const [loadingDestinations, setLoadingDestinations] = useState(true);
   const [loadingTours, setLoadingTours] = useState(true);
 
   const [selectedTourSlug, setSelectedTourSlug] = useState<string>('kashmir-paradise-tour');
@@ -258,8 +263,10 @@ function AppInner() {
   }, []);
 
   const loadDestinations = useCallback(async () => {
-    try { setDestinations(await fetchDestinations(1, 20)); }
+    setLoadingDestinations(true);
+    try { setDestinations(await fetchAllDestinations()); }
     catch (error) { setDestinations([]); showApiError(error, 'We could not load destinations.'); }
+    finally { setLoadingDestinations(false); }
   }, []);
 
   const loadHomeContent = useCallback(async () => {
@@ -461,6 +468,11 @@ function AppInner() {
     navigateTo('tour_detail');
   };
 
+  const handleSelectDestination = (destination: DestinationRecord) => {
+    setSelectedDestination(destination);
+    navigateTo('destination_detail');
+  };
+
   const handleFilterTours = (
     type: 'ALL' | 'DOMESTIC' | 'INTERNATIONAL' | 'FEATURED'
   ) => {
@@ -583,6 +595,7 @@ function AppInner() {
             loading={loadingTours}
             onRefresh={loadHomeContent}
             onSelectTour={handleSelectTour}
+            onSelectDestination={handleSelectDestination}
             onNavigate={navigateTo}
             onFilterType={handleFilterTours}
             onFilterSpecialOffers={handleFilterSpecialOffers}
@@ -592,6 +605,26 @@ function AppInner() {
             onToggleSave={toggleSaveTour}
           />
         );
+
+      case 'destinations':
+        return (
+          <DestinationsScreen
+            destinations={destinations}
+            loading={loadingDestinations}
+            onRefresh={loadDestinations}
+            onSelectDestination={handleSelectDestination}
+          />
+        );
+
+      case 'destination_detail':
+        return selectedDestination ? (
+          <DestinationDetailsScreen
+            destination={selectedDestination}
+            onSelectTour={handleSelectTour}
+            savedTours={savedTours}
+            onToggleSave={toggleSaveTour}
+          />
+        ) : <DestinationsScreen destinations={destinations} loading={loadingDestinations} onRefresh={loadDestinations} onSelectDestination={handleSelectDestination} />;
 
       case 'tours':
         return (
@@ -720,6 +753,7 @@ function AppInner() {
             loading={loadingTours}
             onRefresh={loadHomeContent}
             onSelectTour={handleSelectTour}
+            onSelectDestination={handleSelectDestination}
             onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}
             onFilterSpecialOffers={handleFilterSpecialOffers}
@@ -733,7 +767,7 @@ function AppInner() {
   };
 
   const bottomNavigationScreens: NavScreen[] = ['home', 'tours', 'enquiry', 'profile'];
-  const showHeader = bottomNavigationScreens.includes(currentScreen);
+  const showHeader = bottomNavigationScreens.includes(currentScreen) || currentScreen === 'destinations' || currentScreen === 'destination_detail';
 
   const showBottomNav =
     currentScreen !== 'splash' &&
