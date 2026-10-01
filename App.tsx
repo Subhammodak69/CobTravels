@@ -612,6 +612,7 @@ function AppInner() {
             destinations={destinations}
             loading={loadingDestinations}
             onRefresh={loadDestinations}
+            onBack={goBack}
             onSelectDestination={handleSelectDestination}
           />
         );
@@ -620,11 +621,12 @@ function AppInner() {
         return selectedDestination ? (
           <DestinationDetailsScreen
             destination={selectedDestination}
+            onBack={goBack}
             onSelectTour={handleSelectTour}
             savedTours={savedTours}
             onToggleSave={toggleSaveTour}
           />
-        ) : <DestinationsScreen destinations={destinations} loading={loadingDestinations} onRefresh={loadDestinations} onSelectDestination={handleSelectDestination} />;
+        ) : <DestinationsScreen destinations={destinations} loading={loadingDestinations} onRefresh={loadDestinations} onBack={goBack} onSelectDestination={handleSelectDestination} />;
 
       case 'tours':
         return (
@@ -767,7 +769,7 @@ function AppInner() {
   };
 
   const bottomNavigationScreens: NavScreen[] = ['home', 'tours', 'enquiry', 'profile'];
-  const showHeader = bottomNavigationScreens.includes(currentScreen) || currentScreen === 'destinations' || currentScreen === 'destination_detail';
+  const showHeader = bottomNavigationScreens.includes(currentScreen);
 
   const showBottomNav =
     currentScreen !== 'splash' &&

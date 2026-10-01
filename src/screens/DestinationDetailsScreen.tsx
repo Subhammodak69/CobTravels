@@ -9,6 +9,7 @@ import { useTheme } from '../theme/theme';
 
 interface DestinationDetailsScreenProps {
   destination: DestinationRecord;
+  onBack: () => void;
   onSelectTour: (tour: TourPackageSummary) => void;
   savedTours: string[];
   onToggleSave: (slug: string) => void;
@@ -21,6 +22,7 @@ function getHotelImage(hotel: HotelRecord): string {
 
 export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> = ({
   destination,
+  onBack,
   onSelectTour,
   savedTours,
   onToggleSave,
@@ -51,12 +53,23 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
   useEffect(() => { loadRelated(); }, [loadRelated]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[1]}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={loadRelated} colors={[colors.primary]} />}
-    >
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back to destinations" style={styles.backButton} onPress={onBack}>
+          <Ionicons name="arrow-back" size={21} color={colors.text} />
+        </Pressable>
+        <View style={styles.headerCopy}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{destination.name}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>{destination.country || 'Destination details'}</Text>
+        </View>
+        <View style={styles.headerSpacer} />
+      </View>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadRelated} colors={[colors.primary]} />}
+      >
       <View style={styles.hero}>
         {destination.image_url ? <Image source={{ uri: destination.image_url }} style={styles.heroImage} /> : null}
         <View style={styles.heroShade} />
@@ -75,17 +88,17 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
           onPress={() => setActiveTab('packages')}
         >
           <Ionicons name="briefcase-outline" size={16} color={activeTab === 'packages' ? colors.primary : colors.textMuted} />
-          <Text style={[styles.tabText, activeTab === 'packages' && styles.activeTabText]}>Tour Packages</Text>
+          <Text numberOfLines={1} style={[styles.tabText, activeTab === 'packages' && styles.activeTabText]}>Tour Packages</Text>
           <Text style={[styles.tabCount, activeTab === 'packages' && styles.activeTabText]}>{loading ? '...' : packages.length}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === 'hotels' }}
-          style={[styles.tab, activeTab === 'hotels' && styles.activeTab]}
+          style={[styles.tab, styles.secondTab, activeTab === 'hotels' && styles.activeTab]}
           onPress={() => setActiveTab('hotels')}
         >
           <Ionicons name="bed-outline" size={17} color={activeTab === 'hotels' ? colors.primary : colors.textMuted} />
-          <Text style={[styles.tabText, activeTab === 'hotels' && styles.activeTabText]}>Hotels</Text>
+          <Text numberOfLines={1} style={[styles.tabText, activeTab === 'hotels' && styles.activeTabText]}>Hotels</Text>
           <Text style={[styles.tabCount, activeTab === 'hotels' && styles.activeTabText]}>{loading ? '...' : hotels.length}</Text>
         </Pressable>
       </View>
@@ -125,11 +138,19 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
           </View>
         )) : <Text style={styles.empty}>{loading ? 'Loading hotels...' : 'No hotels are listed for this destination yet.'}</Text>}
       </View>}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  header: { minHeight: 62, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.bg },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerCopy: { flex: 1, justifyContent: 'center', marginLeft: 6 },
+  headerTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  headerSubtitle: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  headerSpacer: { width: 40 },
   container: { flex: 1, backgroundColor: colors.bg },
   hero: { height: 285, justifyContent: 'flex-end', overflow: 'hidden', backgroundColor: colors.primaryDark },
   heroImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
@@ -139,9 +160,10 @@ const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet
   title: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', marginTop: 4 },
   description: { color: 'rgba(255,255,255,0.9)', fontSize: 12, lineHeight: 18, marginTop: 6 },
   section: { padding: 16, paddingBottom: 6 },
-  tabs: { zIndex: 2, flexDirection: 'row', backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, elevation: 3 },
-  tab: { flex: 1, minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent', paddingHorizontal: 6 },
-  activeTab: { borderBottomColor: colors.primary },
+  tabs: { position: 'relative', width: '100%', height: 54, zIndex: 2, backgroundColor: colors.bg, borderBottomWidth: 1, borderBottomColor: colors.border, elevation: 3 },
+  tab: { position: 'absolute', top: 0, left: 0, width: '50%', height: 53, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent', paddingHorizontal: 6 },
+  secondTab: { left: '50%' },
+  activeTab: { borderBottomColor: colors.primary, backgroundColor: colors.primarySubtle },
   tabText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
   activeTabText: { color: colors.primary, fontWeight: '900' },
   tabCount: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
