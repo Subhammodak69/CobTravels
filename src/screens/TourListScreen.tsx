@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TextInput,
   Pressable,
   RefreshControl,
@@ -118,100 +119,85 @@ export const TourListScreen: React.FC<TourListScreenProps> = ({
     return result;
   }, [sourceTours, filterType, searchQuery, sortBy]);
 
-  return (
-    <View style={styles.container}>
-      {/* Search and Filter Top Bar */}
-      <View style={styles.searchHeader}>
-        <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search destination, tour code, style..."
-            placeholderTextColor={COLORS.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={10}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {/* Filter Pills */}
-        <View style={styles.filterPillsRow}>
-          {(['ALL', 'DOMESTIC', 'INTERNATIONAL', 'FEATURED', 'SPECIAL_OFFER'] as const).map(tab => (
-            <Pressable
-              key={tab}
-              onPress={() => changeFilter(tab)}
-              style={[
-                styles.filterPill,
-                filterType === tab && styles.filterPillActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  filterType === tab && styles.filterPillTextActive,
-                ]}
-              >
-                {tab === 'ALL'
-                  ? 'All Tours'
-                  : tab === 'DOMESTIC'
-                  ? '🇮🇳 Domestic'
-                  : tab === 'INTERNATIONAL'
-                  ? '✈️ International'
-                  : tab === 'FEATURED'
-                  ? '🌟 Featured'
-                  : '🏷️ Offers'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Sub Info & View Toggle Bar */}
-        <View style={styles.infoBar}>
-          <Text style={styles.countText}>
-            Showing <Text style={styles.countHighlight}>{filteredTours.length}</Text> packages
-          </Text>
-
-          <View style={styles.sortToggleRow}>
-            {/* Sort chips */}
-            <Pressable
-              style={[styles.sortChip, sortBy === 'price_asc' && styles.sortChipActive]}
-              onPress={() => setSortBy(sortBy === 'price_asc' ? 'recommended' : 'price_asc')}
-            >
-              <Text style={[styles.sortChipText, sortBy === 'price_asc' && styles.sortChipTextActive]}>
-                Price ↑
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.sortChip, sortBy === 'price_desc' && styles.sortChipActive]}
-              onPress={() => setSortBy(sortBy === 'price_desc' ? 'recommended' : 'price_desc')}
-            >
-              <Text style={[styles.sortChipText, sortBy === 'price_desc' && styles.sortChipTextActive]}>
-                Price ↓
-              </Text>
-            </Pressable>
-
-            {/* Layout Mode Button */}
-            <Pressable
-              onPress={() => setLayoutMode(layoutMode === 'vertical' ? 'horizontal' : 'vertical')}
-              style={styles.layoutToggleBtn}
-            >
-              <Text style={styles.layoutToggleIcon}>
-                {layoutMode === 'vertical' ? '☰' : '☷'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+  const listHeader = (
+    <View style={styles.searchHeader}>
+      <View style={styles.searchBox}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search destination, tour code, style..."
+          placeholderTextColor={COLORS.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery ? (
+          <Pressable onPress={() => setSearchQuery('')} hitSlop={10}>
+            <Text style={styles.clearIcon}>✕</Text>
+          </Pressable>
+        ) : null}
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterPillsRow}
+      >
+        {(['ALL', 'DOMESTIC', 'INTERNATIONAL', 'FEATURED', 'SPECIAL_OFFER'] as const).map(tab => (
+          <Pressable
+            key={tab}
+            onPress={() => changeFilter(tab)}
+            style={[styles.filterPill, filterType === tab && styles.filterPillActive]}
+          >
+            <Text style={[styles.filterPillText, filterType === tab && styles.filterPillTextActive]}>
+              {tab === 'ALL'
+                ? 'All Tours'
+                : tab === 'DOMESTIC'
+                ? '🇮🇳 Domestic'
+                : tab === 'INTERNATIONAL'
+                ? '✈️ International'
+                : tab === 'FEATURED'
+                ? '🌟 Featured'
+                : '🏷️ Offers'}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      <View style={styles.infoBar}>
+        <Text style={styles.countText}>
+          Showing <Text style={styles.countHighlight}>{filteredTours.length}</Text> packages
+        </Text>
+        <View style={styles.sortToggleRow}>
+          <Pressable
+            style={[styles.sortChip, sortBy === 'price_asc' && styles.sortChipActive]}
+            onPress={() => setSortBy(sortBy === 'price_asc' ? 'recommended' : 'price_asc')}
+          >
+            <Text style={[styles.sortChipText, sortBy === 'price_asc' && styles.sortChipTextActive]}>Price ↑</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.sortChip, sortBy === 'price_desc' && styles.sortChipActive]}
+            onPress={() => setSortBy(sortBy === 'price_desc' ? 'recommended' : 'price_desc')}
+          >
+            <Text style={[styles.sortChipText, sortBy === 'price_desc' && styles.sortChipTextActive]}>Price ↓</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setLayoutMode(layoutMode === 'vertical' ? 'horizontal' : 'vertical')}
+            style={styles.layoutToggleBtn}
+          >
+            <Text style={styles.layoutToggleIcon}>{layoutMode === 'vertical' ? '☰' : '☷'}</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
       {/* Tour List Content */}
       <FlatList
         data={listLoading && sourceTours.length === 0 ? [] : filteredTours}
         keyExtractor={item => item.id}
+        ListHeaderComponent={listHeader}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={listLoading} onRefresh={filterType === 'SPECIAL_OFFER' ? loadSpecialOffers : onRefresh} colors={[COLORS.primary]} />
@@ -256,9 +242,8 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
   searchHeader: {
-    backgroundColor: COLORS.card,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 2,
+    paddingTop: 2,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
@@ -271,6 +256,8 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     paddingHorizontal: 12,
     height: 40,
     borderWidth: 1,
+    marginBottom: 6,
+
     borderColor: COLORS.border,
   },
   searchIcon: {
@@ -290,11 +277,13 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   filterPillsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 6,
-    marginTop: 10,
+    paddingVertical: 8,
   },
+
   filterPill: {
+    flexShrink: 0,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,

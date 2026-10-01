@@ -793,17 +793,7 @@ function AppInner() {
 
   const bottomNavigationScreens: NavScreen[] = ['home', 'tours', 'enquiry', 'profile'];
   const showHeader = bottomNavigationScreens.includes(currentScreen);
-
-  const showBottomNav =
-    currentScreen !== 'splash' &&
-    currentScreen !== 'auth' &&
-    currentScreen !== 'tour_detail' &&
-    currentScreen !== 'hotel_detail' &&
-    currentScreen !== 'document_viewer' &&
-    currentScreen !== 'edit_enquiry' &&
-    currentScreen !== 'enquiry_details' &&
-    currentScreen !== 'invoice_details' &&
-    currentScreen !== 'booking_details';
+  const showBottomNav = bottomNavigationScreens.includes(currentScreen);
 
   const getScreenStatusBarConfig = (): { bg: string; barStyle: 'light-content' | 'dark-content' } => {
     if (currentScreen === 'splash') {
