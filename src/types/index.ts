@@ -181,6 +181,7 @@ export type NavScreen =
   | 'auth'
   | 'notifications'
   | 'profile'
+  | 'wallet'
   | 'profile_details'
   | 'edit_profile'
   | 'sessions'

@@ -46,6 +46,7 @@ import { InvoiceDetailsScreen } from './src/screens/InvoiceDetailsScreen';
 import { EditEnquiryScreen } from './src/screens/EditEnquiryScreen';
 import { EnquiryDetailsScreen } from './src/screens/EnquiryDetailsScreen';
 import { BookingDetailsScreen } from './src/screens/BookingDetailsScreen';
+import { WalletScreen } from './src/screens/WalletScreen';
 import { toastConfig } from './src/components/AppToast';
 import { showApiError } from './src/utils/toast';
 import { decodeReferral } from './src/utils/referral';
@@ -759,6 +760,9 @@ function AppInner() {
 
       case 'bills_invoices':
         return <BillsInvoicesScreen onOpenInvoice={openInvoiceDetails} />;
+
+      case 'wallet':
+        return <WalletScreen onBack={goBack} />;
 
       case 'invoice_details':
         return selectedInvoice ? <InvoiceDetailsScreen invoice={selectedInvoice} onBack={goBack} /> : <BillsInvoicesScreen onOpenInvoice={openInvoiceDetails} />;
