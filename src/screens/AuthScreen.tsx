@@ -20,7 +20,7 @@ import { showApiError } from '../utils/toast';
 import { useAppDialog } from '../components/AppDialog';
 
 type AuthMode = 'LOGIN' | 'SIGNUP';
-const GOOGLE_CLIENT_ID_WEB = '61755144915-pj9o538ffi7dldtemnrlhj36pvenb3n9.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID_WEB = '862608710351-m9n9qdpm33q9qvbmbjok9ia1cnftv0d7.apps.googleusercontent.com';
 
 interface Props {
   onLoginSuccess: (identifier: string) => void;
