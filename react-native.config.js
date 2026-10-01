@@ -12,7 +12,7 @@ module.exports = {
     android: {
       sourceDir: './android',
       appName: 'app',
-      packageName: 'com.cobtravels',
+      packageName: 'com.gantabyaa',
     },
     ios: {},
   },

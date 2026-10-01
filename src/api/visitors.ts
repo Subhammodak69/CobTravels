@@ -3,10 +3,10 @@ import { Platform } from 'react-native';
 import { request } from './client';
 import { ApiEnvelope } from './types';
 
-const VISITOR_ID_KEY = '@cobtravels/visitor_id';
-const VISITOR_SERVER_ID_KEY = '@cobtravels/visitor_server_id';
-const VISITOR_SESSION_ID_KEY = '@cobtravels/visitor_session_id';
-const FINGERPRINT_KEY = '@cobtravels/fingerprint';
+const VISITOR_ID_KEY = '@gantabyaa/visitor_id';
+const VISITOR_SERVER_ID_KEY = '@gantabyaa/visitor_server_id';
+const VISITOR_SESSION_ID_KEY = '@gantabyaa/visitor_session_id';
+const FINGERPRINT_KEY = '@gantabyaa/fingerprint';
 
 export async function getVisitorId(): Promise<string> {
   let id = await AsyncStorage.getItem(VISITOR_ID_KEY);

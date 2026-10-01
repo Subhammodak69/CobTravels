@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_API, getAccessToken } from '../api/client';
 import { getTrackedVisitorId } from '../api/visitors';
 
-const VISITOR_SESSION_ID_KEY = '@cobtravels/visitor_session_id';
+const VISITOR_SESSION_ID_KEY = '@gantabyaa/visitor_session_id';
 
 export async function createVisitorSocket(customerId = ''): Promise<Socket> {
   const [token, visitorId, sessionId] = await Promise.all([

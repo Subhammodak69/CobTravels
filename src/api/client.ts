@@ -3,10 +3,10 @@ import { ApiEnvelope } from './types';
 
 export const BASE_API = 'https://api.gantabyaa.in';
 export const WEB_APP_URL = 'https://gantabyaa.com';
-export const ACCESS_TOKEN_KEY = '@cobtravels/access_token';
-export const REFRESH_TOKEN_KEY = '@cobtravels/refresh_token';
-export const VISITOR_ID_KEY = '@cobtravels/visitor_id';
-export const REFERRAL_CODE_KEY = '@cobtravels/referral_code';
+export const ACCESS_TOKEN_KEY = '@gantabyaa/access_token';
+export const REFRESH_TOKEN_KEY = '@gantabyaa/refresh_token';
+export const VISITOR_ID_KEY = '@gantabyaa/visitor_id';
+export const REFERRAL_CODE_KEY = '@gantabyaa/referral_code';
 
 export const headers = {
   Accept: 'application/json',

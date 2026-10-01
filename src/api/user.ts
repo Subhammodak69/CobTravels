@@ -28,7 +28,7 @@ import {
 } from './types';
 import { TravelDocument } from '../types';
 
-const NOTIFICATION_PREFERENCES_KEY = '@cobtravels/notification_preferences';
+const NOTIFICATION_PREFERENCES_KEY = '@gantabyaa/notification_preferences';
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   push_notifications: true,
   newsletter: true,

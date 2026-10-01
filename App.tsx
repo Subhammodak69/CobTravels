@@ -374,7 +374,7 @@ function AppInner() {
       if (!url) return;
       try {
         const parsed = new URL(url);
-        const path = parsed.protocol === 'cobtravels:'
+        const path = parsed.protocol === 'gantabyaa:'
           ? `${parsed.hostname}${parsed.pathname}`
           : parsed.pathname;
         const journeyMatch = path.match(/(?:^|\/)journey\/([^/]+)/);

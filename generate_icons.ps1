@@ -3,9 +3,9 @@ Add-Type -AssemblyName System.Drawing
 $sourcePath = "C:\Users\modak\.gemini\antigravity-ide\brain\574b1b7a-38bc-455b-9709-e48a8f6ce385\.user_uploaded\media_1786715237037.jpg"
 $srcImg = [System.Drawing.Image]::FromFile($sourcePath)
 
-# Copy to src/assets/logo.png
-Copy-Item $sourcePath -Destination "c:\Users\modak\OneDrive\Desktop\CobTravels\src\assets\logo.png" -Force
-
+@(
+    'C:\Users\modak\OneDrive\Desktop\GantabyaWeb\public\logo192.png',
+    'C:\Users\modak\OneDrive\Desktop\GantabyaaAdmin\public\logo192.png'
 function Resize-Image([int]$width, [int]$height, [string]$destPath) {
     $bmp = New-Object System.Drawing.Bitmap $width, $height
     $graph = [System.Drawing.Graphics]::FromImage($bmp)
@@ -22,9 +22,9 @@ function Resize-Image([int]$width, [int]$height, [string]$destPath) {
 
 function Resize-Image-Round([int]$width, [int]$height, [string]$destPath) {
     $bmp = New-Object System.Drawing.Bitmap $width, $height
-    $graph = [System.Drawing.Graphics]::FromImage($bmp)
-    $graph.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $graph.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+@(
+    'C:\Users\modak\OneDrive\Desktop\GantabyaWeb\public\logo512.png',
+    'C:\Users\modak\OneDrive\Desktop\GantabyaaAdmin\public\logo512.png'
     $graph.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $graph.Clear([System.Drawing.Color]::Transparent)
     
@@ -41,7 +41,7 @@ function Resize-Image-Round([int]$width, [int]$height, [string]$destPath) {
     Write-Host "Generated Round: $destPath"
 }
 
-$resDir = "c:\Users\modak\OneDrive\Desktop\CobTravels\android\app\src\main\res"
+$resDir = "c:\Projects\Gantabyaa\android\app\src\main\res"
 
 Resize-Image 48 48 "$resDir\mipmap-mdpi\ic_launcher.png"
 Resize-Image-Round 48 48 "$resDir\mipmap-mdpi\ic_launcher_round.png"
@@ -59,7 +59,7 @@ Resize-Image 192 192 "$resDir\mipmap-xxxhdpi\ic_launcher.png"
 Resize-Image-Round 192 192 "$resDir\mipmap-xxxhdpi\ic_launcher_round.png"
 
 # Play Store 512x512 icon
-Resize-Image 512 512 "c:\Users\modak\OneDrive\Desktop\CobTravels\playstore_icon_512x512.png"
+Resize-Image 512 512 "c:\Projects\Gantabyaa\playstore_icon_512x512.png"
 Resize-Image 512 512 "$resDir\mipmap-xxxhdpi\ic_playstore.png"
 
 $srcImg.Dispose()

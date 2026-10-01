@@ -25,7 +25,7 @@ $android = Join-Path $root 'android\app\src\main\res'
 Resize-Png $sourcePath (Join-Path $android 'mipmap-xxxhdpi\ic_playstore.png') 512
 Resize-Png $sourcePath (Join-Path $root 'playstore_icon_512x512.png') 512
 
-$ios = Join-Path $root 'ios\CobTravels\Images.xcassets\AppIcon.appiconset'
+$ios = Join-Path $root 'ios\Gantabyaa\Images.xcassets\AppIcon.appiconset'
 $iosSizes = @{
   'AppIcon-20@2x.png' = 40; 'AppIcon-20@3x.png' = 60;
   'AppIcon-29@2x.png' = 58; 'AppIcon-29@3x.png' = 87;
@@ -36,10 +36,10 @@ $iosSizes = @{
 $iosSizes.GetEnumerator() | ForEach-Object { Resize-Png $sourcePath (Join-Path $ios $_.Key) $_.Value }
 
 @(
-  'C:\Users\modak\OneDrive\Desktop\CobTravelsWeb\public\logo192.png',
-  'C:\Users\modak\OneDrive\Desktop\CobTravelsAdmin\public\logo192.png'
+  'C:\Users\modak\OneDrive\Desktop\GantabyaWeb\public\logo192.png',
+  'C:\Users\modak\OneDrive\Desktop\GantabyaaAdmin\public\logo192.png'
 ) | ForEach-Object { Resize-Png $sourcePath $_ 192 }
 @(
-  'C:\Users\modak\OneDrive\Desktop\CobTravelsWeb\public\logo512.png',
-  'C:\Users\modak\OneDrive\Desktop\CobTravelsAdmin\public\logo512.png'
+  'C:\Users\modak\OneDrive\Desktop\GantabyaWeb\public\logo512.png',
+  'C:\Users\modak\OneDrive\Desktop\GantabyaaAdmin\public\logo512.png'
 ) | ForEach-Object { Resize-Png $sourcePath $_ 512 }
