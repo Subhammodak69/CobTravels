@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { DestinationRecord, HotelRecord } from '../api/types';
 import { fetchHotels, fetchTourPackages } from '../api/tourApi';
@@ -54,6 +54,7 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
+      stickyHeaderIndices={[1]}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={loadRelated} colors={[colors.primary]} />}
     >
       <View style={styles.hero}>
@@ -66,9 +67,32 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
         </View>
       </View>
 
+      <View style={styles.tabs}>
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'packages' }}
+          style={[styles.tab, activeTab === 'packages' && styles.activeTab]}
+          onPress={() => setActiveTab('packages')}
+        >
+          <Ionicons name="briefcase-outline" size={16} color={activeTab === 'packages' ? colors.primary : colors.textMuted} />
+          <Text style={[styles.tabText, activeTab === 'packages' && styles.activeTabText]}>Tour Packages</Text>
+          <Text style={[styles.tabCount, activeTab === 'packages' && styles.activeTabText]}>{loading ? '...' : packages.length}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'hotels' }}
+          style={[styles.tab, activeTab === 'hotels' && styles.activeTab]}
+          onPress={() => setActiveTab('hotels')}
+        >
+          <Ionicons name="bed-outline" size={17} color={activeTab === 'hotels' ? colors.primary : colors.textMuted} />
+          <Text style={[styles.tabText, activeTab === 'hotels' && styles.activeTabText]}>Hotels</Text>
+          <Text style={[styles.tabCount, activeTab === 'hotels' && styles.activeTabText]}>{loading ? '...' : hotels.length}</Text>
+        </Pressable>
+      </View>
+
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <View style={styles.section}>
+      {activeTab === 'packages' && <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <View><Text style={styles.eyebrow}>CURATED ITINERARIES</Text><Text style={styles.sectionTitle}>Packages</Text></View>
           <Text style={styles.count}>{loading ? 'Loading' : String(packages.length)}</Text>
@@ -82,9 +106,9 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
             onToggleSave={() => onToggleSave(tour.slug)}
           />
         )) : <Text style={styles.empty}>{loading ? 'Loading packages...' : 'No packages are listed for this destination yet.'}</Text>}
-      </View>
+      </View>}
 
-      <View style={[styles.section, styles.hotelSection]}>
+      {activeTab === 'hotels' && <View style={[styles.section, styles.hotelSection]}>
         <View style={styles.sectionHeader}>
           <View><Text style={styles.eyebrow}>STAYS NEARBY</Text><Text style={styles.sectionTitle}>Hotels</Text></View>
           <Text style={styles.count}>{loading ? 'Loading' : String(hotels.length)}</Text>
@@ -100,7 +124,7 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
             </View>
           </View>
         )) : <Text style={styles.empty}>{loading ? 'Loading hotels...' : 'No hotels are listed for this destination yet.'}</Text>}
-      </View>
+      </View>}
     </ScrollView>
   );
 };
@@ -115,6 +139,12 @@ const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) => StyleSheet
   title: { color: '#FFFFFF', fontSize: 30, fontWeight: '900', marginTop: 4 },
   description: { color: 'rgba(255,255,255,0.9)', fontSize: 12, lineHeight: 18, marginTop: 6 },
   section: { padding: 16, paddingBottom: 6 },
+  tabs: { zIndex: 2, flexDirection: 'row', backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, elevation: 3 },
+  tab: { flex: 1, minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderBottomWidth: 2, borderBottomColor: 'transparent', paddingHorizontal: 6 },
+  activeTab: { borderBottomColor: colors.primary },
+  tabText: { color: colors.textMuted, fontSize: 12, fontWeight: '700' },
+  activeTabText: { color: colors.primary, fontWeight: '900' },
+  tabCount: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
   hotelSection: { backgroundColor: colors.card, paddingBottom: 22, borderTopWidth: 1, borderTopColor: colors.border },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 13 },
   eyebrow: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
