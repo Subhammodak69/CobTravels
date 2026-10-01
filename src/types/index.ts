@@ -115,6 +115,7 @@ export interface TourPackageDetail {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  banner_video?: string;
   reviews: Review[];
   seasons: SeasonVariant[];
   is_wishlist?: boolean;

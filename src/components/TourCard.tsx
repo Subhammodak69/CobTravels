@@ -33,16 +33,42 @@ export const TourCard: React.FC<TourCardProps> = ({
     return (
       <Pressable
         onPress={onPress}
+        onHoverIn={() => { if (tour.banner_video) setPreviewing(true); }}
+        onHoverOut={() => setPreviewing(false)}
         style={({ pressed }) => [
           styles.horizontalCard,
           pressed && styles.cardPressed,
         ]}
       >
-        <Image
-          source={{ uri: tour.cover_image }}
-          style={styles.horizontalImage}
-          resizeMode="cover"
-        />
+        <View style={styles.horizontalImageContainer}>
+          <Image
+            source={{ uri: tour.cover_image }}
+            style={styles.horizontalImage}
+            resizeMode="cover"
+          />
+          {previewing && tour.banner_video ? (
+            <Video
+              source={{ uri: tour.banner_video }}
+              style={styles.horizontalVideo}
+              resizeMode="cover"
+              repeat
+              muted
+              paused={false}
+              playInBackground={false}
+              playWhenInactive={false}
+            />
+          ) : null}
+          {tour.banner_video && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={previewing ? 'Stop tour video preview' : 'Play tour video preview'}
+              style={styles.horizontalPreviewBtn}
+              onPress={() => setPreviewing(value => !value)}
+            >
+              <Text style={styles.previewBtnText}>{previewing ? '■' : '▶'}</Text>
+            </Pressable>
+          )}
+        </View>
         <View style={styles.horizontalInfo}>
           <View style={styles.badgeRow}>
             <View
@@ -85,6 +111,8 @@ export const TourCard: React.FC<TourCardProps> = ({
   return (
     <Pressable
       onPress={onPress}
+      onHoverIn={() => { if (tour.banner_video) setPreviewing(true); }}
+      onHoverOut={() => setPreviewing(false)}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
       <View style={styles.imageContainer}>
@@ -432,6 +460,30 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     width: 110,
     height: '100%',
     minHeight: 115,
+  },
+  horizontalImageContainer: {
+    width: 110,
+    minHeight: 115,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  horizontalVideo: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  horizontalPreviewBtn: {
+    position: 'absolute',
+    right: 6,
+    bottom: 6,
+    minWidth: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    backgroundColor: COLORS.gold,
   },
   horizontalInfo: {
     flex: 1,

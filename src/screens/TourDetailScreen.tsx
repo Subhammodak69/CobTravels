@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useColors } from '../theme/theme';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import Video from 'react-native-video';
 import { TourPackageDetail, TourPackageSummary, SeasonVariant, NavScreen } from '../types';
 import { fetchTourDetail, fetchTourVariant, getTourWebUrl, openWhatsAppChat, submitReviewApi, fetchPackageReviews, fetchReviewEligibility } from '../api/tourApi';
 import { TourDetailSkeleton } from '../components/Skeleton';
@@ -67,6 +68,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   const COLORS = useColors();
   const styles = makeStyles(COLORS);
   const [tour, setTour] = useState<TourPackageDetail | null>(null);
+  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedSeasonIndex, setSelectedSeasonIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -258,6 +260,7 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
   }
 
   const isDomestic = tour.type === 'DOMESTIC';
+  const heroVideo = activeSeason.banner_video || tour.banner_video;
   const priceFormatted = activeSeason.price
     ? `₹${Number(activeSeason.price).toLocaleString('en-IN')}`
     : 'Call for Price';
@@ -273,6 +276,20 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
             style={styles.heroImage}
             resizeMode="cover"
           />
+          {heroVideo && heroVideoPlaying && (
+            <View style={styles.heroVideoLayer} pointerEvents="none">
+              <Video
+                source={{ uri: heroVideo }}
+                style={styles.heroImage}
+                resizeMode="cover"
+                repeat
+                muted
+                paused={false}
+                playInBackground={false}
+                playWhenInactive={false}
+              />
+            </View>
+          )}
           <View style={styles.heroGradient} />
 
           {/* Floating Actions */}
@@ -282,6 +299,19 @@ export const TourDetailScreen: React.FC<TourDetailScreenProps> = ({
             </Pressable>
 
             <View style={styles.topRightBtns}>
+              {heroVideo && (
+                <Pressable
+                  onPress={() => setHeroVideoPlaying(value => !value)}
+                  onHoverIn={() => setHeroVideoPlaying(true)}
+                  onHoverOut={() => setHeroVideoPlaying(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={heroVideoPlaying ? 'Pause tour video preview' : 'Play tour video preview'}
+                  style={styles.circleBtn}
+                  hitSlop={10}
+                >
+                  <Text style={styles.videoPreviewIcon}>{heroVideoPlaying ? 'Ⅱ' : '▶'}</Text>
+                </Pressable>
+              )}
               <Pressable onPress={handleShare} style={styles.circleBtn} hitSlop={10}>
                 <Text style={styles.shareIcon}>📤</Text>
               </Pressable>
@@ -945,6 +975,9 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  heroVideoLayer: {
+    ...StyleSheet.absoluteFill,
+  },
   heroGradient: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.42)',
@@ -980,6 +1013,11 @@ const makeStyles = (COLORS: ReturnType<typeof useColors>) => StyleSheet.create({
   },
   favIcon: {
     fontSize: 16,
+  },
+  videoPreviewIcon: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
   },
   heroBottomContent: {
     position: 'absolute',
