@@ -12,7 +12,7 @@ import {
   NavScreen,
   TravelDocument,
 } from './src/types';
-import { fetchTourPackages, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, getTrackedVisitorId, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
+import { fetchTourPackages, fetchDestinations, fetchMe, fetchEnquiries, fetchWishlist, fetchNotifications, markNotificationRead, markAllNotificationsRead as markAllNotificationsReadApi, getAccessToken, refreshSession, logout as logoutApi, identifyVisitor, getTrackedVisitorId, startVisitorSession, heartbeatVisitorSession, endVisitorSession, trackVisitorEvent, AuthUser, EnquiryRecord, addWishlistItem, removeWishlistItem, validateReferralCode, REFERRAL_CODE_KEY } from './src/api/tourApi';
 import { createNotificationSocket, createVisitorSocket } from './src/realtime/socket';
 
 // Components
@@ -159,6 +159,7 @@ function AppInner() {
     return () => { mounted = false; clearInterval(interval); subscription.remove(); if (visitorSessionRef.current) { endVisitorSession(currentScreenRef.current); visitorSessionRef.current = null; } };
   }, [visitorReady]);
   const [tours, setTours] = useState<TourPackageSummary[]>([]);
+  const [destinations, setDestinations] = useState<import('./src/api/types').DestinationRecord[]>([]);
   const [loadingTours, setLoadingTours] = useState(true);
 
   const [selectedTourSlug, setSelectedTourSlug] = useState<string>('kashmir-paradise-tour');
@@ -256,11 +257,20 @@ function AppInner() {
     setLoadingTours(false);
   }, []);
 
+  const loadDestinations = useCallback(async () => {
+    try { setDestinations(await fetchDestinations(1, 20)); }
+    catch (error) { setDestinations([]); showApiError(error, 'We could not load destinations.'); }
+  }, []);
+
+  const loadHomeContent = useCallback(async () => {
+    await Promise.all([loadTours(), loadDestinations()]);
+  }, [loadTours, loadDestinations]);
+
   useEffect(() => {
     if (visitorBootstrapRef.current) return;
     visitorBootstrapRef.current = true;
     let mounted = true;
-    loadTours();
+    loadHomeContent();
     (async () => {
       let customerId = '';
       let token = await getAccessToken();
@@ -297,7 +307,7 @@ function AppInner() {
       }
     })();
     return () => { mounted = false; };
-  }, [finishSplash, loadTours, loadEnquiries, loadWishlist, loadNotifications, setRootScreen]);
+  }, [finishSplash, loadHomeContent, loadEnquiries, loadWishlist, loadNotifications, setRootScreen]);
 
   React.useEffect(() => {
     if (!visitorReady) return undefined;
@@ -569,8 +579,9 @@ function AppInner() {
         return (
           <HomeScreen
             tours={tours}
+            destinations={destinations}
             loading={loadingTours}
-            onRefresh={loadTours}
+            onRefresh={loadHomeContent}
             onSelectTour={handleSelectTour}
             onNavigate={navigateTo}
             onFilterType={handleFilterTours}
@@ -705,8 +716,9 @@ function AppInner() {
         return (
           <HomeScreen
             tours={tours}
+            destinations={destinations}
             loading={loadingTours}
-            onRefresh={loadTours}
+            onRefresh={loadHomeContent}
             onSelectTour={handleSelectTour}
             onNavigate={navigateWithAuth}
             onFilterType={handleFilterTours}

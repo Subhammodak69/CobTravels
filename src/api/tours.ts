@@ -2,6 +2,7 @@ import { Linking } from 'react-native';
 import { request, authenticated, getAccessToken, BASE_API, WEB_APP_URL } from './client';
 import {
   ApiEnvelope,
+  DestinationRecord,
   UploadedFileData,
 } from './types';
 import {
@@ -124,6 +125,20 @@ export async function fetchTourPackages(
   });
   const r = await request<ApiEnvelope<any[]>>(`/api/v1/tour-packages?${params.toString()}`);
   return (Array.isArray(r.data) ? r.data : []).map(formatSummary);
+}
+
+export async function fetchDestinations(
+  page = 1,
+  pageSize = 20
+): Promise<DestinationRecord[]> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  const response = await request<ApiEnvelope<DestinationRecord[]>>(
+    `/api/v1/destinations?${params.toString()}`
+  );
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function fetchTourPackageVariants(
@@ -330,7 +345,7 @@ export async function uploadFileApi(
   });
 
   const resBody = await res.json().catch(() => ({}));
-  if (!res.ok) {
+  if (!res.ok || resBody?.success === false) {
     throw new Error(resBody?.message || `File upload failed (${res.status})`);
   }
   return resBody as ApiEnvelope<UploadedFileData>;

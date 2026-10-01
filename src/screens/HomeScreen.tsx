@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,11 @@ import { TourPackageSummary, NavScreen } from '../types';
 import { TourCard } from '../components/TourCard';
 import { openWhatsAppChat } from '../api/tourApi';
 import { TourListSkeleton } from '../components/Skeleton';
+import { DestinationRecord } from '../api/types';
 
 interface HomeScreenProps {
   tours: TourPackageSummary[];
+  destinations: DestinationRecord[];
   loading: boolean;
   onRefresh: () => void;
   onSelectTour: (tour: TourPackageSummary) => void;
@@ -30,6 +32,7 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   tours,
+  destinations,
   loading,
   onRefresh,
   onSelectTour,
@@ -46,26 +49,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const featuredTours = tours.filter(t => t.is_featured);
   const domesticTours = tours.filter(t => t.type === 'DOMESTIC');
   const internationalTours = tours.filter(t => t.type === 'INTERNATIONAL');
-  const destinations = useMemo(() => {
-    const grouped = new Map<string, {name: string; image?: string; count: number; tour: TourPackageSummary}>();
-
-    tours.forEach(tour => {
-      const name = String(tour.destination || '').trim();
-      if (!name) return;
-      const key = name.toLowerCase();
-      const current = grouped.get(key);
-      grouped.set(key, {
-        name: current?.name || name,
-        image: current?.image || tour.cover_image,
-        count: (current?.count || 0) + 1,
-        tour: current?.tour || tour,
-      });
-    });
-
-    return Array.from(grouped.values())
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-      .slice(0, 6);
-  }, [tours]);
 
   return (
     <ScrollView
@@ -162,7 +145,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </ScrollView>
       </View>
 
-      {/* Destinations derived from the live tour catalog */}
+      {/* Destinations from the destinations catalog */}
       {destinations.length > 0 && (
         <View style={styles.destinationSection}>
           <View style={styles.sectionHeaderRow}>
@@ -182,19 +165,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           >
             {destinations.map(destination => (
               <Pressable
-                key={destination.name}
+                key={destination.id}
                 style={styles.destinationCard}
-                onPress={() => onSelectTour(destination.tour)}
+                onPress={() => {
+                  const matchingTour = tours.find(tour =>
+                    tour.destination.trim().toLowerCase() === destination.name.trim().toLowerCase()
+                  );
+                  if (matchingTour) onSelectTour(matchingTour);
+                  else onNavigate('tours');
+                }}
               >
-                {destination.image ? (
-                  <Image source={{uri: destination.image}} style={styles.destinationImage} />
+                {destination.image_url ? (
+                  <Image source={{uri: destination.image_url}} style={styles.destinationImage} />
                 ) : (
                   <View style={[styles.destinationImage, styles.destinationImageFallback]} />
                 )}
                 <View style={styles.destinationOverlay} />
                 <View style={styles.destinationContent}>
                   <Text style={styles.destinationCount}>
-                    {destination.count} {destination.count === 1 ? 'PACKAGE' : 'PACKAGES'}
+                    {destination.country || (destination.is_domestic ? 'DOMESTIC' : 'INTERNATIONAL')}
                   </Text>
                   <Text style={styles.destinationName} numberOfLines={1}>{destination.name}</Text>
                   <Text style={styles.destinationExplore}>Explore →</Text>

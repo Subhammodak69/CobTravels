@@ -21,11 +21,10 @@ export interface EnumList {
 }
 
 export interface UploadedFileData {
+  path: string;
   url: string;
-  public_id: string;
-  folder: string;
-  resource_type: string;
-  format: string;
+  filename: string;
+  content_type: string;
   bytes: number;
 }
 
@@ -47,6 +46,17 @@ export interface HotelRecord {
   address?: string;
   contact?: string;
   description?: string;
+}
+
+export interface DestinationRecord {
+  id: string;
+  name: string;
+  slug: string;
+  country: string;
+  description: string;
+  image_url: string;
+  is_domestic: boolean;
+  is_featured: boolean;
 }
 
 export interface VehicleRecord {
