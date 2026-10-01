@@ -175,6 +175,7 @@ export type NavScreen =
   | 'tours'
   | 'destinations'
   | 'destination_detail'
+  | 'hotel_detail'
   | 'tour_detail'
   | 'enquiry'
   | 'auth'

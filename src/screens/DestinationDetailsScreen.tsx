@@ -11,6 +11,7 @@ interface DestinationDetailsScreenProps {
   destination: DestinationRecord;
   onBack: () => void;
   onSelectTour: (tour: TourPackageSummary) => void;
+  onSelectHotel: (hotel: HotelRecord) => void;
   savedTours: string[];
   onToggleSave: (slug: string) => void;
 }
@@ -24,6 +25,7 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
   destination,
   onBack,
   onSelectTour,
+  onSelectHotel,
   savedTours,
   onToggleSave,
 }) => {
@@ -127,7 +129,7 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
           <Text style={styles.count}>{loading ? 'Loading' : String(hotels.length)}</Text>
         </View>
         {hotels.length ? hotels.map(hotel => (
-          <View key={hotel.id} style={styles.hotelCard}>
+          <Pressable key={hotel.id} accessibilityRole="button" style={styles.hotelCard} onPress={() => onSelectHotel(hotel)}>
             {getHotelImage(hotel) ? <Image source={{ uri: getHotelImage(hotel) }} style={styles.hotelImage} /> : <View style={[styles.hotelImage, styles.hotelFallback]}><Ionicons name="bed-outline" size={24} color={colors.primary} /></View>}
             <View style={styles.hotelCopy}>
               <Text style={styles.hotelCategory}>{hotel.category || 'HOTEL'}</Text>
@@ -135,7 +137,7 @@ export const DestinationDetailsScreen: React.FC<DestinationDetailsScreenProps> =
               {!!hotel.address && <Text style={styles.hotelAddress} numberOfLines={2}>{hotel.address}</Text>}
               {!!hotel.description && <Text style={styles.hotelDescription} numberOfLines={2}>{hotel.description}</Text>}
             </View>
-          </View>
+          </Pressable>
         )) : <Text style={styles.empty}>{loading ? 'Loading hotels...' : 'No hotels are listed for this destination yet.'}</Text>}
       </View>}
       </ScrollView>
