@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
+import android.util.Log
 import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -26,12 +27,15 @@ class ShareIntentModule(private val context: ReactApplicationContext) :
   @ReactMethod
   fun getInitialShare(promise: Promise) {
     val intent = context.currentActivity?.intent
+    Log.d("ShareIntent", "initial activity=${intent != null} action=${intent?.action} stream=${intent?.hasExtra(Intent.EXTRA_STREAM)} clipItems=${intent?.clipData?.itemCount ?: 0}")
     val sharedFile = toShareMap(intent)
+    Log.d("ShareIntent", "initial file parsed=${sharedFile != null}")
     if (sharedFile != null) clearShareIntent(intent)
     promise.resolve(sharedFile)
   }
 
   override fun onNewIntent(intent: Intent) {
+    Log.d("ShareIntent", "new intent action=${intent.action} stream=${intent.hasExtra(Intent.EXTRA_STREAM)} clipItems=${intent.clipData?.itemCount ?: 0}")
     val sharedFile = toShareMap(intent) ?: return
     clearShareIntent(intent)
     context.currentActivity?.setIntent(intent)
