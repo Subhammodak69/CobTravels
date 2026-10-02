@@ -10,6 +10,19 @@ function Resize-Png([string]$source, [string]$destination, [int]$size) {
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
   $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $g.DrawImage($src, 0, 0, $size, $size)
+  $bounds = New-Object System.Drawing.Rectangle 0, 0, $size, $size
+  $data = $bmp.LockBits($bounds, [System.Drawing.Imaging.ImageLockMode]::ReadWrite, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $pixels = New-Object byte[] ($data.Stride * $size)
+  [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $pixels, 0, $pixels.Length)
+  for ($index = 0; $index -lt $pixels.Length; $index += 4) {
+    if ($pixels[$index] -ge 245 -and $pixels[$index + 1] -ge 245 -and $pixels[$index + 2] -ge 245) {
+      $pixels[$index] = 255
+      $pixels[$index + 1] = 255
+      $pixels[$index + 2] = 255
+    }
+  }
+  [System.Runtime.InteropServices.Marshal]::Copy($pixels, 0, $data.Scan0, $pixels.Length)
+  $bmp.UnlockBits($data)
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
   $bmp.Save($destination, [System.Drawing.Imaging.ImageFormat]::Png)
   $g.Dispose(); $bmp.Dispose(); $src.Dispose()
