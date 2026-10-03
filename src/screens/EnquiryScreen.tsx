@@ -7,10 +7,17 @@ import {
   TextInput,
   Pressable,
   ActivityIndicator,
+  Modal,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/theme';
 import { useAppDialog } from '../components/AppDialog';
-import { createEnquiry, fetchHotels, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
+import { createEnquiry, fetchDestinations, fetchHotels, fetchTourPackageVariants, fetchTourPackages, fetchVehicles, getVisitorId } from '../api/tourApi';
 import enums from '../utils/enums.json';
 import { NavScreen } from '../types';
 import { CustomDateField } from '../components/CustomDatePicker';
@@ -24,31 +31,106 @@ interface EnquiryScreenProps {
 
 type ChipOption = { label: string; value: string };
 
-function ChipSelector({
+function SearchableSelect({
   options,
   value,
   onChange,
+  placeholder,
   styles,
+  colors,
+  isDark,
 }: {
   options: ChipOption[];
   value: string;
   onChange: (v: string) => void;
+  placeholder: string;
   styles: any;
+  colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
 }) {
+  const insets = useSafeAreaInsets();
+  const [visible, setVisible] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = options.find(option => option.value === value);
+  const filteredOptions = options.filter(option =>
+    option.label.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
+  React.useEffect(() => {
+    if (!visible) {
+      setKeyboardVisible(false);
+      return;
+    }
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [visible]);
+
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-      {options.map(opt => (
-        <Pressable
-          key={opt.value}
-          onPress={() => onChange(opt.value)}
-          style={[styles.chip, value === opt.value && styles.chipActive]}
-        >
-          <Text style={[styles.chipText, value === opt.value && styles.chipTextActive]}>
-            {opt.label}
-          </Text>
-        </Pressable>
-      ))}
-    </ScrollView>
+    <>
+      <Pressable style={styles.selectButton} onPress={() => { setSearch(''); setVisible(true); }}>
+        <Text style={[styles.selectText, !selected && styles.selectPlaceholder]} numberOfLines={1}>
+          {selected?.label || placeholder}
+        </Text>
+        <Text style={styles.selectArrow}>⌄</Text>
+      </Pressable>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.selectBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}>
+          <BlurView
+            style={StyleSheet.absoluteFill}
+            blurType={isDark ? 'dark' : 'light'}
+            blurAmount={18}
+          />
+          <View pointerEvents="none" style={styles.selectTint} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setVisible(false)} />
+          <View style={[
+            styles.selectDialog,
+            keyboardVisible && styles.selectDialogKeyboard,
+            keyboardVisible && {paddingTop: insets.top + 20},
+          ]}>
+            <Text style={styles.selectTitle}>{placeholder}</Text>
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              style={styles.input}
+              placeholder="Search options"
+              placeholderTextColor={colors.textMuted}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            <FlatList
+              style={styles.selectList}
+              data={filteredOptions}
+              keyExtractor={option => option.value || '__empty__'}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={<Text style={styles.selectEmpty}>No matching options</Text>}
+              renderItem={({item}) => (
+                <Pressable
+                  style={styles.selectOption}
+                  onPress={() => {
+                    onChange(item.value);
+                    setVisible(false);
+                  }}
+                >
+                  <Text style={[styles.selectOptionText, item.value === value && styles.selectOptionActive]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              )}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }
 
@@ -81,27 +163,60 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
   const { showDialog } = useAppDialog();
   const [name, setName] = useState(initialUser?.name || '');
   const [mobile, setMobile] = useState(initialUser?.mobile || '');
+  const [email, setEmail] = useState(initialUser?.email || '');
   const [destination, setDestination] = useState(prefilled?.destinationName || prefilled?.tourTitle || '');
   const [destinationId, setDestinationId] = useState(prefilled?.destinationId || '');
   const [packageId, setPackageId] = useState(prefilled?.packageId || '');
+  const [variantId, setVariantId] = useState(prefilled?.variantId || '');
+  const [selectionMode, setSelectionMode] = useState<'PACKAGE' | 'DESTINATION'>(
+    prefilled?.packageId ? 'PACKAGE' : 'DESTINATION',
+  );
   const [packages, setPackages] = useState<any[]>([]);
+  const [destinations, setDestinations] = useState<any[]>([]);
+  const [variants, setVariants] = useState<any[]>([]);
   const [travelDate, setTravelDate] = useState(prefilled?.travelDate || '');
-  const [travelDuration, setTravelDuration] = useState('');
-  const [paxNo, setPaxNo] = useState('4');
+  const [travelDurationDay, setTravelDurationDay] = useState('');
+  const [travelDurationNight, setTravelDurationNight] = useState('');
+  const [adultCount, setAdultCount] = useState('4');
+  const [childCount, setChildCount] = useState('0');
+  const [seniorCount, setSeniorCount] = useState('0');
   const [noRoom, setNoRoom] = useState('2');
+  const [vehicleCount, setVehicleCount] = useState('0');
+  const [budgetMin, setBudgetMin] = useState('');
+  const [budgetMax, setBudgetMax] = useState('');
   const [vehicleType, setVehicleType] = useState('ANY');
   const [hotelId, setHotelId] = useState('');
   const [vehicleId, setVehicleId] = useState('');
   const [hotels, setHotels] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [mealPlan, setMealPlan] = useState('ANY');
+  const [message, setMessage] = useState('');
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [enquiryType, setEnquiryType] = useState('CUSTOM_TOUR');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   React.useEffect(() => {
     fetchTourPackages(1, 50).then(setPackages).catch(() => setPackages([]));
+    fetchDestinations(1, 100).then(setDestinations).catch(() => setDestinations([]));
   }, []);
+
+  React.useEffect(() => {
+    const selectedPackage = packages.find(item => item.id === packageId);
+    const packageRef = selectedPackage?.slug || (selectedPackage ? packageId : '');
+    if (!packageRef) {
+      setVariants([]);
+      return;
+    }
+    fetchTourPackageVariants(packageRef)
+      .then(result => {
+        setVariants(result.variants);
+        const current = result.variants.find(item =>
+          item.id === variantId || item.key === variantId || item.name === variantId,
+        );
+        if (current && current.id !== variantId) setVariantId(current.id);
+      })
+      .catch(() => setVariants([]));
+  }, [packageId, packages, variantId]);
 
   React.useEffect(() => {
     if (!destinationId) {
@@ -123,23 +238,34 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
     if (initialUser) {
       if (initialUser.name) setName(initialUser.name);
       if (initialUser.mobile) setMobile(initialUser.mobile);
+      if (initialUser.email) setEmail(initialUser.email);
     }
   }, [initialUser]);
 
   const resetForm = () => {
     setName(initialUser?.name || '');
     setMobile(initialUser?.mobile || '');
+    setEmail(initialUser?.email || '');
     setDestination('');
     setDestinationId('');
     setPackageId('');
+    setVariantId('');
+    setSelectionMode(prefilled?.packageId ? 'PACKAGE' : 'DESTINATION');
     setTravelDate('');
-    setTravelDuration('');
-    setPaxNo('4');
+    setTravelDurationDay('');
+    setTravelDurationNight('');
+    setAdultCount('4');
+    setChildCount('0');
+    setSeniorCount('0');
     setNoRoom('2');
+    setVehicleCount('0');
+    setBudgetMin('');
+    setBudgetMax('');
     setVehicleType('ANY');
     setHotelId('');
     setVehicleId('');
     setMealPlan('ANY');
+    setMessage('');
     setSpecialRequirements('');
     setEnquiryType('CUSTOM_TOUR');
   };
@@ -171,24 +297,24 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
         visitor_id,
         customer_id: initialUser?.id || '',
         package_id: packageId,
-        variant_id: prefilled?.variantId || '',
+        variant_id: variantId.trim(),
         destination_id: destinationId,
-        message: `Destination: ${destination.trim()}${specialRequirements.trim() ? `\n\n${specialRequirements.trim()}` : ''}`,
+        message: message.trim(),
         name: name.trim(),
         phone: mobile.trim(),
-        email: initialUser?.email || '',
+        email: email.trim(),
         travel_date: travelDate.trim(),
-        travel_duration_day: 0,
-        travel_duration_night: 0,
-        adult_count: Number(paxNo) || 4,
-        child_count: 0,
-        senior_count: 0,
+        travel_duration_day: Number(travelDurationDay) || 0,
+        travel_duration_night: Number(travelDurationNight) || 0,
+        adult_count: Number(adultCount) || 0,
+        child_count: Number(childCount) || 0,
+        senior_count: Number(seniorCount) || 0,
         hotel_id: hotelId,
         vehicle_id: vehicleId,
-        room_count: Number(noRoom) || 2,
-        vehicle_count: 0,
-        budget_min: 0,
-        budget_max: 0,
+        room_count: Number(noRoom) || 0,
+        vehicle_count: Number(vehicleCount) || 0,
+        budget_min: Number(budgetMin) || 0,
+        budget_max: Number(budgetMax) || 0,
         special_requirements: specialRequirements.trim(),
         meal_plan: mealPlan || 'ANY',
       };
@@ -237,11 +363,14 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
 
         {/* Enquiry Type Selector */}
         <Text style={styles.label}>ENQUIRY TYPE</Text>
-        <ChipSelector
+        <SearchableSelect
           options={enquiryTypeOptions}
           value={enquiryType}
           onChange={setEnquiryType}
+          placeholder="Select enquiry type"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
 
         {/* Full Name */}
@@ -272,90 +401,156 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
           />
         </View>
 
+        <Text style={styles.label}>EMAIL (OPTIONAL)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="you@example.com"
+          placeholderTextColor={COLORS.textMuted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+
         {/* Package or destination first */}
         <Text style={styles.label}>CHOOSE PACKAGE OR DESTINATION *</Text>
-        <ChipSelector
+        <SearchableSelect
           options={[{ label: 'Package', value: 'PACKAGE' }, { label: 'Destination', value: 'DESTINATION' }]}
-          value={packageId ? 'PACKAGE' : destinationId ? 'DESTINATION' : ''}
+          value={selectionMode}
           onChange={choice => {
+            setSelectionMode(choice as 'PACKAGE' | 'DESTINATION');
             setPackageId('');
+            setVariantId('');
             setDestinationId('');
             setDestination('');
-            if (choice === 'PACKAGE' && packages.length > 0) {
-              const item = packages[0];
-              setPackageId(item.id || '');
-              setDestinationId(item.destination_id || '');
-              setDestination(item.destination || item.destination_name || '');
-            }
           }}
+          placeholder="Choose package or destination"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
+        {selectionMode === 'PACKAGE' ? <>
         <Text style={styles.label}>PACKAGE</Text>
-        <ChipSelector
+        <SearchableSelect
           options={packages.map(item => ({ label: item.title || item.destination || 'Tour package', value: item.id }))}
           value={packageId}
           onChange={value => {
             const item = packages.find(entry => entry.id === value);
             setPackageId(value);
+            setVariantId('');
             setDestinationId(item?.destination_id || '');
             setDestination(item?.destination || item?.destination_name || '');
           }}
+          placeholder="Search and select a package"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
+        {variants.length > 0 ? <>
+          <Text style={styles.label}>TOUR VARIANT (OPTIONAL)</Text>
+          <SearchableSelect
+            options={variants.map(item => ({label: item.name || item.season_name || 'Tour variant', value: item.id}))}
+            value={variantId}
+            onChange={setVariantId}
+            placeholder="Search and select a tour variant"
+            styles={styles}
+            colors={COLORS}
+            isDark={isDark}
+          />
+        </> : null}
+        </> : null}
+        {selectionMode === 'DESTINATION' ? <>
         <Text style={styles.label}>DESTINATION</Text>
-        <ChipSelector
-          options={Array.from(new Map(packages.filter(item => item.destination_id).map(item => [item.destination_id, { label: item.destination || item.destination_name || 'Destination', value: item.destination_id }])).values())}
+        <SearchableSelect
+          options={destinations.map(item => ({label: item.name || item.destination_name || 'Destination', value: item.id}))}
           value={destinationId}
           onChange={value => {
-            const item = packages.find(entry => entry.destination_id === value);
-            setPackageId('');
+            const item = destinations.find(entry => entry.id === value);
             setDestinationId(value);
-            setDestination(item?.destination || item?.destination_name || '');
+            setDestination(item?.name || item?.destination_name || '');
           }}
+          placeholder="Search and select a destination"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
+        </> : null}
 
         {/* Travel Date & Duration */}
+        <Text style={styles.label}>TRAVEL DATE</Text>
+        <CustomDateField
+          value={travelDate}
+          onChange={setTravelDate}
+          placeholder="Select travel date"
+          title="Select travel date"
+        />
         <View style={styles.row}>
           <View style={styles.col}>
-            <Text style={styles.label}>TRAVEL DATE</Text>
-            <CustomDateField
-              value={travelDate}
-              onChange={setTravelDate}
-              placeholder="Select travel date"
-              title="Select travel date"
+            <Text style={styles.label}>DAYS</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              value={travelDurationDay}
+              onChangeText={setTravelDurationDay}
             />
           </View>
           <View style={styles.col}>
-            <Text style={styles.label}>DURATION</Text>
+            <Text style={styles.label}>NIGHTS</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 7 Days"
+              placeholder="0"
               placeholderTextColor={COLORS.textMuted}
-              value={travelDuration}
-              onChangeText={setTravelDuration}
+              keyboardType="numeric"
+              value={travelDurationNight}
+              onChangeText={setTravelDurationNight}
             />
           </View>
         </View>
 
-        {/* Pax & Room count */}
+        {/* Traveller and room counts */}
         <View style={styles.row}>
           <View style={styles.col}>
-            <Text style={styles.label}>NO. OF TRAVELLERS (PAX)</Text>
+            <Text style={styles.label}>ADULTS</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 4"
+              placeholder="0"
               placeholderTextColor={COLORS.textMuted}
               keyboardType="numeric"
-              value={paxNo}
-              onChangeText={setPaxNo}
+              value={adultCount}
+              onChangeText={setAdultCount}
             />
           </View>
           <View style={styles.col}>
-            <Text style={styles.label}>NO. OF ROOMS</Text>
+            <Text style={styles.label}>CHILDREN</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 2"
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              value={childCount}
+              onChangeText={setChildCount}
+            />
+          </View>
+        </View>
+        <View style={styles.row}>
+          <View style={styles.col}>
+            <Text style={styles.label}>SENIORS</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              value={seniorCount}
+              onChangeText={setSeniorCount}
+            />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.label}>ROOMS</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
               placeholderTextColor={COLORS.textMuted}
               keyboardType="numeric"
               value={noRoom}
@@ -363,39 +558,100 @@ export const EnquiryScreen: React.FC<EnquiryScreenProps> = ({
             />
           </View>
         </View>
+        <Text style={styles.label}>VEHICLES</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="0"
+          placeholderTextColor={COLORS.textMuted}
+          keyboardType="numeric"
+          value={vehicleCount}
+          onChangeText={setVehicleCount}
+        />
 
         {/* Preferred Vehicle */}
         <Text style={styles.label}>VEHICLE TYPE</Text>
-        <ChipSelector
+        <SearchableSelect
           options={[{ label: 'Any / Not Sure', value: 'ANY' }, ...vehicleOptions]}
           value={vehicleType}
           onChange={setVehicleType}
+          placeholder="Search and select a vehicle type"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
 
         <Text style={styles.label}>PREFERRED HOTEL</Text>
-        <ChipSelector
+        <SearchableSelect
           options={[{ label: 'Any / Not Sure', value: '' }, ...hotels.map(hotel => ({ label: hotel.name, value: hotel.id }))]}
           value={hotelId}
           onChange={setHotelId}
+          placeholder="Search and select a hotel"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
 
         <Text style={styles.label}>PREFERRED VEHICLE</Text>
-        <ChipSelector
+        <SearchableSelect
           options={[{ label: 'Any / Not Sure', value: '' }, ...vehicles.map(vehicle => ({ label: `${vehicle.name}${vehicle.capacity ? ` · ${vehicle.capacity} seats` : ''}`, value: vehicle.id }))]}
           value={vehicleId}
-          onChange={setVehicleId}
+          onChange={value => {
+            setVehicleId(value);
+            if (value && Number(vehicleCount) === 0) setVehicleCount('1');
+          }}
+          placeholder="Search and select a vehicle"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
         />
+
+        <View style={styles.row}>
+          <View style={styles.col}>
+            <Text style={styles.label}>MINIMUM BUDGET</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              value={budgetMin}
+              onChangeText={setBudgetMin}
+            />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.label}>MAXIMUM BUDGET</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numeric"
+              value={budgetMax}
+              onChangeText={setBudgetMax}
+            />
+          </View>
+        </View>
 
         {/* Meal Plan */}
         <Text style={styles.label}>MEAL PLAN</Text>
-        <ChipSelector
+        <SearchableSelect
           options={[{ label: 'Any Plan', value: 'ANY' }, ...mealOptions]}
           value={mealPlan}
           onChange={setMealPlan}
+          placeholder="Search and select a meal plan"
           styles={styles}
+          colors={COLORS}
+          isDark={isDark}
+        />
+
+        <Text style={styles.label}>MESSAGE (OPTIONAL)</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="Add a message for our travel team"
+          placeholderTextColor={COLORS.textMuted}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+          value={message}
+          onChangeText={setMessage}
         />
 
         {/* Special Requirements */}
@@ -517,6 +773,86 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
       fontSize: 14,
       color: COLORS.text,
     },
+    selectButton: {
+      minHeight: 48,
+      backgroundColor: isDark ? COLORS.card : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    selectText: {
+      flex: 1,
+      fontSize: 14,
+      color: COLORS.text,
+      marginRight: 12,
+    },
+    selectPlaceholder: {
+      color: COLORS.textMuted,
+    },
+    selectArrow: {
+      color: COLORS.textSecondary,
+      fontSize: 19,
+      lineHeight: 22,
+    },
+    selectBackdrop: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'transparent',
+    },
+    selectTint: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: isDark ? 'rgba(0,0,0,0.12)' : 'rgba(15,23,42,0.12)',
+    },
+    selectDialog: {
+      width: '100%',
+      maxHeight: '60%',
+      backgroundColor: COLORS.card,
+      borderTopLeftRadius: 22,
+      borderTopRightRadius: 22,
+      paddingHorizontal: 18,
+      paddingTop: 18,
+      paddingBottom: 20,
+    },
+    selectDialogKeyboard: {
+      height: '100%',
+      maxHeight: '100%',
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+      paddingBottom: 8,
+    },
+    selectList: {
+      flexShrink: 1,
+    },
+    selectTitle: {
+      color: COLORS.text,
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 12,
+    },
+    selectOption: {
+      minHeight: 46,
+      justifyContent: 'center',
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: COLORS.border,
+      paddingHorizontal: 4,
+    },
+    selectOptionText: {
+      color: COLORS.text,
+      fontSize: 14,
+    },
+    selectOptionActive: {
+      color: COLORS.primary,
+      fontWeight: '800',
+    },
+    selectEmpty: {
+      color: COLORS.textMuted,
+      textAlign: 'center',
+      paddingVertical: 24,
+    },
     inputRow: {
       flexDirection: 'row',
       gap: 8,
@@ -550,32 +886,6 @@ const makeStyles = (COLORS: ReturnType<typeof useTheme>['colors'], isDark: boole
     },
     col: {
       flex: 1,
-    },
-    chipRow: {
-      gap: 8,
-      paddingVertical: 4,
-      paddingRight: 4,
-    },
-    chip: {
-      borderWidth: 1,
-      borderColor: isDark ? COLORS.border : '#CBD5E1',
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: isDark ? COLORS.surface : '#F8FAFC',
-    },
-    chipActive: {
-      borderColor: isDark ? COLORS.primary : COLORS.primary,
-      backgroundColor: isDark ? COLORS.primary : COLORS.primary,
-    },
-    chipText: {
-      fontSize: 12,
-      color: isDark ? COLORS.textSecondary : '#334155',
-      fontWeight: '600',
-    },
-    chipTextActive: {
-      color: '#FFFFFF',
-      fontWeight: '800',
     },
     trustNote: {
       flexDirection: 'row',
